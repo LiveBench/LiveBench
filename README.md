@@ -8,6 +8,7 @@ Tested on Python 3.10
 
 ```bash
 cd LiveBench
+pip install torch packaging
 pip install -e .
 ```
 
