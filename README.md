@@ -2,10 +2,6 @@
 
 Most of the code we will use for generation and evaluation is currently in `livebench/`. This is adapted from [FastChat](https://github.com/lm-sys/FastChat)'s `llm_judge` module. 
 
-The benchmark-specific files (questions, answers, model outputs, evaluation functions, and evaluation results) are in `livebench/data/live_bench`. It is organized by top-level category (math, reasoning, data analysis, coding, writing) and within each category are each sub-task. Coding problems from livebench/coding are from LiveCodeBench, and execution-based evaluation for coding problems is done with LiveCodeBench's tools under `lcb_runner`.
-
-The code to generate questions is in the folder `question_generation`, and we will not make this public. We also have a few notebooks in the `notebooks` folder.
-
 ## Installation
 
 Tested on Python 3.10
