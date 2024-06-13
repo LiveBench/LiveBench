@@ -57,7 +57,7 @@ class MatchSingle:
 
 
 def get_categories_tasks(bench_name: str):
-    split_bench_name = bench_name.split('/')
+    split_bench_name = bench_name.rstrip('/').split('/')
     assert(split_bench_name[0] == 'live_bench')
     if len(split_bench_name) == 1:
         # specify entire bench
@@ -101,7 +101,7 @@ def get_hf_dataset(dataset_name: str, split='test'):
 
 
 def get_tasks_from_hf_category(category: Dataset):
-    return list(set(category["category"]))
+    return list(set(category["task"]))
 
 
 def load_answers_judgments():
@@ -109,12 +109,12 @@ def load_answers_judgments():
     model_answer_dataset   = get_hf_dataset("model_answer", split="leaderboard")
 
     model_judgment = {
-        category_name : [example for example in model_judgment_dataset.filter(lambda row: row["grouping"] == category_name)]
+        category_name : [example for example in model_judgment_dataset.filter(lambda row: row["category"] == category_name)]
         for category_name in LIVE_BENCH_CATEGORIES
     }
 
     model_answer = {
-        category_name : [example for example in model_answer_dataset.filter(lambda row: row["grouping"] == category_name)]
+        category_name : [example for example in model_answer_dataset.filter(lambda row: row["category"] == category_name)]
         for category_name in LIVE_BENCH_CATEGORIES
     }
 
@@ -124,7 +124,7 @@ def load_answers_judgments():
 def load_questions(category: Dataset, task_name: Optional[str], begin: Optional[int], end: Optional[int]):
     """Load questions from a file."""
     if task_name is not None:
-        questions = [example for example in category.filter(lambda row: row["category"] == task_name)]
+        questions = [example for example in category.filter(lambda row: row["task"] == task_name)]
     else:
         questions = list(category)
     questions = questions[begin:end]
@@ -469,49 +469,6 @@ def normalize_game_key_dict(judgment_dict):
     return ret
 
 
-def load_pairwise_model_judgments(filename: str):
-    """Load model judgments.
-
-    The return value is a dict of type:
-    Dict[judge: Tuple -> Dict[game_key: tuple -> game_result: dict]
-    """
-    judge_dict = {}
-
-    for line in open(filename):
-        obj = json.loads(line)
-        judge = tuple(obj["judge"])
-        qid, model_1, model_2 = obj["question_id"], obj["model_1"], obj["model_2"]
-
-        if judge not in judge_dict:
-            judge_dict[judge] = {}
-
-        if "winner" in obj:
-            winner = obj["winner"]
-        elif "g1_winner" in obj and "g2_winner" in obj:
-            g1_winner, g2_winner = obj["g1_winner"], obj["g2_winner"]
-            if g1_winner == g2_winner:
-                winner = g1_winner
-            else:
-                winner = "inconsistent"
-        else:
-            raise ValueError(f"Invalid keys: {list(obj.keys())}")
-
-        gamekey = (qid, model_1, model_2)
-        winners = (winner,)
-
-        judge_dict[judge][gamekey] = {
-            "winners": winners,
-            "g1_judgment": obj["g1_judgment"],
-            "g2_judgment": obj["g2_judgment"],
-        }
-
-    # Make the model names sorted in the game keys
-    normalized = {}
-    for judge, value in judge_dict.items():
-        normalized[judge] = normalize_game_key_dict(value)
-    return normalized
-
-
 def load_single_model_judgments(filename: str):
     """Load model judgments.
 
@@ -535,79 +492,6 @@ def load_single_model_judgments(filename: str):
             "judgment": obj["judgment"],
         }
     return judge_dict
-
-
-def resolve_pairwise_judgment_dict(
-    question, model_judgments_normal, model_judgments_math, multi_turn=False
-):
-    """Return the correct pairwise judge."""
-    if multi_turn:
-        if question["category"] in NEED_REF_CATS:
-            return model_judgments_math[("gpt-4", "pair-math-v1-multi-turn")]
-        return model_judgments_normal[("gpt-4", "pair-v2-multi-turn")]
-
-    if question["category"] in NEED_REF_CATS:
-        return model_judgments_math[("gpt-4", "pair-math-v1")]
-    else:
-        return model_judgments_normal[("gpt-4", "pair-v2")]
-
-
-def resolve_single_judgment_dict(
-    question, model_judgments_normal, model_judgments_math, multi_turn=False
-):
-    """Return the correct single answer grading judge."""
-    if multi_turn:
-        if question["category"] in NEED_REF_CATS:
-            return model_judgments_math[("gpt-4", "single-math-v1-multi-turn")]
-        return model_judgments_normal[("gpt-4", "single-v1-multi-turn")]
-
-    if question["category"] in NEED_REF_CATS:
-        return model_judgments_math[("gpt-4", "single-math-v1")]
-    else:
-        return model_judgments_normal[("gpt-4", "single-v1")]
-
-
-def get_pairwise_judge_explanation(gamekey, judgment_dict):
-    """Get model judge explanation."""
-    try:
-        qid, model_1, model_2 = gamekey
-        if model_1 < model_2:
-            res = judgment_dict[gamekey]
-            g1_judgment, g2_judgment = res["g1_judgment"], res["g2_judgment"]
-        else:
-            new_gamekey = (qid, model_2, model_1)
-            res = judgment_dict[new_gamekey]
-
-            model_1, model_2 = model_1, model_2
-            g1_judgment, g2_judgment = res["g2_judgment"], res["g1_judgment"]
-
-        return (
-            f"**Game 1**. **A**: {model_1}, **B**: {model_2}\n\n"
-            f"**Judgment**: {g1_judgment}"
-            + f"\n\n`--------------------------`\n\n"
-            + f"**Game 2**. **A**: {model_2}, **B**: {model_1}\n\n"
-            f"**Judgment**: {g2_judgment}"
-        )
-    except KeyError:
-        return "N/A"
-
-
-def get_single_judge_explanation(gamekey, judgment_dict):
-    """Get model judge explanation."""
-    try:
-        qid, model = gamekey
-
-        res = judgment_dict[gamekey]
-
-        g1_judgment = res["judgment"]
-        g1_score = res["score"]
-
-        return (
-            f"**Game 1**. **A**: {model}, **Score**: {g1_score}\n\n"
-            f"**Judgment**: {g1_judgment}"
-        )
-    except KeyError:
-        return "N/A"
 
 
 def check_data(questions, model_answers, models):
