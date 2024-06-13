@@ -1,16 +1,42 @@
 # LiveBench
 
-Most of the code we will use for generation and evaluation is currently in `livebench/`. This is adapted from [FastChat](https://github.com/lm-sys/FastChat)'s `llm_judge` module. 
+![Crates.io](https://img.shields.io/crates/l/Ap?color=orange)
 
-## Installation
+<p align="center">
+    <a href="https://livebench.ai/">🏆 Leaderboard</a> •
+    <a href="https://huggingface.co/livebench">💻 Data </a> •
+    <a href="https://livebench.ai/livebench.pdf">📝 Paper</a> 
+</p>
+
+Leaderboard as of 12th June 2024:
+
+![image](https://github.com/naszilla/LiveBench/assets/127691629/a422b0e9-1e17-4c6f-8ad3-50069e44cf0e)
+
+
+## Introduction
+
+Introducing LiveBench: a benchmark for LLMs designed with test set contamination and objective evaluation in mind.
+
+LiveBench has the following properties:
+
+* LiveBench is designed to limit potential contamination by releasing new questions monthly, as well as having questions based on recently-released datasets, arXiv papers, news articles, and IMDb movie synopses.
+* Each question has verifiable, objective ground-truth answers, allowing hard questions to be scored accurately and automatically, without the use of an LLM judge.
+* LiveBench currently contains a set of 18 diverse tasks across 6 categories, and we will release new, harder tasks over time.
+
+## Installation Quickstart
 
 Tested on Python 3.10
 
 ```bash
 cd LiveBench
-pip install torch packaging
+pip install torch packaging  # These need to be installed prior to other dependencies.
 pip install -e .
 ```
+Note: The fastchat package version on pip is currently out of date and so we strongly recommend `pip uninstall fastchat` before running the above so that you pick up a more recent commit from the dependencies.
+
+Note for CPU users: If installing on a CPU-only machine (e.g. to run api models only), you will need to manually remove flash-attn from the requirements list in pyproject.toml.
+
+Our repo is adapted from FastChat's excellent [llm_judge](https://github.com/lm-sys/FastChat/tree/main/fastchat/llm_judge) module, and it also contains code from [LiveCodeBench](https://github.com/LiveCodeBench/LiveCodeBench) and [IFEval](https://github.com/Rohan2002/IFEval?tab=readme-ov-file).
 
 ## Usage
 
@@ -70,6 +96,17 @@ python download_leaderboard.py
 ```
 
 Also present is some modified and unmodified code from https://github.com/LiveCodeBench/LiveCodeBench.
+
+## Data
+The questions for each of the categories can be found below:
+- [Reasoning](https://huggingface.co/datasets/livebench/reasoning)
+- [Math](https://huggingface.co/datasets/livebench/math)
+- [Coding](https://huggingface.co/datasets/livebench/coding)
+- [Language](https://huggingface.co/datasets/livebench/language)
+- [Data Analysis](https://huggingface.co/datasets/livebench/data_analysis)
+- [Instruction Following](https://huggingface.co/datasets/livebench/instruction_following)
+
+Also available are the [model answers](https://huggingface.co/datasets/livebench/model_answer) and the [model judgments](https://huggingface.co/datasets/livebench/model_judgment).
 
 ## Citation
 
