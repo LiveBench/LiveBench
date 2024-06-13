@@ -13,6 +13,7 @@ dist
 #*.json
 !playground/deepspeed_config_s2.json
 !playground/deepspeed_config_s3.json
+*.jsonl
 
 # Editor
 .idea

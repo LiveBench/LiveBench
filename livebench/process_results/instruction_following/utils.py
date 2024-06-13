@@ -18,9 +18,9 @@ def score_results(follow_all_instructions, follow_instruction_list, threshold=0.
     return avg_score
 
 
-def instruction_following_process_results(prompt_path: str, llm_answer_path: str, task: str, model_id: str) -> int:
+def instruction_following_process_results(questions, model_answers, task: str, model_id: str) -> int:
     result_log_dir = f"data/live_bench/instruction_following/{task}/model_judgment"
-    results = evaluation_main.evaluator(prompt_path, llm_answer_path, result_log_dir, model_id)
+    results = evaluation_main.evaluator(questions, model_answers, result_log_dir, model_id)
     results = results["strict"] # or "loose" depending on what we want to use.
     scores = []
     for result in results:

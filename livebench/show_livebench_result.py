@@ -16,7 +16,7 @@ def display_result_single(args):
         input_files = args.input_file
 
     df_all = pd.concat((pd.read_json(f, lines=True) for f in input_files), ignore_index=True)
-    df = df_all[["model", "score", "category", "grouping"]]
+    df = df_all[["model", "score", "task", "category"]]
     df = df[df["score"] != -1]
     df['model'] = df['model'].str.lower()
     df["score"] *= 100
@@ -24,25 +24,18 @@ def display_result_single(args):
     if args.model_list is not None:
         df = df[df["model"].isin([x.lower() for x in args.model_list])]
 
-    df.loc[df['category'].str.contains('amps_hard_'), 'category'] = 'AMPS_Hard'
-    df.loc[df['category'].str.contains('aime_'), 'category'] = 'math_comp'
-    df.loc[df['category'].str.contains('amc_'), 'category'] = 'math_comp'
-    df.loc[df['category'] == 'smc', 'category'] = 'math_comp'
-    df.loc[df['category'].isin(['usamo', 'imo']), 'category'] = 'olympiad'
-
-
     print("\n########## All Tasks ##########")
-    df_1 = df[["model", "score", "category"]]
-    df_1 = df_1.groupby(["model", "category"]).mean()
-    df_1 = pd.pivot_table(df_1, index=['model'], values = "score", columns=["category"], aggfunc="sum")
+    df_1 = df[["model", "score", "task"]]
+    df_1 = df_1.groupby(["model", "task"]).mean()
+    df_1 = pd.pivot_table(df_1, index=['model'], values = "score", columns=["task"], aggfunc="sum")
     df_1 = df_1.round(3)
     print(df_1.sort_values(by="model"))
     df_1.to_csv('all_tasks.csv')
 
     print("\n########## All Groups ##########")
-    df_1 = df[["model", "score", "grouping", "category"]]
-    df_1 = df_1.groupby(["model", "category", "grouping"]).mean().groupby(["model","grouping"]).mean()
-    df_1 = pd.pivot_table(df_1, index=['model'], values = "score", columns=["grouping"], aggfunc="sum")
+    df_1 = df[["model", "score", "category", "task"]]
+    df_1 = df_1.groupby(["model", "task", "category"]).mean().groupby(["model","category"]).mean()
+    df_1 = pd.pivot_table(df_1, index=['model'], values = "score", columns=["category"], aggfunc="sum")
 
     df_1['average'] = df_1.mean(axis=1)
     first_col = df_1.pop('average')

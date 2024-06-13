@@ -64,76 +64,79 @@ def play_a_match_gt(match: MatchSingle, output_file: str):
         match.answer,
     )
     coding_test_case_tasks = ["coding_completion","LCB_generation"]
-    if "ground_truth" not in question and "reference" not in question and question["category"] not in coding_test_case_tasks and question["category"] != "instruction_following":
+    if "ground_truth" not in question and "reference" not in question and question["task"] not in coding_test_case_tasks and question["category"] != "instruction_following":
         raise ValueError("Questions must have ground_truth to run gen_ground_truth_judgment.")
 
-    category = question["category"]
+    task = question["task"]
+    task_or_subtask = question["subtask"] if "subtask" in question.keys() else question["task"]
     question_text = question["turns"][0]
     ground_truth = question.get("ground_truth", None)
     llm_answer = answer['choices'][0]['turns'][-1]
     score = 0
-    grouping = None
+    category = None
 
-    # todo: find a better solution than a long if statement. This is not good practice. 
-    if category.split('_')[0] in ["amc", "smc"]:
+    # todo: find a better solution than a long if statement. 
+    if task_or_subtask.split('_')[0] in ["amc", "smc"]:
         score = mathcontest_process_results(ground_truth, llm_answer)
-        grouping = "math"
-    elif category.split('_')[0] == "aime":
+        category = "math"
+    elif task_or_subtask.split('_')[0] == "aime":
         score = aime_process_results(ground_truth, llm_answer)
-        grouping = "math"
-    elif category.split('_')[0] in ["imo", "usamo"]:
+        category = "math"
+    elif task_or_subtask.split('_')[0] in ["imo", "usamo"]:
         score = proof_rearrangement_process_results(ground_truth, llm_answer, edit_distance=True)
-        grouping = "math"
-    elif category == "DataBench_CTA":
+        category = "math"
+    elif task_or_subtask == "cta":
         score = cta_process_results(ground_truth, llm_answer)
-        grouping = "data_analysis"
-    elif category == "DataBench_TableReformat":
+        category = "data_analysis"
+    elif task_or_subtask == "tablereformat":
         score = table_process_results(question_text, ground_truth, llm_answer)
-        grouping = "data_analysis"
-    elif category == "DataBench_JoinMap":
+        category = "data_analysis"
+    elif task_or_subtask == "tablejoin":
         score = joinmap_process_results(question_text, ground_truth, llm_answer)
-        grouping = "data_analysis"
-    elif "amps_hard" in category:
+        category = "data_analysis"
+    elif "amps_hard" in task_or_subtask:
         score = amps_hard_process_results(ground_truth, llm_answer)
-        grouping = "math"
-    elif category == "web_of_lies_v2":
+        category = "math"
+    elif task_or_subtask == "web_of_lies_v2":
         score = web_of_lies_process_results(ground_truth, llm_answer)
-        grouping = "reasoning"
-    elif category == "house_traversal":
+        category = "reasoning"
+    elif task_or_subtask == "house_traversal":
         score = house_traversal_process_results(ground_truth, llm_answer)
-        grouping = "reasoning"
-    elif category == "zebra_puzzle":
+        category = "reasoning"
+    elif task_or_subtask == "zebra_puzzle":
         score = zebra_puzzle_process_results(ground_truth, llm_answer)
-        grouping = "reasoning"
-    elif category == 'typos':
+        category = "reasoning"
+    elif task_or_subtask == 'typos':
         score = typos_process_results(ground_truth, llm_answer)
-        grouping = "writing"
-    elif category == "connections":
+        category = "language"
+    elif task_or_subtask == "connections":
         score = connections_process_results(ground_truth, llm_answer)
-        grouping = "writing"
-    elif category == "plot_unscrambling":
+        category = "language"
+    elif task_or_subtask == "plot_unscrambling":
         score = plot_unscrambling_process_results(ground_truth, llm_answer)
-        grouping = "writing"
-    elif category in coding_test_case_tasks:
+        category = "language"
+    elif task_or_subtask in coding_test_case_tasks:
         # use entire question object, because there are test cases inside.
         score = LCB_generation_process_results(question, llm_answer)
-        grouping = "coding"
+        category = "coding"
     else:
-        raise NotImplementedError(f"This category ({category}) has not been implemented yet.")
+        raise NotImplementedError(f"This task ({task_or_subtask}) has not been implemented yet.")
 
-    if not grouping:
-        raise NotImplementedError(f"A grouping must be assigned to each task")
+    if not category:
+        raise NotImplementedError(f"A category must be assigned to each task")
     question_id = question["question_id"]
     turn = 1
     result = {
         "question_id": question_id,
-        "category": category,
+        "task": task,
         "model": model,
         "score": score,
         "turn": turn,
         "tstamp": time.time(),
-        "grouping": grouping,
+        "category": category,
     }
+    if "subtask" in question.keys():
+        result["subtask"] = question["subtask"]
     print(
         f"question: {question_id}, turn: {turn}, model: {model}, "
         f"score: {score}, "
@@ -242,7 +245,7 @@ if __name__ == "__main__":
             print(json.dumps(match_stat, indent=4))
             #input("Press Enter to confirm...")
 
-            if "instruction_following" in args.bench_name:
+            if "instruction_following" in category_name:
                 prompt_path = f"data/{args.bench_name}/question.jsonl"
                 task_name = matches[0].question['task']
 
@@ -253,19 +256,19 @@ if __name__ == "__main__":
 
                 for model_id in models:
                     llm_answer_path = f"data/{args.bench_name}/model_answer/{model_id}.jsonl"
-                    scores = instruction_following_process_results(prompt_path, llm_answer_path, task_name, model_id)
+                    scores = instruction_following_process_results(questions, model_answers, task_name, model_id)
                     for item in scores:
                         question_id = item["question_id"]
                         score = item["score"]
                         turn = 1
                         result = {
                             "question_id": question_id,
-                            "category": task_name,
+                            "task": task_name,
                             "model": model_id,
                             "score": score,
                             "turn": turn,
                             "tstamp": time.time(),
-                            "grouping": "instruction_following",
+                            "category": "instruction_following",
                         }
                         print(
                             f"question: {question_id}, turn: {turn}, model: {model_id}, "

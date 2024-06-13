@@ -67,18 +67,17 @@ class OutputExample:
   question_id: int
 
 
-def read_prompt_list(input_jsonl_filename):
+def read_prompt_list(questions):
   """Read inputs from jsonl."""
   inputs = []
-  with open(input_jsonl_filename, "r") as f:
-    for l in f:
-      example = json.loads(l)
-      # from IPython import embed; embed()
-      inputs.append(
-          InputExample(key=example["question_id"],
-                       instruction_id_list=example["instruction_id_list"],
-                       prompt=example["turns"][0],
-                       kwargs=example["kwargs"]))
+  for example in questions:
+    example["kwargs"] = [{k: v for k, v in d.items() if v is not None} for d in example["kwargs"]]
+    # from IPython import embed; embed()
+    inputs.append(
+        InputExample(key=example["question_id"],
+                      instruction_id_list=example["instruction_id_list"],
+                      prompt=example["turns"][0],
+                      kwargs=example["kwargs"]))
   return inputs
 
 
@@ -113,7 +112,7 @@ def test_instruction_following_strict(
     instruction_cls = instructions_registry.INSTRUCTION_DICT[instruction_id]
     instruction = instruction_cls(instruction_id)
 
-    instruction.build_description(**inp.kwargs[index])
+    instruction.build_description(**(inp.kwargs[index]))
     args = instruction.get_instruction_args()
     if args and "prompt" in args:
       instruction.build_description(prompt=inp.prompt)
@@ -248,13 +247,11 @@ def print_report(outputs):
     print(f"{instruction_id} {accuracy}")
 
 
-def evaluator(_INPUT_DATA, _INPUT_RESPONSE_DATA, _OUTPUT_DIR, model_id):
+def evaluator(questions, model_answers, _OUTPUT_DIR, model_id):
   # creating output dir if it doesn't exist
-  if not os.path.exists(_OUTPUT_DIR):
-      os.makedirs(_OUTPUT_DIR)
-  inputs = read_prompt_list(_INPUT_DATA)
-  prompts_df = pd.read_json(_INPUT_DATA, lines=True)
-  responses_df = pd.read_json(_INPUT_RESPONSE_DATA, lines=True)
+  inputs = read_prompt_list(questions)
+  prompts_df = pd.DataFrame(questions)
+  responses_df = pd.DataFrame([v for k,v in model_answers[model_id].items()])
   merged_df = pd.merge(prompts_df, responses_df, on='question_id')
   merged_df['turns'] = merged_df['turns'].apply(lambda x: x[0])
   merged_df['choices'] = merged_df["choices"].apply(lambda x: x[0]['turns'][0])
