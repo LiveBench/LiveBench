@@ -10,7 +10,7 @@
 
 Leaderboard as of 12th June 2024:
 
-![image](https://github.com/naszilla/LiveBench/assets/127691629/a422b0e9-1e17-4c6f-8ad3-50069e44cf0e)
+![image](https://livebench.ai/static/media/livebench_results.2cacfdc3635a0e565e02.png)
 
 
 ## Introduction
