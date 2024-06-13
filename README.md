@@ -32,7 +32,7 @@ cd LiveBench
 pip install torch packaging  # These need to be installed prior to other dependencies.
 pip install -e .
 ```
-Note: The fastchat package version on pip is currently out of date and so we strongly recommend `pip uninstall fastchat` before running the above so that you pick up a more recent commit from the dependencies.
+Note: The fastchat package version on pip is currently out of date, so we strongly recommend `pip uninstall fastchat` before running the above, since it will then automatically install a more recent commit of fastchat.
 
 Note for CPU users: If installing on a CPU-only machine (e.g. to run api models only), you will need to manually remove flash-attn from the requirements list in pyproject.toml.
 
@@ -95,8 +95,6 @@ python download_questions.py
 python download_leaderboard.py
 ```
 
-Also present is some modified and unmodified code from https://github.com/LiveCodeBench/LiveCodeBench.
-
 ## Data
 The questions for each of the categories can be found below:
 - [Reasoning](https://huggingface.co/datasets/livebench/reasoning)
@@ -107,6 +105,14 @@ The questions for each of the categories can be found below:
 - [Instruction Following](https://huggingface.co/datasets/livebench/instruction_following)
 
 Also available are the [model answers](https://huggingface.co/datasets/livebench/model_answer) and the [model judgments](https://huggingface.co/datasets/livebench/model_judgment).
+
+## Documentation
+Here, we describe our dataset documentation. This information is also available in our paper.
+- [Author Responsibility](docs/AUTHOR_RESPONSIBILITY.md)
+- [Code of Conduct](docs/CODE_OF_CONDUCT.md)
+- [Contributing](docs/CONTRIBUTING.md)
+- [Datasheet for LiveBench](docs/DATASHEET.md)
+- [Maintenance Plan](docs/MAINTENANCE_PLAN.md)
 
 ## Citation
 
