@@ -29,7 +29,7 @@ Tested on Python 3.10
 
 ```bash
 cd LiveBench
-pip install torch packaging  # These need to be installed prior to other dependencies.
+pip install torch packaging # These need to be installed prior to other dependencies.
 pip install -e .
 ```
 Note: The fastchat package version on pip is currently out of date, so we strongly recommend `pip uninstall fastchat` before running the above, since it will then automatically install a more recent commit of fastchat.
