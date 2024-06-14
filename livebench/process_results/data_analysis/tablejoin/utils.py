@@ -2,6 +2,7 @@ import re
 import numpy as np
 from ast import literal_eval
 import json
+import ast
 
 def clean_llm_output(s):
     matches = re.findall('%s(.*)%s' % ("```python", "```"), s.replace("\n",""),re.MULTILINE)
@@ -17,6 +18,8 @@ def clean_llm_output(s):
         return match_d
 
 def joinmap_process_results(_, ground_truth, llm):
+    if type(ground_truth) != dict:
+        ground_truth = ast.literal_eval(ground_truth)
     llm_clean = clean_llm_output(llm)
     if len(llm_clean) == 0:
         return 0.0
