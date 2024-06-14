@@ -1,6 +1,6 @@
 """
 Usage:
-python3 show_livebench_result.py
+python3 show_livebench_results.py
 """
 import argparse
 import pandas as pd
