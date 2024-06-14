@@ -29,7 +29,7 @@ Tested on Python 3.10
 
 ```bash
 cd LiveBench
-pip install torch packaging wheel langdetect # These need to be installed prior to other dependencies.
+pip install torch packaging # These need to be installed prior to other dependencies.
 pip install -e .
 ```
 Note: The fastchat package version on pip is currently out of date and so we strongly recommend `pip uninstall fastchat` before running the above so that you pick up a more recent commit from the dependencies.

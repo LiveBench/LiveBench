@@ -15,9 +15,9 @@ classifiers = [
     "License :: OSI Approved :: Apache Software License",
 ]
 dependencies = [
-    "accelerate>=0.21", "aiohttp", "anthropic>=0.3", "antlr4-python3-runtime==4.11", "datasets", "fastapi", "flash-attn", "httpx", "immutabledict", "langchain",
+    "accelerate>=0.21", "aiohttp", "anthropic>=0.3", "antlr4-python3-runtime==4.11", "datasets", "fastapi", "flash-attn", "httpx", "immutabledict", "langchain", "langdetect",
     "levenshtein", "lxml", "markdown2[all]", "nh3", "nltk", "numpy", "openai<1", "pandas==2.2.2", "peft", "prompt_toolkit>=3.0.0", "protobuf", "pydantic",
-    "pyext==0.7", "psutil", "ray", "requests", "rich>=10.0.0", "sentencepiece", "shortuuid", "sympy>=1.12", "tiktoken", "torch", "tqdm>=4.62.1", "transformers>=4.31.0", "uvicorn",
+    "pyext==0.7", "psutil", "ray", "requests", "rich>=10.0.0", "sentencepiece", "shortuuid", "sympy>=1.12", "tiktoken", "torch", "tqdm>=4.62.1", "transformers>=4.31.0", "uvicorn", "wheel",
     "fschat@git+https://github.com/lm-sys/FastChat#egg=c5223e34babd24c3f9b08205e6751ea6e42c9684",
 ]
 
