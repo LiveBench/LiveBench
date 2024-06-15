@@ -32,9 +32,10 @@ cd LiveBench
 pip install torch packaging # These need to be installed prior to other dependencies.
 pip install -e .
 ```
-Note: The fastchat package version on pip is currently out of date, so we strongly recommend `pip uninstall fastchat` before running the above, since it will then automatically install a more recent commit of fastchat.
 
-Note for CPU users: If installing on a CPU-only machine (e.g. to run api models only), you will need to manually remove flash-attn from the requirements list in pyproject.toml.
+**Note about fschat**: The fschat package version on pip (i.e., [lmsys/fastchat](https://github.com/lm-sys/FastChat)) is currently out of date, so we strongly recommend `pip uninstall fschat` before running the above, since it will then automatically install a more recent commit of fastchat.
+
+**Note for CPU users**: If installing on a CPU-only machine (e.g. to run api models only), you will need to manually remove flash-attn from the requirements list in pyproject.toml.
 
 Our repo is adapted from FastChat's excellent [llm_judge](https://github.com/lm-sys/FastChat/tree/main/fastchat/llm_judge) module, and it also contains code from [LiveCodeBench](https://github.com/LiveCodeBench/LiveCodeBench) and [IFEval](https://github.com/Rohan2002/IFEval?tab=readme-ov-file).
 
@@ -89,10 +90,15 @@ Or, you may want to show results for a specific category or task of LiveBench by
 python show_livebench_results.py --bench-name live_bench/reasoning/web_of_lies_v2
 ```
 
-To optionally download `question.jsonl` files (for inspection) and answer/judgment files from the leaderboard, use
+To optionally download all model answers and judgments from the 34 models on the [leaderboard](https://livebench.ai), use
+```bash
+python download_leaderboard.py
+python show_livebench_results.py # will now display the results for all models on the leaderboard
+```
+
+To optionally download `question.jsonl` files (for inspection), use
 ```bash
 python download_questions.py
-python download_leaderboard.py
 ```
 
 ## Data
