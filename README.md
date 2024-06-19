@@ -8,9 +8,9 @@
     <a href="https://livebench.ai/livebench.pdf">📝 Paper</a> 
 </p>
 
-Leaderboard as of 12th June 2024:
+Leaderboard as of 19th June 2024:
 
-![image](assets/livebench-2024-06-13.png)
+![image](assets/livebench-2024-06-19.png)
 
 
 ## Introduction
