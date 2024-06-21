@@ -8,9 +8,9 @@
     <a href="https://livebench.ai/livebench.pdf">📝 Paper</a> 
 </p>
 
-Leaderboard as of 19th June 2024:
+Leaderboard as of 20th June 2024:
 
-![image](assets/livebench-2024-06-19.png)
+![image](assets/livebench-2024-06-20.png)
 
 
 ## Introduction
@@ -22,6 +22,8 @@ LiveBench has the following properties:
 * LiveBench is designed to limit potential contamination by releasing new questions monthly, as well as having questions based on recently-released datasets, arXiv papers, news articles, and IMDb movie synopses.
 * Each question has verifiable, objective ground-truth answers, allowing hard questions to be scored accurately and automatically, without the use of an LLM judge.
 * LiveBench currently contains a set of 18 diverse tasks across 6 categories, and we will release new, harder tasks over time.
+
+**We will evaluate your model!** Open an [issue](https://github.com/LiveBench/LiveBench/issues) or email us at [mailto:livebench.ai@gmail.com](livebench.ai@gmail.com)!
 
 ## Installation Quickstart
 
