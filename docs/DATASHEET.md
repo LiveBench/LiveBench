@@ -17,7 +17,7 @@ Jump to section:
 
 ### Why was the datasheet created? (e.g., was there a specific task in mind? was there a specific gap that needed to be filled?)
 
-The goal of releasing LiveBench is to accelerate research in LLMs by introducing a benchmark that avoids the pitfalls of test set contamination and LLM judging. Specfically, many existing benchmarks are either static, and therefore may become obsolete as new LLMs train on their test data, or use humans or LLMs to create prompts or judgments, which introduces errors and biases. LiveBench avoids all of these issues, and it is also diverse, with six different categories: math, reasoning, coding, data analysis, language, and instruction following.
+The goal of releasing LiveBench is to accelerate research in LLMs by introducing a benchmark that avoids the pitfalls of test set contamination and LLM judging. Specifically, many existing benchmarks are either static, and therefore may become obsolete as new LLMs train on their test data, or use humans or LLMs to create prompts or judgments, which introduces errors and biases. LiveBench avoids all of these issues, and it is also diverse, with six different categories: math, reasoning, coding, data analysis, language, and instruction following.
 
 ### Has the dataset been used already? If so, where are the results so others can compare (e.g., links to published papers)?
 
