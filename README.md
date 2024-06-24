@@ -8,9 +8,9 @@
     <a href="https://livebench.ai/livebench.pdf">📝 Paper</a> 
 </p>
 
-Leaderboard as of 20th June 2024:
+Leaderboard as of 24th June 2024:
 
-![image](assets/livebench-2024-06-20.png)
+![image](assets/livebench-2024-06-24.png)
 
 
 ## Introduction
@@ -59,6 +59,7 @@ export ANTHROPIC_API_KEY=<your_key>
 export MISTRAL_API_KEY=<your_key>
 export CO_API_KEY=<your_key>
 export GEMINI_API_KEY=<your_key>
+export DEEPSEEK_API_KEY=<your_key>
 python gen_api_answer.py --model <api_model_name> --bench-name live_bench
 ```
 
