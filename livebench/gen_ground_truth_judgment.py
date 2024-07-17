@@ -10,16 +10,18 @@ import os
 import re
 import glob
 
+import nltk
 import numpy as np
 from tqdm import tqdm
 
-# todo: find a better solution than all these imports. This is not good practice. 
+# todo: find a better solution than all these imports.
 from livebench.process_results.data_analysis.tablereformat.utils import table_process_results
 from livebench.process_results.data_analysis.cta.utils import cta_process_results
 from livebench.process_results.data_analysis.tablejoin.utils import joinmap_process_results
 from livebench.process_results.reasoning.web_of_lies_v2.utils import web_of_lies_process_results
 from livebench.process_results.reasoning.house_traversal.utils import house_traversal_process_results
 from livebench.process_results.reasoning.zebra_puzzle.utils import zebra_puzzle_process_results
+from livebench.process_results.reasoning.spatial.utils import spatial_process_results
 from livebench.process_results.math.math_competitions.utils import mathcontest_process_results,aime_process_results 
 from livebench.process_results.math.olympiad.utils import proof_rearrangement_process_results
 from livebench.process_results.math.AMPS_Hard.utils import amps_hard_process_results 
@@ -31,6 +33,7 @@ from livebench.process_results.instruction_following.utils import instruction_fo
 
 from livebench.common import (
     load_questions,
+    load_questions_jsonl,
     load_model_answers,
     check_data,
     get_model_list,
@@ -106,6 +109,9 @@ def play_a_match_gt(match: MatchSingle, output_file: str):
     elif task_or_subtask == "zebra_puzzle":
         score = zebra_puzzle_process_results(ground_truth, llm_answer)
         category = "reasoning"
+    elif task_or_subtask == "spatial":
+        score = spatial_process_results(ground_truth, llm_answer)
+        category = "reasoning"
     elif task_or_subtask == 'typos':
         score = typos_process_results(ground_truth, llm_answer)
         category = "language"
@@ -151,6 +157,109 @@ def play_a_match_gt(match: MatchSingle, output_file: str):
     return result
 
 
+def gen_judgments(
+    parallel,
+    questions,
+    output_file,
+    answer_dir,
+    model_list,
+    remove_existing_file,
+    bench_name,
+):
+    
+    # Load answers
+    model_answers = load_model_answers(answer_dir)
+    print('models:',model_answers.keys())
+
+    if model_list is None:
+        models = get_model_list(answer_dir)
+    else:
+        models = model_list
+
+    play_a_match_func = play_a_match_gt
+
+    os.makedirs(os.path.dirname(output_file), exist_ok=True)
+    if output_file and os.path.exists(output_file) and remove_existing_file:
+        os.remove(output_file)
+
+    make_match_func = make_match_single
+
+    check_data(questions, model_answers, models)
+
+    # Make matches
+    matches = []
+    matches += make_match_func(
+        questions,
+        models,
+        model_answers,
+    )
+
+    match_stat = {}
+    match_stat["bench_name"] = bench_name
+    match_stat["model_list"] = models
+    match_stat["total_num_questions"] = len(questions)
+    match_stat["total_num_matches"] = len(matches)
+    match_stat["output_path"] = output_file
+
+    # Show match stats and prompt enter to continue
+    print("Stats:")
+    print(json.dumps(match_stat, indent=4))
+    #input("Press Enter to confirm...")
+
+    if "instruction_following" in bench_name:
+        nltk.download('punkt')
+        task_name = matches[0].question['task']
+
+        if model_list is None:
+            models = get_model_list(answer_dir)
+        else:
+            models = model_list
+
+        for model_id in models:
+            scores = instruction_following_process_results(questions, model_answers, task_name, model_id)
+            for item in scores:
+                question_id = item["question_id"]
+                score = item["score"]
+                turn = 1
+                result = {
+                    "question_id": question_id,
+                    "task": task_name,
+                    "model": model_id,
+                    "score": score,
+                    "turn": turn,
+                    "tstamp": time.time(),
+                    "category": "instruction_following",
+                }
+                print(
+                    f"question: {question_id}, turn: {turn}, model: {model_id}, "
+                    f"score: {score}, ")
+
+                if output_file:
+                    os.makedirs(os.path.dirname(output_file), exist_ok=True)
+                    with open(output_file, "a") as fout:
+                        fout.write(json.dumps(result) + "\n")
+    else:
+        # Play matches
+        if parallel == 1:
+            for match in tqdm(matches):
+                results = play_a_match_func(match, output_file=output_file)
+        else:
+
+            def play_a_match_wrapper(match):
+                play_a_match_func(match, output_file=output_file)
+
+            np.random.seed(0)
+            np.random.shuffle(matches)
+
+            with ThreadPoolExecutor(parallel) as executor:
+                for match in tqdm(
+                    executor.map(play_a_match_wrapper, matches), total=len(matches)
+                ):
+                    pass
+
+    # De-duplicate and sort judgment file
+    reorg_output_file(output_file)
+
 
 
 if __name__ == "__main__":
@@ -186,116 +295,71 @@ if __name__ == "__main__":
         "--remove-existing-file", action="store_true", default=False,
         help="Remove existing judgment file."
     )
+    parser.add_argument(
+        "--question-source", type=str, default="huggingface", help="The source of the questions. 'huggingface' will draw questions from huggingface. 'jsonl' will use local jsonl files to permit tweaking or writing custom questions."
+    )
 
     args = parser.parse_args()
     print(args)
 
-    categories, tasks = get_categories_tasks(args.bench_name)
+    if args.question_source == "huggingface":
+        categories, tasks = get_categories_tasks(args.bench_name)
 
-    for category_name, task_names in tasks.items():
-        for task_name in task_names:
-            questions = load_questions(categories[category_name], task_name, args.question_begin, args.question_end)
+        for category_name, task_names in tasks.items():
+            for task_name in task_names:
+                questions = load_questions(categories[category_name], task_name, args.question_begin, args.question_end)
+                if args.first_n:
+                    questions = questions[: args.first_n]
+                questions = questions[args.question_begin:args.question_end]
 
-            task_full_name = f"{LIVE_BENCH_DATA_SUPER_PATH}/{category_name}/{task_name}"
-            output_file = f"data/{task_full_name}/model_judgment/ground_truth_judgment.jsonl"
 
-            answer_dir = f"data/{task_full_name}/model_answer/"
 
-            # Load answers
-            model_answers = load_model_answers(answer_dir)
-            print('models:',model_answers.keys())
+                task_full_name = f"{LIVE_BENCH_DATA_SUPER_PATH}/{category_name}/{task_name}"
+                output_file = f"data/{task_full_name}/model_judgment/ground_truth_judgment.jsonl"
 
+                answer_dir = f"data/{task_full_name}/model_answer/"
+
+                gen_judgments(
+                    parallel=args.parallel,
+                    questions=questions,
+                    output_file=output_file,
+                    answer_dir=answer_dir,
+                    model_list=args.model_list,
+                    remove_existing_file=args.remove_existing_file,
+                    bench_name=task_full_name,
+                )
+
+
+    elif args.question_source == "jsonl":
+        list_of_question_files = []
+        original_question_file = f"data/{args.bench_name}/question.jsonl"
+        if os.path.exists(original_question_file):
+            list_of_question_files = [original_question_file]
+        else:
+            list_of_question_files = glob.glob(f"data/{args.bench_name}/**/question.jsonl", recursive=True)
+
+        for question_file in list_of_question_files:
+            print(question_file)
+            questions = load_questions_jsonl(question_file, args.question_begin, args.question_end)
             if args.first_n:
                 questions = questions[: args.first_n]
             questions = questions[args.question_begin:args.question_end]
 
-            if args.model_list is None:
-                models = get_model_list(answer_dir)
-            else:
-                models = args.model_list
 
+            bench_name = os.path.dirname(question_file).replace("data/","")
 
-            play_a_match_func = play_a_match_gt
-
-            os.makedirs(os.path.dirname(output_file), exist_ok=True)
-            if output_file and os.path.exists(output_file) and args.remove_existing_file:
-                os.remove(output_file)
-
-            make_match_func = make_match_single
-
-            check_data(questions, model_answers, models)
-
-            # Make matches
-            matches = []
-            matches += make_match_func(
-                questions,
-                models,
-                model_answers,
+            output_file = f"data/{bench_name}/model_judgment/ground_truth_judgment.jsonl"
+            answer_dir = f"data/{bench_name}/model_answer/"
+            gen_judgments(
+                parallel=args.parallel,
+                questions=questions,
+                output_file=output_file,
+                answer_dir=answer_dir,
+                model_list=args.model_list,
+                remove_existing_file=args.remove_existing_file,
+                bench_name=bench_name,
             )
 
-            match_stat = {}
-            match_stat["bench_name"] = args.bench_name
-            match_stat["model_list"] = models
-            match_stat["total_num_questions"] = len(questions)
-            match_stat["total_num_matches"] = len(matches)
-            match_stat["output_path"] = output_file
-
-            # Show match stats and prompt enter to continue
-            print("Stats:")
-            print(json.dumps(match_stat, indent=4))
-            #input("Press Enter to confirm...")
-
-            if "instruction_following" in category_name:
-                prompt_path = f"data/{args.bench_name}/question.jsonl"
-                task_name = matches[0].question['task']
-
-                if args.model_list is None:
-                    models = get_model_list(answer_dir)
-                else:
-                    models = args.model_list
-
-                for model_id in models:
-                    llm_answer_path = f"data/{args.bench_name}/model_answer/{model_id}.jsonl"
-                    scores = instruction_following_process_results(questions, model_answers, task_name, model_id)
-                    for item in scores:
-                        question_id = item["question_id"]
-                        score = item["score"]
-                        turn = 1
-                        result = {
-                            "question_id": question_id,
-                            "task": task_name,
-                            "model": model_id,
-                            "score": score,
-                            "turn": turn,
-                            "tstamp": time.time(),
-                            "category": "instruction_following",
-                        }
-                        print(
-                            f"question: {question_id}, turn: {turn}, model: {model_id}, "
-                            f"score: {score}, ")
-
-                        if output_file:
-                            os.makedirs(os.path.dirname(output_file), exist_ok=True)
-                            with open(output_file, "a") as fout:
-                                fout.write(json.dumps(result) + "\n")
-            else:
-                # Play matches
-                if args.parallel == 1:
-                    for match in tqdm(matches):
-                        results = play_a_match_func(match, output_file=output_file)
-                else:
-
-                    def play_a_match_wrapper(match):
-                        play_a_match_func(match, output_file=output_file)
-
-                    np.random.seed(0)
-                    np.random.shuffle(matches)
-
-                    with ThreadPoolExecutor(args.parallel) as executor:
-                        for match in tqdm(
-                            executor.map(play_a_match_wrapper, matches), total=len(matches)
-                        ):
-                            pass
-
-            # De-duplicate and sort judgment file
-            reorg_output_file(output_file)
+    else:
+        raise ValueError(f"Bad question source {args.question_source}.")
+    

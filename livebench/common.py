@@ -136,6 +136,16 @@ def load_questions(category: Dataset, task_name: Optional[str], begin: Optional[
     return questions
 
 
+def load_questions_jsonl(question_file: str, begin: Optional[int], end: Optional[int]):
+    questions = []
+    with open(question_file, "r") as ques_file:
+        for line in ques_file:
+            if line:
+                questions.append(json.loads(line))
+    questions = questions[begin:end]
+    return questions
+
+
 def load_model_answers(answer_dir: str):
     """Load model answers.
 
@@ -210,6 +220,35 @@ def chat_completion_openai(model, conv, temperature, max_tokens, api_dict=None):
                 max_tokens=max_tokens,
             )
             output = response["choices"][0]["message"]["content"]
+            break
+        except Exception as e:
+            print(type(e), e)
+            time.sleep(API_RETRY_SLEEP)
+
+    return output
+
+def chat_completion_deepseek(model, conv, temperature, max_tokens, api_dict=None):
+    if api_dict is not None and "api_key" in api_dict:
+        api_key = api_dict["api_key"]
+    else:
+        api_key = os.environ["DEEPSEEK_API_KEY"]
+    output = API_ERROR_OUTPUT
+    for _ in range(API_MAX_RETRY):
+        try:
+            print('sleeping for 3 sec')
+            time.sleep(3)
+            from openai import OpenAI
+            client = OpenAI(api_key=api_key, base_url="https://api.deepseek.com")
+            messages = conv.to_openai_api_messages()
+            response = client.chat.completions.create(
+                model=model,
+                messages=messages,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                n=1,
+                stream=False
+            )
+            output = response.choices[0].message.content
             break
         except Exception as e:
             print(type(e), e)

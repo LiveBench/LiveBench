@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "livebench"
-version = "0.0.1"
+version = "0.0.2"
 description = "A living benchmark for large language models."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -15,11 +15,16 @@ classifiers = [
     "License :: OSI Approved :: Apache Software License",
 ]
 dependencies = [
-    "accelerate>=0.21", "aiohttp", "anthropic>=0.3", "antlr4-python3-runtime==4.11", "datasets", "fastapi", "flash-attn", "httpx", "immutabledict", "langchain", "langdetect",
-    "levenshtein>=0.20.4", "lxml", "markdown2[all]", "nh3", "nltk", "numpy", "openai<1", "pandas==2.2.2", "peft", "prompt_toolkit>=3.0.0", "protobuf", "pydantic",
-    "pyext==0.7", "psutil", "ray", "requests", "rich>=10.0.0", "sentencepiece", "shortuuid", "sympy>=1.12", "tiktoken", "torch", "tqdm>=4.62.1", "transformers>=4.31.0", "uvicorn", "wheel",
+    "aiohttp", "anthropic>=0.3", "antlr4-python3-runtime==4.11", "datasets", "fastapi", "httpx", "immutabledict", "langchain", "langdetect", 
+    "levenshtein>=0.20.4", "lxml", "markdown2[all]", "nh3", "nltk", "numpy", "openai<1",
+    "pandas==2.2.2",  "prompt_toolkit>=3.0.0", "protobuf", "pydantic", "pyext==0.7", "psutil", "requests", "rich>=10.0.0",
+    "sentencepiece", "shortuuid", "sympy>=1.12", "tiktoken", "tqdm>=4.62.1", "uvicorn", "wheel",
     "fschat@git+https://github.com/lm-sys/FastChat#egg=c5223e34babd24c3f9b08205e6751ea6e42c9684",
 ]
+
+[project.optional-dependencies]
+local_models = ["accelerate>=0.21", "packaging", "peft", "ray", "torch", "transformers>=4.31.0"]
+flash_attn  = ["flash-attn"]
 
 [project.urls]
 "Homepage" = "https://github.com/livebench/LiveBench"
