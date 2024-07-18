@@ -30,15 +30,21 @@ LiveBench has the following properties:
 
 Tested on Python 3.10
 
+To generate answers with API models (i.e. with gen_api_answer.py), conduct judgments, and show results:
+
 ```bash
 cd LiveBench
-pip install torch packaging # These need to be installed prior to other dependencies.
 pip install -e .
 ```
 
-**Note about fschat**: The fschat package version on pip (i.e., [lmsys/fastchat](https://github.com/lm-sys/FastChat)) is currently out of date, so we strongly recommend `pip uninstall fschat` before running the above, since it will then automatically install a more recent commit of fastchat.
+To do all of the above and also generate answers with local GPU inference on open source models (i.e. with gen_model_answer.py):
+```bash
+cd LiveBench
+pip install -e .[local_models]
+pip install -e .[flash_attn]
+```
 
-**Note for CPU users**: If installing on a CPU-only machine (e.g. to run api models only), you will need to manually remove flash-attn from the requirements list in pyproject.toml.
+**Note about fschat**: The fschat package version on pip (i.e., [lmsys/fastchat](https://github.com/lm-sys/FastChat)) is currently out of date, so we strongly recommend `pip uninstall fschat` before running the above, since it will then automatically install a more recent commit of fastchat.
 
 Our repo is adapted from FastChat's excellent [llm_judge](https://github.com/lm-sys/FastChat/tree/main/fastchat/llm_judge) module, and it also contains code from [LiveCodeBench](https://github.com/LiveCodeBench/LiveCodeBench) and [IFEval](https://github.com/Rohan2002/IFEval?tab=readme-ov-file).
 
@@ -94,16 +100,13 @@ Or, you may want to show results for a specific category or task of LiveBench by
 python show_livebench_results.py --bench-name live_bench/reasoning/web_of_lies_v2
 ```
 
-To optionally download all model answers and judgments from the 34 models on the [leaderboard](https://livebench.ai), use
-```bash
-python download_leaderboard.py
-python show_livebench_results.py # will now display the results for all models on the leaderboard
-```
-
-To optionally download `question.jsonl` files (for inspection), use
+To optionally download `question.jsonl` files (for inspection) and answer/judgment files from the leaderboard, use
 ```bash
 python download_questions.py
+python download_leaderboard.py
 ```
+
+To use `question.jsonl` files instead of huggingface, set `--question-source jsonl` on `gen_api_answer.py`, `gen_model_answer.py`, and `gen_ground_truth_judgment.py`. This is also a useful feature if you want to tweak the question jsonls or experiment with your own questions.
 
 ## Data
 The questions for each of the categories can be found below:

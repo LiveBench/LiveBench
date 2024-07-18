@@ -83,6 +83,7 @@ OPENAI_MODEL_LIST = (
 
 GOOGLE_GENERATIVEAI_MODEL_LIST = (
     "gemini-1.5-pro-latest"
+    "gemini-1.5-flash-latest"
 )
 
 VERTEX_MODEL_LIST = (
@@ -105,6 +106,11 @@ COHERE_MODEL_LIST = (
     "command-r-plus",
     "command-r",
     "command",
+)
+
+DEEPSEEK_MODEL_LIST = (
+    "deepseek-coder",
+    "deepseek-chat",
 )
 
 class BaseModelAdapter:

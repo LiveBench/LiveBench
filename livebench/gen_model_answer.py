@@ -20,6 +20,7 @@ from livebench.common import (
     get_hf_dataset,
     get_tasks_from_hf_category,
     load_questions,
+    load_questions_jsonl,
     LIVE_BENCH_DATA_SUPER_PATH,
 )
 from livebench.model import load_model, get_conversation_template
@@ -257,6 +258,9 @@ if __name__ == "__main__":
         default="main",
         help="The model revision to load.",
     )
+    parser.add_argument(
+        "--question-source", type=str, default="huggingface", help="The source of the questions. 'huggingface' will draw questions from huggingface. 'jsonl' will use local jsonl files to permit tweaking or writing custom questions."
+    )
 
     args = parser.parse_args()
 
@@ -265,15 +269,49 @@ if __name__ == "__main__":
 
         ray.init()
 
-    categories, tasks = get_categories_tasks(args.bench_name)
+    if args.question_source == "huggingface":
+        categories, tasks = get_categories_tasks(args.bench_name)
 
-    for category_name, task_names in tasks.items():
-        for task_name in task_names:
-            questions = load_questions(categories[category_name], task_name, args.question_begin, args.question_end)
-            task_full_name = f"{LIVE_BENCH_DATA_SUPER_PATH}/{category_name}/{task_name}"
-            answer_file = f"data/{task_full_name}/model_answer/{args.model_id}.jsonl"
+        for category_name, task_names in tasks.items():
+            for task_name in task_names:
+                questions = load_questions(categories[category_name], task_name, args.question_begin, args.question_end)
 
-            print(f"Questions from {task_full_name}")
+                task_full_name = f"{LIVE_BENCH_DATA_SUPER_PATH}/{category_name}/{task_name}"
+                answer_file = f"data/{task_full_name}/model_answer/{args.model_id}.jsonl"
+
+                print(f"Questions from {task_full_name}")
+                print(f"Output to {answer_file}")
+
+                run_eval(
+                    model_path=args.model_path,
+                    model_id=args.model_id,
+                    questions=questions,
+                    answer_file=answer_file,
+                    max_new_token=args.max_new_token,
+                    num_choices=args.num_choices,
+                    num_gpus_per_model=args.num_gpus_per_model,
+                    num_gpus_total=args.num_gpus_total,
+                    max_gpu_memory=args.max_gpu_memory,
+                    dtype=str_to_torch_dtype(args.dtype),
+                    revision=args.revision,
+                )
+
+                reorg_answer_file(answer_file)
+    elif args.question_source == "jsonl":
+        list_of_question_files = []
+        original_question_file = f"data/{args.bench_name}/question.jsonl"
+        if os.path.exists(original_question_file):
+            list_of_question_files = [original_question_file]
+        else:
+            list_of_question_files = glob.glob(f"data/{args.bench_name}/**/question.jsonl", recursive=True)
+
+        for question_file in list_of_question_files:
+            print(question_file)
+            questions = load_questions_jsonl(question_file, args.question_begin, args.question_end)
+            bench_name = os.path.dirname(question_file).replace("data/","")
+            answer_file = f"data/{bench_name}/model_answer/{args.model}.jsonl"
+
+            print(f"Questions from {question_file}")
             print(f"Output to {answer_file}")
 
             run_eval(
@@ -290,4 +328,5 @@ if __name__ == "__main__":
                 revision=args.revision,
             )
 
-            reorg_answer_file(answer_file)
+    else:
+        raise ValueError(f"Bad question source {args.question_source}.")
