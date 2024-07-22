@@ -309,7 +309,7 @@ if __name__ == "__main__":
             print(question_file)
             questions = load_questions_jsonl(question_file, args.question_begin, args.question_end)
             bench_name = os.path.dirname(question_file).replace("data/","")
-            answer_file = f"data/{bench_name}/model_answer/{args.model}.jsonl"
+            answer_file = f"data/{bench_name}/model_answer/{args.model_id}.jsonl"
 
             print(f"Questions from {question_file}")
             print(f"Output to {answer_file}")
