@@ -39,6 +39,12 @@ def clean_llm_output(s):
     # re.findall(pattern, text, re.MULTILINE)
     return s.replace("```", "").strip()
 
+def remove_initial_phrase(text):
+    # remove phrases like "Here is the updated table:" , "Here is the table in a new format:"
+    pattern = r'^\s*(Here|Input)\b.*?\b(format|table)\s*[:)]\s*'
+    modified_text = re.sub(pattern, '', text, flags=re.IGNORECASE)
+    return modified_text.strip()
+
 def table_process_results(input_command: str, ground_truth: str, llm_answer: str) -> int:
     input_format = input_command.split("Please convert the Input Table from ")[1].split(" format")[0].lower()
     output_format = input_command.split("Please convert the Input Table from ")[1].split("format to ")[1].split(" format")[0].lower()
@@ -46,8 +52,18 @@ def table_process_results(input_command: str, ground_truth: str, llm_answer: str
     try:
         gt_df = read_df_func(output_format, ground_truth)
     except:
+        print('Error when reading the ground-truth table')
         return "err"
     llm_clean = clean_llm_output(llm_answer)
+    # first check the raw LLM output
+    score = check_table_reformat(output_format, llm_clean, gt_df)
+    if score == 0:
+        # if there's an initial phrase before the table, remove it and try to score again
+        llm_clean = remove_initial_phrase(llm_clean)
+        score = check_table_reformat(output_format, llm_clean, gt_df)
+    return score
+
+def check_table_reformat(output_format, llm_clean, gt_df):
     try:
         llm_df = read_df_func(output_format, llm_clean)
         gt_df.columns = [s.lower().strip() for s in gt_df.columns]
