@@ -8,9 +8,9 @@
     <a href="https://livebench.ai/livebench.pdf">📝 Paper</a> 
 </p>
 
-Leaderboard as of 23rd July 2024:
+Leaderboard as of 24th July 2024:
 
-![image](assets/livebench-2024-07-23.png)
+![image](assets/livebench-2024-07-24.png)
 
 **Update 25th June 2024:** we removed a reasoning sub-task, house_traversal, because of ambiguous parsing causing misleading results. We will replace it in a future release.
 
