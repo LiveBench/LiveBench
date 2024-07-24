@@ -1,7 +1,8 @@
 from typing import Optional
+import re
 
 
-def mathcontest_process_results(ground_truth: str, llm_answer: str, allow_boxed=True) -> int:
+def mathcontest_process_results(ground_truth: str, llm_answer: str, question_text: str) -> int:
     score = 0
     # the reference answer must be a single capital letter from A to E (I.e., the multiple choice answer)
     if not (isinstance(ground_truth, str) and len(ground_truth) == 1 and 'A' <= ground_truth <= 'E'):
@@ -11,7 +12,8 @@ def mathcontest_process_results(ground_truth: str, llm_answer: str, allow_boxed=
     if ground_truth * 4 in llm_answer:
         score = 1
 
-    if allow_boxed:
+    allow_boxed = True
+    if score == 0 and allow_boxed:
         llm_answer = llm_answer.replace("\\\\fbox{", "\\\\boxed{")
         last_boxed = last_boxed_only_string(llm_answer)
         if last_boxed:
@@ -19,7 +21,30 @@ def mathcontest_process_results(ground_truth: str, llm_answer: str, allow_boxed=
             if parsed_answer == ground_truth:
                 score = 1
 
+    allow_answer_values = True
+    if score == 0 and allow_answer_values:
+        value = extract_answer(question_text, ground_truth)
+        length_to_check = 20 + len(value)
+        if value in llm_answer[-length_to_check:]:
+            score = 1
     return score
+
+
+def extract_answer(statement, letter):
+
+    pattern = r'\\textbf{\(([A-E])\)\s?}(.*?)(?:\\qquad|\$)'
+    matches = re.findall(pattern, statement)
+    answers = {match[0]: match[1].strip() for match in matches}
+    answer = answers.get(letter, None)
+
+    if not answer or answer == "":
+        answer = "FAILURE"
+
+    answer = answer.strip()
+    answer = answer.strip("$")
+    answer = answer.strip("~")
+
+    return answer
 
 
 def aime_process_results(ground_truth: str, llm_answer: str) -> int:

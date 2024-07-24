@@ -79,7 +79,7 @@ def play_a_match_gt(match: MatchSingle, output_file: str):
 
     # todo: find a better solution than a long if statement. 
     if task_or_subtask.split('_')[0] in ["amc", "smc"]:
-        score = mathcontest_process_results(ground_truth, llm_answer)
+        score = mathcontest_process_results(ground_truth, llm_answer, question_text)
         category = "math"
     elif task_or_subtask.split('_')[0] == "aime":
         score = aime_process_results(ground_truth, llm_answer)
