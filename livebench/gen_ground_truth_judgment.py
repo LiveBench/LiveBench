@@ -19,7 +19,7 @@ from livebench.process_results.data_analysis.tablereformat.utils import table_pr
 from livebench.process_results.data_analysis.cta.utils import cta_process_results
 from livebench.process_results.data_analysis.tablejoin.utils import joinmap_process_results
 from livebench.process_results.reasoning.web_of_lies_v2.utils import web_of_lies_process_results
-from livebench.process_results.reasoning.house_traversal.utils import house_traversal_process_results
+from livebench.process_results.reasoning.spatial.utils import spatial_process_results
 from livebench.process_results.reasoning.zebra_puzzle.utils import zebra_puzzle_process_results
 from livebench.process_results.math.math_competitions.utils import mathcontest_process_results,aime_process_results 
 from livebench.process_results.math.olympiad.utils import proof_rearrangement_process_results
@@ -102,8 +102,8 @@ def play_a_match_gt(match: MatchSingle, output_file: str):
     elif task_or_subtask == "web_of_lies_v2":
         score = web_of_lies_process_results(ground_truth, llm_answer)
         category = "reasoning"
-    elif task_or_subtask == "house_traversal":
-        score = house_traversal_process_results(ground_truth, llm_answer)
+    elif task_or_subtask == "spatial":
+        score = spatial_process_results(ground_truth, llm_answer)
         category = "reasoning"
     elif task_or_subtask == "zebra_puzzle":
         score = zebra_puzzle_process_results(ground_truth, llm_answer)
