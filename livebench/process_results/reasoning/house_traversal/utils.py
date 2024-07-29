@@ -14,7 +14,7 @@ def house_traversal_process_results(ground_truth: str, llm_answer: str) -> int:
 
     # check if all the ground truth names are in the last few bolded words, in order
     if len(bold_words) >= len(ground_truth_names):
-        if all([name in last_bold[-1 - i] for i,name in enumerate(ground_truth_names[::-1])]):
+        if all([name in bold_words[-1 - i] for i,name in enumerate(ground_truth_names[::-1])]):
             return 1
 
     # check if all the ground truth names are in the last bolded part, in order

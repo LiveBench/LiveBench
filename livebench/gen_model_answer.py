@@ -61,7 +61,6 @@ def run_eval(
                 model_path,
                 model_id,
                 questions[i : i + chunk_size],
-                answer_file,
                 max_new_token,
                 num_choices,
                 num_gpus_per_model,
@@ -80,7 +79,6 @@ def get_model_answers(
     model_path,
     model_id,
     questions,
-    answer_file,
     max_new_token,
     num_choices,
     num_gpus_per_model,
@@ -100,7 +98,7 @@ def get_model_answers(
         debug=False,
     )
 
-    for question in tqdm(questions):
+    for question, answer_file in tqdm(questions):
         temperature = 0.0
 
         choices = []
@@ -261,42 +259,43 @@ if __name__ == "__main__":
     parser.add_argument(
         "--question-source", type=str, default="huggingface", help="The source of the questions. 'huggingface' will draw questions from huggingface. 'jsonl' will use local jsonl files to permit tweaking or writing custom questions."
     )
-
+    parser.add_argument(
+        "--livebench-releases", type=str, nargs='+', default=['2024-07-26', '2024-06-24'], help="livebench releases to use. Provide a list of options, current options are {'2024-07-26' (july update), '2024-06-24' (original release)}. Providing all of these will run all questions."
+    )
     args = parser.parse_args()
+
+    release_set = set(args.livebench_releases)
+    for r in release_set:
+        if r not in set(['2024-07-26', '2024-06-24']):
+            raise ValueError(f"Bad release {r}.")
 
     if args.num_gpus_total // args.num_gpus_per_model > 1:
         import ray
 
         ray.init()
 
+    questions_all = []
+    answer_files  = []
+
     if args.question_source == "huggingface":
         categories, tasks = get_categories_tasks(args.bench_name)
 
         for category_name, task_names in tasks.items():
             for task_name in task_names:
-                questions = load_questions(categories[category_name], task_name, args.question_begin, args.question_end)
+                questions = load_questions(categories[category_name], release_set, task_name, args.question_begin, args.question_end)
 
                 task_full_name = f"{LIVE_BENCH_DATA_SUPER_PATH}/{category_name}/{task_name}"
                 answer_file = f"data/{task_full_name}/model_answer/{args.model_id}.jsonl"
 
-                print(f"Questions from {task_full_name}")
-                print(f"Output to {answer_file}")
-
-                run_eval(
-                    model_path=args.model_path,
-                    model_id=args.model_id,
-                    questions=questions,
-                    answer_file=answer_file,
-                    max_new_token=args.max_new_token,
-                    num_choices=args.num_choices,
-                    num_gpus_per_model=args.num_gpus_per_model,
-                    num_gpus_total=args.num_gpus_total,
-                    max_gpu_memory=args.max_gpu_memory,
-                    dtype=str_to_torch_dtype(args.dtype),
-                    revision=args.revision,
+                questions_all.extend(
+                    [
+                        (q, answer_file)
+                        for q in questions
+                    ]
                 )
 
-                reorg_answer_file(answer_file)
+                answer_files.append(answer_file)
+
     elif args.question_source == "jsonl":
         list_of_question_files = []
         original_question_file = f"data/{args.bench_name}/question.jsonl"
@@ -307,26 +306,36 @@ if __name__ == "__main__":
 
         for question_file in list_of_question_files:
             print(question_file)
-            questions = load_questions_jsonl(question_file, args.question_begin, args.question_end)
+            questions = load_questions_jsonl(question_file, release_set, args.question_begin, args.question_end)
+
             bench_name = os.path.dirname(question_file).replace("data/","")
             answer_file = f"data/{bench_name}/model_answer/{args.model_id}.jsonl"
 
-            print(f"Questions from {question_file}")
-            print(f"Output to {answer_file}")
-
-            run_eval(
-                model_path=args.model_path,
-                model_id=args.model_id,
-                questions=questions,
-                answer_file=answer_file,
-                max_new_token=args.max_new_token,
-                num_choices=args.num_choices,
-                num_gpus_per_model=args.num_gpus_per_model,
-                num_gpus_total=args.num_gpus_total,
-                max_gpu_memory=args.max_gpu_memory,
-                dtype=str_to_torch_dtype(args.dtype),
-                revision=args.revision,
+            questions_all.extend(
+                [
+                    (q, answer_file)
+                    for q in questions
+                ]
             )
+
+            if len(questions) > 0:
+                answer_files.append(answer_file)
 
     else:
         raise ValueError(f"Bad question source {args.question_source}.")
+
+    run_eval(
+        model_path=args.model_path,
+        model_id=args.model_id,
+        questions=questions_all,
+        max_new_token=args.max_new_token,
+        num_choices=args.num_choices,
+        num_gpus_per_model=args.num_gpus_per_model,
+        num_gpus_total=args.num_gpus_total,
+        max_gpu_memory=args.max_gpu_memory,
+        dtype=str_to_torch_dtype(args.dtype),
+        revision=args.revision,
+    )
+
+    for answer_file in answer_files:
+        reorg_answer_file(answer_file)

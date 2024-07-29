@@ -38,6 +38,7 @@ def extract_answer(statement, letter):
     answer = answers.get(letter, None)
 
     if not answer or answer == "":
+        # this only happens for one question, which is too long for the LLMs to repeat
         answer = "FAILURE"
 
     answer = answer.strip()
