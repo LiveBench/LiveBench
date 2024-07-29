@@ -8,11 +8,11 @@
     <a href="https://livebench.ai/livebench.pdf">📝 Paper</a> 
 </p>
 
-Leaderboard as of 24th July 2024:
+Leaderboard as of 28th July 2024:
 
-![image](assets/livebench-2024-07-24.png)
+![image](assets/livebench-2024-07-28.png)
 
-**Update 29th July 2024:** The second monthly release. We added 50 questions in a new spatial reasoning task, 28 additional coding generation questions, and 12 additional coding completion questions.
+**Update 28th July 2024:** The second monthly release. We added 50 questions in a new spatial reasoning task, 28 additional coding generation questions, and 12 additional coding completion questions.
 
 In addition, we merged one of the optional dependencies in pyproject.toml into the main dependency stream to solve an issue experienced when using gen_api_answer.py without installing packages such as torch.
 
