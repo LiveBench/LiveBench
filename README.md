@@ -12,7 +12,9 @@ Leaderboard as of 24th July 2024:
 
 ![image](assets/livebench-2024-07-24.png)
 
-**Update 25th June 2024:** we removed a reasoning sub-task, house_traversal, because of ambiguous parsing causing misleading results. We will replace it in a future release.
+**Update 29th July 2024:** The second monthly release. We added 50 questions in a new spatial reasoning task, 28 additional coding generation questions, and 12 additional coding completion questions.
+
+In addition, we merged one of the optional dependencies in pyproject.toml into the main dependency stream to solve an issue experienced when using gen_api_answer.py without installing packages such as torch.
 
 ## Introduction
 
@@ -40,7 +42,6 @@ pip install -e .
 To do all of the above and also generate answers with local GPU inference on open source models (i.e. with gen_model_answer.py):
 ```bash
 cd LiveBench
-pip install -e .[local_models]
 pip install -e .[flash_attn]
 ```
 
@@ -84,20 +85,32 @@ python gen_ground_truth_judgment.py --bench-name live_bench
 
 To show all the results:
 ```bash
-python show_livebench_results.py
+python show_livebench_result.py
 ```
 
-You may want to run these commands on just some models. To run any of the above python files (`gen_model_answer.py`, `gen_api_answer.py`, `gen_ground_truth_judgment`, or `show_livebench_results`) for specific models, use the following argument styles:
+You may want to run these commands on just some models. To run any of the above python files (`gen_model_answer.py`, `gen_api_answer.py`, `gen_ground_truth_judgment`, or `show_livebench_result.py`) for specific models, use the following argument styles:
 ```bash
 python gen_model_answer.py          --bench-name live_bench --model-path /path/to/Mistral-7B-Instruct-v0.2/ --model-id Mistral-7B-Instruct-v0.2 --dtype bfloat16 
 python gen_api_answer.py            --bench-name live_bench --model gpt-4-turbo
 python gen_ground_truth_judgment.py --bench-name live_bench --model-list Mistral-7B-Instruct-v0.2 Llama-2-7b-chat-hf claude-3-opus-20240229
-python show_livebench_results.py    --bench-name live_bench --model-list Mistral-7B-Instruct-v0.2 Llama-2-7b-chat-hf claude-3-opus-20240229
+python show_livebench_result.py    --bench-name live_bench --model-list Mistral-7B-Instruct-v0.2 Llama-2-7b-chat-hf claude-3-opus-20240229
 ```
 
-Or, you may want to show results for a specific category or task of LiveBench by using the `--bench-name` argument. Here, we run `show_livebench_results.py` on just the `web_of_lies_v2` task: 
+Or, you may want to show results for a specific category or task of LiveBench by using the `--bench-name` argument. Here, we run `show_livebench_result.py` on just the `web_of_lies_v2` task: 
 ```bash
-python show_livebench_results.py --bench-name live_bench/reasoning/web_of_lies_v2
+python show_livebench_result.py --bench-name live_bench/reasoning/web_of_lies_v2
+```
+
+By default, any of the above scripts will use all livebench questions so far released. None of the livebench questions have yet been officially deprecated/excluded. You can optionally specify the `--livebench-releases` arg to restrict the questions you use to added in specific releases.
+
+To use all questions:
+```bash
+python gen_api_answer.py --bench-name live_bench --model gpt-4-turbo --livebench-releases 2024-07-26 2024-06-24
+```
+
+To use only the questions from the July 2024 update:
+```bash
+python gen_api_answer.py --bench-name live_bench --model gpt-4-turbo --livebench-releases 2024-07-26
 ```
 
 To optionally download `question.jsonl` files (for inspection) and answer/judgment files from the leaderboard, use
