@@ -79,10 +79,17 @@ OPENAI_MODEL_LIST = (
     "gpt-4-1106-preview",
     "gpt-4-0125-preview",
     "gpt-4o-2024-05-13",
+    "gpt-4o-mini-2024-07-18",
+)
+
+TOGETHER_MODEL_LIST = (
+    "Meta-Llama-3.1-405B-Instruct-Turbo",
+    "Meta-Llama-3.1-70B-Instruct-Turbo",
+    "Meta-Llama-3.1-8B-Instruct-Turbo",
 )
 
 GOOGLE_GENERATIVEAI_MODEL_LIST = (
-    "gemini-1.5-pro-latest"
+    "gemini-1.5-pro-latest",
     "gemini-1.5-flash-latest"
 )
 
@@ -100,6 +107,8 @@ MISTRAL_MODEL_LIST = (
     "mistral-small",
     "open-mixtral-8x7b",
     "open-mixtral-8x22b",
+    "mistral-large-2407",
+    "open-mistral-nemo",
 )
 
 COHERE_MODEL_LIST = (

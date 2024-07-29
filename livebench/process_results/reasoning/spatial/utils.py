@@ -13,7 +13,7 @@ def spatial_process_results(ground_truth: str, llm_answer: str) -> int:
 
     bold_words = re.findall(r'\*\*([^\*]+)\*\*', llm_answer)
 
-    # check the last 3 bolded words
+    # allow the answer to be within the last 3 bolded words
     words_to_check = []
     for i in range(3):
         if bold_words and len(bold_words) > i:
@@ -27,9 +27,16 @@ def spatial_process_results(ground_truth: str, llm_answer: str) -> int:
         if word in word_to_number and word_to_number[word] == ground_truth.strip().lower():
             return 1
 
-        # allow certain cases like "two tetrahedra" when ground-truth is "tetrahedra", 
-        # and "equilateral triangle" when GT is "triangle"
-        # while still marking "circle square triangle tetrahedra" incorrect when GT is "triangle"
+        # allow certain cases like "two tetrahedra" == "tetrahedra" and "equilateral triangle" == "triangle"
+        # while still disallowing cases like "circle square triangle" == "triangle"
         for answer in ["tetrahedra", "tetrahedron", "triangle", "square"]:
             if ground_truth.strip().lower() == answer and answer in word and len(word) < (2 * len(answer) + 5):
                 return 1
+
+    debug = False
+    if debug and bold_words:
+        print('failed, answer vs ground_truth:', bold_words[-1].strip().lower(), ground_truth.strip().lower())
+        print("failed, full bold:", bold_words)
+    elif debug:
+        print("failed, did not have bolds", llm_answer[-20:], "vs", ground_truth.strip().lower())
+    return 0

@@ -19,8 +19,9 @@ from livebench.process_results.data_analysis.tablereformat.utils import table_pr
 from livebench.process_results.data_analysis.cta.utils import cta_process_results
 from livebench.process_results.data_analysis.tablejoin.utils import joinmap_process_results
 from livebench.process_results.reasoning.web_of_lies_v2.utils import web_of_lies_process_results
-from livebench.process_results.reasoning.spatial.utils import spatial_process_results
+from livebench.process_results.reasoning.house_traversal.utils import house_traversal_process_results
 from livebench.process_results.reasoning.zebra_puzzle.utils import zebra_puzzle_process_results
+from livebench.process_results.reasoning.spatial.utils import spatial_process_results
 from livebench.process_results.math.math_competitions.utils import mathcontest_process_results,aime_process_results 
 from livebench.process_results.math.olympiad.utils import proof_rearrangement_process_results
 from livebench.process_results.math.AMPS_Hard.utils import amps_hard_process_results 
@@ -102,11 +103,14 @@ def play_a_match_gt(match: MatchSingle, output_file: str):
     elif task_or_subtask == "web_of_lies_v2":
         score = web_of_lies_process_results(ground_truth, llm_answer)
         category = "reasoning"
-    elif task_or_subtask == "spatial":
-        score = spatial_process_results(ground_truth, llm_answer)
+    elif task_or_subtask == "house_traversal":
+        score = house_traversal_process_results(ground_truth, llm_answer)
         category = "reasoning"
     elif task_or_subtask == "zebra_puzzle":
         score = zebra_puzzle_process_results(ground_truth, llm_answer)
+        category = "reasoning"
+    elif task_or_subtask == "spatial":
+        score = spatial_process_results(ground_truth, llm_answer)
         category = "reasoning"
     elif task_or_subtask == 'typos':
         score = typos_process_results(ground_truth, llm_answer)
@@ -179,7 +183,6 @@ def gen_judgments(
         os.remove(output_file)
 
     make_match_func = make_match_single
-
     check_data(questions, model_answers, models)
 
     # Make matches
@@ -294,16 +297,22 @@ if __name__ == "__main__":
     parser.add_argument(
         "--question-source", type=str, default="huggingface", help="The source of the questions. 'huggingface' will draw questions from huggingface. 'jsonl' will use local jsonl files to permit tweaking or writing custom questions."
     )
-
+    parser.add_argument(
+        "--livebench-releases", type=str, nargs='+', default=['2024-07-26', '2024-06-24'], help="livebench releases to use. Provide a list of options, current options are {'2024-07-26' (july update), '2024-06-24' (original release)}. Providing all of these will run all questions."
+    )
     args = parser.parse_args()
-    print(args)
+
+    release_set = set(args.livebench_releases)
+    for r in release_set:
+        if r not in set(['2024-07-26', '2024-06-24']):
+            raise ValueError(f"Bad release {r}.")
 
     if args.question_source == "huggingface":
         categories, tasks = get_categories_tasks(args.bench_name)
 
         for category_name, task_names in tasks.items():
             for task_name in task_names:
-                questions = load_questions(categories[category_name], task_name, args.question_begin, args.question_end)
+                questions = load_questions(categories[category_name], release_set, task_name, args.question_begin, args.question_end)
                 if args.first_n:
                     questions = questions[: args.first_n]
                 questions = questions[args.question_begin:args.question_end]
@@ -336,7 +345,7 @@ if __name__ == "__main__":
 
         for question_file in list_of_question_files:
             print(question_file)
-            questions = load_questions_jsonl(question_file, args.question_begin, args.question_end)
+            questions = load_questions_jsonl(question_file, release_set, args.question_begin, args.question_end)
             if args.first_n:
                 questions = questions[: args.first_n]
             questions = questions[args.question_begin:args.question_end]
@@ -346,15 +355,16 @@ if __name__ == "__main__":
 
             output_file = f"data/{bench_name}/model_judgment/ground_truth_judgment.jsonl"
             answer_dir = f"data/{bench_name}/model_answer/"
-            gen_judgments(
-                parallel=args.parallel,
-                questions=questions,
-                output_file=output_file,
-                answer_dir=answer_dir,
-                model_list=args.model_list,
-                remove_existing_file=args.remove_existing_file,
-                bench_name=bench_name,
-            )
+            if len(questions) > 0:
+                gen_judgments(
+                    parallel=args.parallel,
+                    questions=questions,
+                    output_file=output_file,
+                    answer_dir=answer_dir,
+                    model_list=args.model_list,
+                    remove_existing_file=args.remove_existing_file,
+                    bench_name=bench_name,
+                )
 
     else:
         raise ValueError(f"Bad question source {args.question_source}.")

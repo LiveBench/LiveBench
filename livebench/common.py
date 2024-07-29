@@ -16,14 +16,6 @@ from typing import Optional
 import openai
 import anthropic
 
-from livebench.model.model_adapter import (
-    get_conversation_template,
-    ANTHROPIC_MODEL_LIST,
-    OPENAI_MODEL_LIST,
-    GOOGLE_GENERATIVEAI_MODEL_LIST,
-    VERTEX_MODEL_LIST,
-)
-
 # API setting constants
 API_MAX_RETRY = 16
 API_RETRY_SLEEP = 10
@@ -121,7 +113,7 @@ def load_answers_judgments():
     return model_answer, model_judgment
 
 
-def load_questions(category: Dataset, task_name: Optional[str], begin: Optional[int], end: Optional[int]):
+def load_questions(category: Dataset, livebench_releases: set, task_name: Optional[str], begin: Optional[int], end: Optional[int]):
     """Load questions from a file."""
     if task_name is not None:
         questions = [example for example in category.filter(lambda row: row["task"] == task_name)]
@@ -129,20 +121,24 @@ def load_questions(category: Dataset, task_name: Optional[str], begin: Optional[
         questions = list(category)
     questions = questions[begin:end]
     for q in questions:
+        if 'livebench_release_date' in q.keys() and isinstance(q['livebench_release_date'], datetime):
+            q['livebench_release_date'] = datetime.strftime(q['livebench_release_date'], '%Y-%m-%d')
         if 'release_date' in q.keys() and isinstance(q['release_date'], datetime):
             q['release_date'] = datetime.strftime(q['release_date'], '%Y-%m-%d')
         if 'original_json' in q.keys() and 'contest_date' in q['original_json'].keys() and isinstance(q['original_json']['contest_date'], datetime):
             q['original_json']['contest_date'] = datetime.strftime(q['original_json']['contest_date'], '%Y-%m-%d %H:%M:%S')
+    questions = [q for q in questions if q['livebench_release_date'] in livebench_releases]
     return questions
 
 
-def load_questions_jsonl(question_file: str, begin: Optional[int], end: Optional[int]):
+def load_questions_jsonl(question_file: str, livebench_releases: set, begin: Optional[int], end: Optional[int]):
     questions = []
     with open(question_file, "r") as ques_file:
         for line in ques_file:
             if line:
                 questions.append(json.loads(line))
     questions = questions[begin:end]
+    questions = [q for q in questions if q['livebench_release_date'] in livebench_releases]
     return questions
 
 
@@ -330,6 +326,32 @@ def chat_completion_google_generativeai(model, conv, temperature, max_tokens, ap
         except genai.types.generation_types.StopCandidateException as e:
             print(type(e), e)
             break
+        except Exception as e:
+            print(type(e), e)
+            time.sleep(API_RETRY_SLEEP)
+
+    return output
+
+def chat_completion_together(model, conv, temperature, max_tokens, api_dict=None):
+    from together import Together
+    if api_dict is not None and "api_key" in api_dict:
+        api_key = api_dict["api_key"]
+    else:
+        api_key = os.environ["TOGETHER_API_KEY"]
+    client = Together(api_key=os.environ.get("TOGETHER_API_KEY"))
+    output = API_ERROR_OUTPUT
+    for _ in range(API_MAX_RETRY):
+        try:
+            prompt = [text for role, text in conv.messages if role == "user"][0]
+            stream = client.chat.completions.create(
+                model="meta-llama/"+model,
+                messages=[{"role": "user", "content": prompt}],
+                stream=True,
+            )
+            output = ""
+            for chunk in stream:
+                output += chunk.choices[0].delta.content or ""
+
         except Exception as e:
             print(type(e), e)
             time.sleep(API_RETRY_SLEEP)

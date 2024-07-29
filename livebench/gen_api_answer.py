@@ -28,6 +28,7 @@ from livebench.common import (
     chat_completion_mistral,
     chat_completion_cohere,
     chat_completion_deepseek,
+    chat_completion_together,
     LIVE_BENCH_DATA_SUPER_PATH,
 )
 from livebench.model.model_adapter import (
@@ -38,6 +39,7 @@ from livebench.model.model_adapter import (
     MISTRAL_MODEL_LIST, 
     COHERE_MODEL_LIST, 
     DEEPSEEK_MODEL_LIST,
+    TOGETHER_MODEL_LIST,
 )
 
 def get_answer(
@@ -80,7 +82,9 @@ def get_answer(
             elif model in COHERE_MODEL_LIST:
                 output = chat_completion_cohere(model, conv, temperature, max_tokens)
             elif model in DEEPSEEK_MODEL_LIST:
-                output = chat_completion_deepseek(model, conv, temperature, max_tokens)                
+                output = chat_completion_deepseek(model, conv, temperature, max_tokens)         
+            elif model in TOGETHER_MODEL_LIST:
+                output = chat_completion_together(model, conv, temperature, max_tokens)        
             else:
                 output = chat_completion_openai(model, conv, temperature, max_tokens)
 
@@ -114,7 +118,8 @@ def run_questions(parallel, questions, model, num_choices, max_tokens, answer_fi
                 answer_file,
                 api_dict=api_dict,
             )
-        reorg_answer_file(answer_file)
+        if len(questions) > 0:
+            reorg_answer_file(answer_file)
     else:
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=parallel) as executor:
@@ -135,8 +140,8 @@ def run_questions(parallel, questions, model, num_choices, max_tokens, answer_fi
                 concurrent.futures.as_completed(futures), total=len(futures)
             ):
                 future.result()
-
-        reorg_answer_file(answer_file)
+        if len(questions) > 0:
+            reorg_answer_file(answer_file)
 
 
 if __name__ == "__main__":
@@ -183,7 +188,15 @@ if __name__ == "__main__":
     parser.add_argument(
         "--question-source", type=str, default="huggingface", help="The source of the questions. 'huggingface' will draw questions from huggingface. 'jsonl' will use local jsonl files to permit tweaking or writing custom questions."
     )
+    parser.add_argument(
+        "--livebench-releases", type=str, nargs='+', default=['2024-07-26', '2024-06-24'], help="livebench releases to use. Provide a list of options, current options are {'2024-07-26' (july update), '2024-06-24' (original release)}. Providing all of these will run all questions."
+    )
     args = parser.parse_args()
+
+    release_set = set(args.livebench_releases)
+    for r in release_set:
+        if r not in set(['2024-07-26', '2024-06-24']):
+            raise ValueError(f"Bad release {r}.")
 
     if args.api_base is not None:
         api_key = os.environ.get("LIVEBENCH_API_KEY", "EMPTY")
@@ -200,7 +213,7 @@ if __name__ == "__main__":
 
         for category_name, task_names in tasks.items():
             for task_name in task_names:
-                questions = load_questions(categories[category_name], task_name, args.question_begin, args.question_end)
+                questions = load_questions(categories[category_name], release_set, task_name, args.question_begin, args.question_end)
 
                 task_full_name = f"{LIVE_BENCH_DATA_SUPER_PATH}/{category_name}/{task_name}"
                 answer_file = f"data/{task_full_name}/model_answer/{args.model}.jsonl"
@@ -228,7 +241,7 @@ if __name__ == "__main__":
 
         for question_file in list_of_question_files:
             print(question_file)
-            questions = load_questions_jsonl(question_file, args.question_begin, args.question_end)
+            questions = load_questions_jsonl(question_file, release_set, args.question_begin, args.question_end)
             bench_name = os.path.dirname(question_file).replace("data/","")
             answer_file = f"data/{bench_name}/model_answer/{args.model}.jsonl"
 
