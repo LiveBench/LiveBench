@@ -8,9 +8,9 @@
     <a href="https://livebench.ai/livebench.pdf">📝 Paper</a> 
 </p>
 
-Leaderboard as of 28th July 2024:
+Leaderboard as of 2nd August 2024:
 
-![image](assets/livebench-2024-07-28.png)
+![image](assets/livebench-2024-08-02.png)
 
 **Update 28th July 2024:** The second monthly release. We added 50 questions in a new spatial reasoning task, 28 additional coding generation questions, and 12 additional coding completion questions.
 
