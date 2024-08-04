@@ -8,13 +8,21 @@
     <a href="https://livebench.ai/livebench.pdf">📝 Paper</a> 
 </p>
 
-Leaderboard as of 2nd August 2024:
+Top models as of 2nd August 2024 (see the full leaderboard [here](https://livebench.ai/)):
 
 ![image](assets/livebench-2024-08-02.png)
 
-**Update 28th July 2024:** The second monthly release. We added 50 questions in a new spatial reasoning task, 28 additional coding generation questions, and 12 additional coding completion questions.
+**Update 28th July 2024:** The first monthly update. We added 50 questions in a new spatial reasoning task, 28 additional coding generation questions, and 12 additional coding completion questions. In addition, we merged one of the optional dependencies in pyproject.toml into the main dependency stream to solve an issue experienced when using `gen_api_answer.py` without installing packages such as torch.
 
-In addition, we merged one of the optional dependencies in pyproject.toml into the main dependency stream to solve an issue experienced when using gen_api_answer.py without installing packages such as torch.
+## Table of Contents
+
+- [Introduction](#introduction)
+- [Installation Quickstart](#installation-quickstart)
+- [Usage](#usage)
+- [Data](#data)
+- [Adding New Questions](#adding-new-questions)
+- [Documentation](#documentation)
+- [Citation](#citation)
 
 ## Introduction
 
@@ -26,7 +34,7 @@ LiveBench has the following properties:
 * Each question has verifiable, objective ground-truth answers, allowing hard questions to be scored accurately and automatically, without the use of an LLM judge.
 * LiveBench currently contains a set of 18 diverse tasks across 6 categories, and we will release new, harder tasks over time.
 
-**We will evaluate your model!** Open an [issue](https://github.com/LiveBench/LiveBench/issues) or email us at [mailto:livebench.ai@gmail.com](livebench.ai@gmail.com)!
+**We will evaluate your model!** Open an [issue](https://github.com/LiveBench/LiveBench/issues) or email us at [livebench.ai@gmail.com](mailto:livebench.ai@gmail.com)!
 
 ## Installation Quickstart
 
