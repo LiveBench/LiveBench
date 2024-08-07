@@ -23,15 +23,11 @@ from livebench.common import (
     load_questions_jsonl,
     LIVE_BENCH_DATA_SUPER_PATH,
 )
-from livebench.model import load_model, get_conversation_template
-from fastchat.utils import str_to_torch_dtype
-
 
 def run_eval(
     model_path,
     model_id,
     questions,
-    answer_file,
     max_new_token,
     num_choices,
     num_gpus_per_model,
@@ -86,21 +82,15 @@ def get_model_answers(
     dtype,
     revision,
 ):
-    model, tokenizer = load_model(
-        model_path,
-        revision=revision,
-        device="cuda",
-        num_gpus=num_gpus_per_model,
-        max_gpu_memory=max_gpu_memory,
-        dtype=dtype,
-        load_8bit=False,
-        cpu_offloading=False,
-        debug=False,
-    )
+    from vllm import LLM, SamplingParams
+    llm = LLM(
+        model=model_path,
+        tensor_parallel_size=num_gpus_per_model,
+        disable_custom_all_reduce=True)
+    sampling_params = SamplingParams(temperature=0.0, max_tokens=max_new_token)
+    from livebench.model import get_conversation_template
 
     for question, answer_file in tqdm(questions):
-        temperature = 0.0
-
         choices = []
         for i in range(num_choices):
             torch.manual_seed(i)
@@ -111,43 +101,11 @@ def get_model_answers(
                 conv.append_message(conv.roles[0], qs)
                 conv.append_message(conv.roles[1], None)
                 prompt = conv.get_prompt()
-                input_ids = tokenizer([prompt]).input_ids
-
-                if temperature < 1e-4:
-                    do_sample = False
-                else:
-                    do_sample = True
-
                 # some models may error out when generating long outputs
-                print('starting question', qs[:50])
+                print('starting question', qs)
                 try:
-                    from transformers.generation.streamers import TextStreamer
-                    output_ids = model.generate(
-                        torch.as_tensor(input_ids).cuda(),
-                        do_sample=do_sample,
-                        temperature=temperature,
-                        max_new_tokens=max_new_token,
-                        streamer=TextStreamer(tokenizer)
-                    )
-                    if model.config.is_encoder_decoder:
-                        output_ids = output_ids[0]
-                    else:
-                        output_ids = output_ids[0][len(input_ids[0]) :]
-
-                    # be consistent with the template's stop_token_ids
-                    if conv.stop_token_ids:
-                        stop_token_ids_index = [
-                            i
-                            for i, id in enumerate(output_ids)
-                            if id in conv.stop_token_ids
-                        ]
-                        if len(stop_token_ids_index) > 0:
-                            output_ids = output_ids[: stop_token_ids_index[0]]
-
-                    output = tokenizer.decode(
-                        output_ids,
-                        spaces_between_special_tokens=False,
-                    )
+                    results = llm.generate([prompt], sampling_params)
+                    output = results[0].outputs[0].text
                     if conv.stop_str and isinstance(conv.stop_str, list):
                         stop_str_indices = sorted(
                             [
@@ -161,7 +119,7 @@ def get_model_answers(
                     elif conv.stop_str and output.find(conv.stop_str) > 0:
                         output = output[: output.find(conv.stop_str)]
 
-                    for special_token in tokenizer.special_tokens_map.values():
+                    for special_token in llm.get_tokenizer().special_tokens_map.values():
                         if isinstance(special_token, list):
                             for special_tok in special_token:
                                 output = output.replace(special_tok, "")
@@ -171,10 +129,11 @@ def get_model_answers(
 
                     if conv.name == "xgen" and output.startswith("Assistant:"):
                         output = output.replace("Assistant:", "", 1).strip()
-                except RuntimeError as e:
+                except RuntimeError:
                     print("ERROR question ID: ", question["question_id"])
                     output = "ERROR"
 
+                print(output)
                 conv.update_last_message(output)
                 turns.append(output)
 
@@ -333,7 +292,7 @@ if __name__ == "__main__":
         num_gpus_per_model=args.num_gpus_per_model,
         num_gpus_total=args.num_gpus_total,
         max_gpu_memory=args.max_gpu_memory,
-        dtype=str_to_torch_dtype(args.dtype),
+        dtype=None,
         revision=args.revision,
     )
 
