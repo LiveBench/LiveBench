@@ -31,7 +31,6 @@ def run_eval(
     model_path,
     model_id,
     questions,
-    answer_file,
     max_new_token,
     num_choices,
     num_gpus_per_model,
