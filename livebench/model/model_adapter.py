@@ -1,5 +1,4 @@
 """Model adapter registration."""
-
 import math
 import os
 import re
@@ -80,6 +79,8 @@ OPENAI_MODEL_LIST = (
     "gpt-4-0125-preview",
     "gpt-4o-2024-05-13",
     "gpt-4o-mini-2024-07-18",
+    "gpt-4o-2024-08-06",
+    "chatgpt-4o-latest",
 )
 
 TOGETHER_MODEL_LIST = (
@@ -90,7 +91,10 @@ TOGETHER_MODEL_LIST = (
 
 GOOGLE_GENERATIVEAI_MODEL_LIST = (
     "gemini-1.5-pro-latest",
-    "gemini-1.5-flash-latest"
+    "gemini-1.5-flash-latest",
+    "gemini-1.5-pro-001",
+    "gemini-1.5-flash-001",
+    "gemini-1.5-pro-exp-0801"
 )
 
 VERTEX_MODEL_LIST = (
@@ -120,6 +124,10 @@ COHERE_MODEL_LIST = (
 DEEPSEEK_MODEL_LIST = (
     "deepseek-coder",
     "deepseek-chat",
+)
+
+NVIDIA_MODEL_LIST = (
+    "nemotron-4-340b-instruct",
 )
 
 class BaseModelAdapter:
@@ -2214,6 +2222,16 @@ class DeepseekChatAdapter(BaseModelAdapter):
         return get_conv_template("deepseek-chat")
 
 
+class NvidiaChatAdapter(BaseModelAdapter):
+    """The model adapter for nemotron's chat models"""
+
+    def match(self, model_path: str):
+        return "nemotron" in model_path.lower()
+
+    def get_default_conv_template(self, model_path: str) -> Conversation:
+        return get_conv_template("api_based_default")
+
+
 class Yuan2Adapter(BaseModelAdapter):
     """The model adapter for Yuan2.0"""
 
@@ -2494,6 +2512,7 @@ register_model_adapter(XdanAdapter)
 register_model_adapter(YiAdapter)
 register_model_adapter(PplxAIAdapter)
 register_model_adapter(DeepseekCoderAdapter)
+register_model_adapter(NvidiaChatAdapter)
 register_model_adapter(DeepseekChatAdapter)
 register_model_adapter(Yuan2Adapter)
 register_model_adapter(MetaMathAdapter)

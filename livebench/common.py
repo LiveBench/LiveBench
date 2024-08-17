@@ -252,16 +252,50 @@ def chat_completion_deepseek(model, conv, temperature, max_tokens, api_dict=None
 
     return output
 
+def chat_completion_nvidia(model, conv, temperature, max_tokens, api_dict=None):
+    if api_dict is not None and "api_key" in api_dict:
+        api_key = api_dict["api_key"]
+    else:
+        api_key = os.environ["NVIDIA_API_KEY"]
+    output = API_ERROR_OUTPUT
+    for _ in range(API_MAX_RETRY):
+        try:
+            print('sleeping for 2 sec')
+            time.sleep(2)
+            if "nvidia/" in model:
+                full_model_name = model
+            else:
+                full_model_name = "nvidia/" + model
+
+            from openai import OpenAI
+            client = OpenAI(api_key=api_key, base_url="https://integrate.api.nvidia.com/v1")
+            messages = conv.to_openai_api_messages()
+            response = client.chat.completions.create(
+                model=full_model_name,
+                messages=messages,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                n=1,
+                stream=False
+            )
+            output = response.choices[0].message.content
+            break
+        except Exception as e:
+            print(type(e), e)
+            time.sleep(API_RETRY_SLEEP)
+
+    return output
+
 def chat_completion_vertex(model, conv, temperature, max_tokens, api_dict=None, project_name="DEFAULT"):
     output = API_ERROR_OUTPUT
     for _ in range(API_MAX_RETRY):
         try:
             import vertexai
             from vertexai.preview.generative_models import GenerativeModel, Image
-            print('sleeping for 10 sec')
-            time.sleep(10)
+            print('sleeping for 5 sec')
+            time.sleep(5)
             vertexai.init(project=project_name, location="us-central1")
-            generative_multimodal_model = GenerativeModel("gemini-1.5-pro-preview-0409")
+            generative_multimodal_model = GenerativeModel(model)
             prompt = conv.messages[0][1]
             prompt = [text for role, text in conv.messages if role == "user"][0]
             response = generative_multimodal_model.generate_content([prompt])
@@ -269,8 +303,8 @@ def chat_completion_vertex(model, conv, temperature, max_tokens, api_dict=None, 
             break
         except Exception as e:
             print(e)
-            print('sleeping for 10 sec')
-            time.sleep(10)
+            print('sleeping for 5 sec')
+            time.sleep(5)
 
     return output.strip()
 

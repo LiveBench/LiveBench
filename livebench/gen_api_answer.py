@@ -29,6 +29,7 @@ from livebench.common import (
     chat_completion_cohere,
     chat_completion_deepseek,
     chat_completion_together,
+    chat_completion_nvidia,
     LIVE_BENCH_DATA_SUPER_PATH,
 )
 from livebench.model.model_adapter import (
@@ -40,6 +41,7 @@ from livebench.model.model_adapter import (
     COHERE_MODEL_LIST, 
     DEEPSEEK_MODEL_LIST,
     TOGETHER_MODEL_LIST,
+    NVIDIA_MODEL_LIST,
 )
 
 def get_answer(
@@ -85,6 +87,8 @@ def get_answer(
                 output = chat_completion_deepseek(model, conv, temperature, max_tokens)         
             elif model in TOGETHER_MODEL_LIST:
                 output = chat_completion_together(model, conv, temperature, max_tokens)        
+            elif model in NVIDIA_MODEL_LIST:
+                output = chat_completion_nvidia(model, conv, temperature, max_tokens)     
             else:
                 output = chat_completion_openai(model, conv, temperature, max_tokens)
 
