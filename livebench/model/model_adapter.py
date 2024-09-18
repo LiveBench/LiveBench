@@ -83,6 +83,13 @@ OPENAI_MODEL_LIST = (
     "chatgpt-4o-latest",
 )
 
+INFERENCE_OPENAI_MODEL_LIST = (
+    "o1-mini-2024-09-12",
+    "o1-mini",
+    "o1-preview",
+    "o1-preview-2024-09-12",
+)
+
 TOGETHER_MODEL_LIST = (
     "Meta-Llama-3.1-405B-Instruct-Turbo",
     "Meta-Llama-3.1-70B-Instruct-Turbo",
@@ -94,7 +101,10 @@ GOOGLE_GENERATIVEAI_MODEL_LIST = (
     "gemini-1.5-flash-latest",
     "gemini-1.5-pro-001",
     "gemini-1.5-flash-001",
-    "gemini-1.5-pro-exp-0801"
+    "gemini-1.5-pro-exp-0801",
+    "gemini-1.5-pro-exp-0827",
+    "gemini-1.5-flash-exp-0827",
+    "gemini-1.5-flash-8b-exp-0827",
 )
 
 VERTEX_MODEL_LIST = (
@@ -119,6 +129,8 @@ COHERE_MODEL_LIST = (
     "command-r-plus",
     "command-r",
     "command",
+    "command-r-08-2024",
+    "command-r-plus-08-2024",
 )
 
 DEEPSEEK_MODEL_LIST = (
@@ -1156,7 +1168,7 @@ class ChatGPTAdapter(BaseModelAdapter):
     """The model adapter for ChatGPT"""
 
     def match(self, model_path: str):
-        return model_path in OPENAI_MODEL_LIST
+        return model_path in OPENAI_MODEL_LIST or model_path in INFERENCE_OPENAI_MODEL_LIST
 
     def load_model(self, model_path: str, from_pretrained_kwargs: dict):
         raise NotImplementedError()
@@ -2216,7 +2228,7 @@ class DeepseekChatAdapter(BaseModelAdapter):
     # Note: that this model will require tokenizer version >= 0.13.3 because the tokenizer class is LlamaTokenizerFast
 
     def match(self, model_path: str):
-        return "deepseek-llm" in model_path.lower() and "chat" in model_path.lower()
+        return ("deepseek-llm" in model_path.lower() and "chat" in model_path.lower()) or  "deepseek-chat" in model_path.lower()
 
     def get_default_conv_template(self, model_path: str) -> Conversation:
         return get_conv_template("deepseek-chat")
@@ -2384,6 +2396,15 @@ class GemmaAdapter(BaseModelAdapter):
     def get_default_conv_template(self, model_path: str) -> Conversation:
         return get_conv_template("gemma")
 
+class PhiAdapter(BaseModelAdapter):
+    """The model adapter for microsoft/phi"""
+
+    def match(self, model_path: str):
+        return "phi-3" in model_path.lower()
+
+    def get_default_conv_template(self, model_path: str) -> Conversation:
+        return get_conv_template("phi-3")
+
 
 class CllmAdapter(BaseModelAdapter):
     """The model adapter for CLLM"""
@@ -2525,6 +2546,7 @@ register_model_adapter(GemmaAdapter)
 register_model_adapter(CllmAdapter)
 register_model_adapter(CohereAdapter)
 register_model_adapter(SmaugChatAdapter)
+register_model_adapter(PhiAdapter)
 
 # After all adapters, try the default base adapter.
 register_model_adapter(BaseModelAdapter)
