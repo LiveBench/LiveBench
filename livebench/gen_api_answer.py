@@ -12,6 +12,8 @@ import glob
 import openai
 import shortuuid
 import tqdm
+from livebench.task_messages import TASK_SYSTEM_MESSAGES, DEFAULT_SYSTEM_MESSAGE
+
 
 from livebench.common import (
     reorg_answer_file,
@@ -44,8 +46,9 @@ from livebench.model.model_adapter import (
     NVIDIA_MODEL_LIST,
 )
 
+
 def get_answer(
-    question: dict, model: str, num_choices: int, max_tokens: int, answer_file: str, api_dict: dict=None
+    question: dict, model: str, num_choices: int, max_tokens: int, answer_file: str, api_dict: dict=None, task_name: str=None
 ):
     assert (
         args.force_temperature is not None and "required_temperature" in question.keys()
@@ -57,10 +60,19 @@ def get_answer(
     else:
         temperature = 0.0
 
+    temperature = 0.3
     choices = []
     chat_state = None  # for palm-2 model
     for i in range(num_choices):
         conv = get_conversation_template(model)
+        if (task_name is not None) and (task_name in TASK_SYSTEM_MESSAGES):
+            # system_message = TASK_SYSTEM_MESSAGES.get(task_name, DEFAULT_SYSTEM_MESSAGE)
+            system_message = TASK_SYSTEM_MESSAGES.get(task_name)
+            conv.system_message = system_message
+        else:
+            print("No task name provided. No system message will be used.")
+        if task_name == "AMPS_Hard":
+            temperature = 0.0
 
         turns = []
         for j in range(len(question["turns"])):
@@ -111,7 +123,7 @@ def get_answer(
         fout.write(json.dumps(ans) + "\n")
 
 
-def run_questions(parallel, questions, model, num_choices, max_tokens, answer_file, api_dict):
+def run_questions(parallel, questions, model, num_choices, max_tokens, answer_file, api_dict, task_name=None):
     if parallel == 1:
         for question in tqdm.tqdm(questions):
             get_answer(
@@ -121,6 +133,7 @@ def run_questions(parallel, questions, model, num_choices, max_tokens, answer_fi
                 max_tokens,
                 answer_file,
                 api_dict=api_dict,
+                task_name=task_name,
             )
         if len(questions) > 0:
             reorg_answer_file(answer_file)
@@ -137,6 +150,8 @@ def run_questions(parallel, questions, model, num_choices, max_tokens, answer_fi
                     max_tokens,
                     answer_file,
                     api_dict=api_dict,
+                    task_name=task_name
+                
                 )
                 futures.append(future)      
 
@@ -224,16 +239,28 @@ if __name__ == "__main__":
 
                 print(f"Questions from {task_full_name}")
                 print(f"Output to {answer_file}")
-
-                run_questions(
-                    parallel=args.parallel,
-                    questions=questions, 
-                    model=args.model, 
-                    num_choices=args.num_choices,
-                    max_tokens=args.max_tokens, 
-                    answer_file=answer_file, 
-                    api_dict=api_dict
-                )
+                if task_name == "AMPS_Hard":
+                    run_questions(
+                        parallel=args.parallel,
+                        questions=questions, 
+                        model=args.model, 
+                        num_choices=args.num_choices,
+                        max_tokens=args.max_tokens, 
+                        answer_file=answer_file, 
+                        api_dict=api_dict,
+                        task_name=None
+                    )
+                else:
+                    run_questions(
+                        parallel=args.parallel,
+                        questions=questions, 
+                        model=args.model, 
+                        num_choices=args.num_choices,
+                        max_tokens=args.max_tokens, 
+                        answer_file=answer_file, 
+                        api_dict=api_dict,
+                        task_name=task_name
+                    )
 
     elif args.question_source == "jsonl":
         list_of_question_files = []

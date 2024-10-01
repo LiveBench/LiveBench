@@ -1,10 +1,9 @@
 # adapted from https://github.com/EleutherAI/lm-evaluation-harness/blob/main/lm_eval/tasks/minerva_math/utils.py
-
-
 import re
 import signal
 from typing import Dict, List, Optional
-
+import warnings
+import os
 import warnings
 
 try:
@@ -83,16 +82,25 @@ class timeout:
     def __init__(self, seconds=1, error_message="Timeout"):
         self.seconds = seconds
         self.error_message = error_message
+        self.is_windows = os.name == 'nt'
 
     def handle_timeout(self, signum, frame):
         raise TimeoutError(self.error_message)
 
     def __enter__(self):
-        signal.signal(signal.SIGALRM, self.handle_timeout)
-        signal.alarm(self.seconds)
+        if self.is_windows:
+            import threading
+            self.timer = threading.Timer(self.seconds, self.handle_timeout, args=(None, None))
+            self.timer.start()
+        else:
+            signal.signal(signal.SIGALRM, self.handle_timeout)
+            signal.alarm(self.seconds)
 
     def __exit__(self, type, value, traceback):
-        signal.alarm(0)
+        if self.is_windows:
+            self.timer.cancel()
+        else:
+            signal.alarm(0)
 
 
 def is_equiv(x1: str, x2: str) -> bool:
