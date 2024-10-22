@@ -27,6 +27,22 @@ def mathcontest_process_results(ground_truth: str, llm_answer: str, question_tex
         length_to_check = 20 + len(value)
         if value in llm_answer[-length_to_check:]:
             score = 1
+
+    debug = False
+    if debug:
+        # check if the LLM guessed a letter, even if it was wrong
+        letter_answer = False
+        for letters in ["AAAA", "BBBB", "CCCC", "DDDD", "EEEE", "FFFF"]:
+            if letters in llm_answer:
+                letter_answer = True
+
+        if not letter_answer and score == 0:
+            print("INCORRECT")
+            print("GROUND TRUTH", ground_truth.strip().lower())
+            if last_boxed:
+                print("BOXED:", parsed_answer)
+            print("END OF OUTPUT", llm_answer[-50:])      
+
     return score
 
 
@@ -52,7 +68,10 @@ def aime_process_results(ground_truth: str, llm_answer: str) -> int:
     score = 0
     if ground_truth in llm_answer[-20:]:
         score = 1
-    
+
+    debug = False
+    if score == 0 and debug:
+        print("FAILED", ground_truth, "ANSWER:", llm_answer[-70:])
     return score
 
 
