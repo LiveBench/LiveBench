@@ -16,10 +16,14 @@ from livebench.common import (
 
 def display_result_single(args, update_names=True):
 
-    release_set = set(args.livebench_releases)
-    for r in release_set:
-        if r not in set(['2024-07-26', '2024-06-24']):
-            raise ValueError(f"Bad release {r}.")
+    valid_livebench_releases = set(['2024-07-26', '2024-06-24', '2024-08-31'])
+
+    if args.livebench_release_option not in valid_livebench_releases:
+        raise ValueError(f"Bad release {args.livebench_release_option}.")
+        
+    release_set = set([
+        r for r in valid_livebench_releases if r <= args.livebench_release_option
+    ])
 
     if args.input_file is None:
         input_files = (
@@ -50,6 +54,9 @@ def display_result_single(args, update_names=True):
             questions = load_questions_jsonl(question_file, release_set, None, None)
             questions_all.extend(questions)
 
+    questions_all = [
+        q for q in questions_all if q['livebench_removal_date'] == "" or q['livebench_removal_date'] > args.livebench_release_option
+    ]
 
     question_id_set = set([q['question_id'] for q in questions_all])
     print(len(question_id_set))
@@ -62,15 +69,28 @@ def display_result_single(args, update_names=True):
     df["score"] *= 100
 
     if update_names:
+        # update model names
         df.loc[df['model'] == 'gemini-1.5-pro-latest', 'model'] = 'gemini-1.5-pro-api-0514'
         df.loc[df['model'] == 'gemini-1.5-flash-latest', 'model'] = 'gemini-1.5-flash-api-0514'
         df.loc[df['model'] == 'deepseek-coder', 'model'] = 'deepseek-coder-v2'
-        df.loc[df['model'] == 'deepseek-chat', 'model'] = 'deepseek-chat-v2'
+        df.loc[df['model'] == 'deepseek-chat', 'model'] = 'deepseek-v2.5'
         df.loc[df['model'] == 'acm_rewrite_qwen2-72b-chat', 'model'] = 'smaug-qwen2-72b-instruct'
         df.loc[df['model'] == 'open-mixtral-8x22b', 'model'] = 'mixtral-8x22b-instruct-v0.1'    
         df.loc[df['model'] == 'open-mixtral-8x7b', 'model'] = 'mixtral-8x7b-instruct-v0.1'    
+        df.loc[df['model'] == 'coding-meta-llama-3.1-70b-instruct-chk-50', 'model'] = 'dracarys-llama-3.1-70b-instruct'  
+        df.loc[df['model'] == 'lcb-math-qwen2-72b-instructv3-merged-50', 'model'] = 'dracarys-72b-instruct'  
+        df.loc[df['model'] == 'lcb-math-qwen2-72b-instructv3-chk-50', 'model'] = 'dracarys-72b-instruct'  
+        df.loc[df['model'] == 'chatgpt-4o-latest', 'model'] = 'chatgpt-4o-latest-0903'  
+        df.loc[df['model'] == 'coding2-amcfull-apifull-mmlu12k-meta-llama-3.1-70b-instruct-chk-150', 'model'] = 'dracarys2-llama-3.1-70b-instruct'
+        df.loc[df['model'] == 'codegen3_5k-qwen2.5-72b-instruct-2-chk-50', 'model'] = 'dracarys2-72b-instruct'
+
+        # remove old models
         df = df[df["model"] != "gpt-4-1106-preview"]
         df = df[df["model"] != "gpt-3.5-turbo-1106"]
+        df = df[df["model"] != "qwen2-math-72b-instruct"]
+        df = df[df["model"] != 'dracarys-llama-3.1-70b-instruct']
+        df = df[df["model"] != 'dracarys-72b-instruct']
+        df = df[df["model"] != 'reflection-llama-3.1-70b']
 
     if args.model_list is not None:
         df = df[df["model"].isin([x.lower() for x in args.model_list])]
@@ -81,17 +101,18 @@ def display_result_single(args, update_names=True):
         df_model = df[df["model"] == model]
         
         if len(df_model) < len(questions_all):
-            raise ValueError(f'Invalid result, missing judgments (and possibly completions) for {len(questions_all) - len(df_model)} questions for model {model}.')
+            print('removing model', model, "has missing", len(questions_all) - len(df_model), "judgments")
+            df = df[df["model"] != model]
+            #raise ValueError(f'Invalid result, missing judgments (and possibly completions) for {len(questions_all) - len(df_model)} questions for model {model}.')
 
-
-    print(len(df))
+    df.to_csv('df_raw.csv')
 
     print("\n########## All Tasks ##########")
     df_1 = df[["model", "score", "task"]]
     df_1 = df_1.groupby(["model", "task"]).mean()
     df_1 = pd.pivot_table(df_1, index=['model'], values = "score", columns=["task"], aggfunc="sum")
     df_1 = df_1.round(3)
-    print(df_1.sort_values(by="model"))
+    print(df_1.sort_values(by="model")[:60])
     df_1.to_csv('all_tasks.csv')
 
     print("\n########## All Groups ##########")
@@ -104,7 +125,7 @@ def display_result_single(args, update_names=True):
     df_1.insert(0, 'average', first_col)
     df_1 = df_1.sort_values(by="average", ascending=False)
     df_1 = df_1.round(1)
-    print(df_1)
+    print(df_1[:60])
     df_1.to_csv('all_groups.csv')
 
 
@@ -136,7 +157,7 @@ if __name__ == "__main__":
         "--question-source", type=str, default="huggingface", help="The source of the questions. 'huggingface' will draw questions from huggingface. 'jsonl' will use local jsonl files to permit tweaking or writing custom questions."
     )
     parser.add_argument(
-        "--livebench-releases", type=str, nargs='+', default=['2024-07-26', '2024-06-24'], help="livebench releases to use. Provide a list of options, current options are {'2024-07-26' (july update), '2024-06-24' (original release)}. Providing all of these will run all questions."
+        "--livebench-release-option", type=str, default='2024-08-31', help="Livebench release to use. Provide a single date option, current options are {'2024-08-31' (august update), '2024-07-26' (july update), '2024-06-24' (original release)}. Will handle excluding deprecated questions for selected release."
     )
     args = parser.parse_args()
 

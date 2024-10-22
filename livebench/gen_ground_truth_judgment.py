@@ -78,14 +78,15 @@ def play_a_match_gt(match: MatchSingle, output_file: str):
     score = 0
     category = None
 
-    # todo: find a better solution than a long if statement. 
-    if task_or_subtask.split('_')[0] in ["amc", "smc"]:
+    # todo: find a better solution than a long if statement.
+    splits = task_or_subtask.split('_')
+    if splits[0] in ["amc", "smc"] or (len(splits) > 1 and splits[1] == "amc"):
         score = mathcontest_process_results(ground_truth, llm_answer, question_text)
         category = "math"
-    elif task_or_subtask.split('_')[0] == "aime":
+    elif splits[0] == "aime":
         score = aime_process_results(ground_truth, llm_answer)
         category = "math"
-    elif task_or_subtask.split('_')[0] in ["imo", "usamo"]:
+    elif splits[0] in ["imo", "usamo"]:
         score = proof_rearrangement_process_results(ground_truth, llm_answer, edit_distance=True)
         category = "math"
     elif task_or_subtask == "cta":
@@ -298,14 +299,18 @@ if __name__ == "__main__":
         "--question-source", type=str, default="huggingface", help="The source of the questions. 'huggingface' will draw questions from huggingface. 'jsonl' will use local jsonl files to permit tweaking or writing custom questions."
     )
     parser.add_argument(
-        "--livebench-releases", type=str, nargs='+', default=['2024-07-26', '2024-06-24'], help="livebench releases to use. Provide a list of options, current options are {'2024-07-26' (july update), '2024-06-24' (original release)}. Providing all of these will run all questions."
+        "--livebench-release-option", type=str, default='2024-08-31', help="Livebench release to use. Provide a single date option, current options are {'2024-08-31' (august update), '2024-07-26' (july update), '2024-06-24' (original release)}. Will handle excluding deprecated questions for selected release."
     )
     args = parser.parse_args()
 
-    release_set = set(args.livebench_releases)
-    for r in release_set:
-        if r not in set(['2024-07-26', '2024-06-24']):
-            raise ValueError(f"Bad release {r}.")
+    valid_livebench_releases = set(['2024-07-26', '2024-06-24', '2024-08-31'])
+
+    if args.livebench_release_option not in valid_livebench_releases:
+        raise ValueError(f"Bad release {args.livebench_release_option}.")
+        
+    release_set = set([
+        r for r in valid_livebench_releases if r <= args.livebench_release_option
+    ])
 
     if args.question_source == "huggingface":
         categories, tasks = get_categories_tasks(args.bench_name)
@@ -317,6 +322,9 @@ if __name__ == "__main__":
                     questions = questions[: args.first_n]
                 questions = questions[args.question_begin:args.question_end]
 
+                questions = [
+                    q for q in questions if q['livebench_removal_date'] == "" or q['livebench_removal_date'] > args.livebench_release_option
+                ]
 
 
                 task_full_name = f"{LIVE_BENCH_DATA_SUPER_PATH}/{category_name}/{task_name}"
@@ -350,6 +358,9 @@ if __name__ == "__main__":
                 questions = questions[: args.first_n]
             questions = questions[args.question_begin:args.question_end]
 
+            questions = [
+                q for q in questions if q['livebench_removal_date'] == "" or q['livebench_removal_date'] > args.livebench_release_option
+            ]
 
             bench_name = os.path.dirname(question_file).replace("data/","")
 
