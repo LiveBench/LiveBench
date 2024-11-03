@@ -70,7 +70,7 @@ To generate model answers on LiveBench, run:
 python gen_model_answer.py --model-path /path/to/Mistral-7B-Instruct-v0.2/ --model-id Mistral-7B-Instruct-v0.2 --dtype bfloat16 --bench-name live_bench
 ```
 
-For API-based models, first set the appropriate key and then run the `gen_api_answer.py`. We currently support the following APIs: OpenAI, Anthropic, Mistral, Cohere, and Gemini. The command to run all of LiveBench on an `api_model_name`, run this command:
+For API-based models, first set the appropriate key and then run the `gen_api_answer.py`. We currently support the following APIs: OpenAI, Anthropic, Mistral, Cohere, and Gemini. The command to run all of LiveBench on an `api_model_name`, run this command. Note: In a Windows terminal you'd use `set` instead of `export`:
 ```bash
 export OPENAI_API_KEY=<your_key>
 export ANTHROPIC_API_KEY=<your_key>
