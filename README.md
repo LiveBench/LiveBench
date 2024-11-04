@@ -42,7 +42,7 @@ LiveBench has the following properties:
 
 Tested on Python 3.10
 
-To generate answers with API models (i.e. with gen_api_answer.py), conduct judgments, and show results:
+To generate answers with API models (i.e. with `gen_api_answer.py`), conduct judgments, and show results:
 
 ```bash
 cd LiveBench
@@ -81,7 +81,7 @@ export DEEPSEEK_API_KEY=<your_key>
 python gen_api_answer.py --model <api_model_name> --bench-name live_bench
 ```
 
-To generate model answers with VLLM or other arbitrary APIs matching the OpenAI API format, run:
+To generate model answers with VLLM or other arbitrary APIs matching the OpenAI API format, run (for additional details, see [here](https://github.com/LiveBench/LiveBench/issues/29#issuecomment-2282909975):
 ```bash
 export LIVEBENCH_API_KEY=<your API key if needed. Usually not needed for VLLM>
 python gen_api_answer.py --model <api_model_name> --bench-name live_bench --api-base <your endpoint. Often, for VLLM, this is http://localhost:8000/v1>
@@ -111,16 +111,10 @@ Or, you may want to show results for a specific category or task of LiveBench by
 python show_livebench_result.py --bench-name live_bench/reasoning/web_of_lies_v2
 ```
 
-By default, any of the above scripts will use all livebench questions so far released. None of the livebench questions have yet been officially deprecated/excluded. You can optionally specify the `--livebench-releases` arg to restrict the questions you use to added in specific releases.
+By default, any of the above scripts will use the most recent livebench version (currently `2024-08-31`). You can optionally specify the `--livebench-releases` arg to use an earlier version of livebench (which had some questions not yet added or changed). The current options are `2024-07-26`, `2024-06-24`, `2024-08-31`.
 
-To use all questions:
 ```bash
-python gen_api_answer.py --bench-name live_bench --model gpt-4-turbo --livebench-releases 2024-07-26 2024-06-24
-```
-
-To use only the questions from the July 2024 update:
-```bash
-python gen_api_answer.py --bench-name live_bench --model gpt-4-turbo --livebench-releases 2024-07-26
+python gen_api_answer.py --bench-name live_bench --model gpt-4o-mini-2024-07-18	--livebench-release-option 2024-07-26
 ```
 
 To optionally download `question.jsonl` files (for inspection) and answer/judgment files from the leaderboard, use
@@ -129,7 +123,7 @@ python download_questions.py
 python download_leaderboard.py
 ```
 
-To use `question.jsonl` files instead of huggingface, set `--question-source jsonl` on `gen_api_answer.py`, `gen_model_answer.py`, and `gen_ground_truth_judgment.py`. This is also a useful feature if you want to tweak the question jsonls or experiment with your own questions.
+To use `question.jsonl` files instead of using the questions from huggingface, set `--question-source jsonl` on `gen_api_answer.py`, `gen_model_answer.py`, and `gen_ground_truth_judgment.py`. This is also a useful feature if you want to tweak the question jsonls or experiment with your own questions.
 
 ## Data
 The questions for each of the categories can be found below:
