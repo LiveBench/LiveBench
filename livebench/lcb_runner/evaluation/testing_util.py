@@ -1,8 +1,16 @@
-import ast
-import json
-import sys
-import faulthandler
+import threading
 import platform
+from datetime import datetime
+from io import StringIO
+from unittest.mock import patch, mock_open
+from pyext import RuntimeModule
+from enum import Enum
+import sys
+import json
+import ast
+import faulthandler
+import numpy as np
+
 
 # used for debugging to time steps
 from datetime import datetime
@@ -22,6 +30,32 @@ from pyext import RuntimeModule
 
 from enum import Enum
 
+class TimeoutException(Exception):
+    pass
+
+def timeout_handler_signal(signum=None, frame=None):
+    raise TimeoutException("Time limit exceeded")
+
+def timeout_handler_thread():
+    raise TimeoutException("Time limit exceeded")
+
+class CrossPlatformTimer:
+    def __init__(self, timeout):
+        self.timeout = timeout
+        self.timer = None
+
+    def start(self):
+        self.timer = threading.Timer(self.timeout, timeout_handler_thread)
+        self.timer.start()
+
+    def cancel(self):
+        if self.timer:
+            self.timer.cancel()
+
+# Set up signal handler for Unix-like systems
+if platform.system() != "Windows":
+    signal.signal(signal.SIGALRM, timeout_handler_signal)
+
 
 def truncatefn(s, length=300):
     assert isinstance(s, str)
@@ -35,20 +69,6 @@ class CODE_TYPE(Enum):
     call_based = 0
     standard_input = 1
 
-
-# stuff for setting up signal timer
-class TimeoutException(Exception):
-    pass
-
-
-def timeout_handler(signum, frame):
-    print("alarm went off")
-    # return
-    raise TimeoutException
-
-
-signal.signal(signal.SIGALRM, timeout_handler)
-# timeout = 6  # seconds
 
 
 # used to capture stdout as a list
@@ -87,7 +107,7 @@ def run_test(sample, test=None, debug=False, timeout=6):
     """
     # Disable functionalities that can make destructive changes to the test.
     reliability_guard()
-
+    timer = CrossPlatformTimer(timeout)
     if debug:
         print(f"start = {datetime.now().time()}")
 
@@ -115,21 +135,22 @@ def run_test(sample, test=None, debug=False, timeout=6):
         if debug:
             print(f"loading test code = {datetime.now().time()}")
 
+      
         if which_type == CODE_TYPE.call_based:
-
             sol += test
             if debug:
                 print(f"sol = {sol}")
-            signal.alarm(timeout)
+            
             try:
+                timer.start()
                 tmp_sol = RuntimeModule.from_string("tmp_sol", "", sol)
                 if "class Solution" not in test:
                     tmp = tmp_sol
                 else:
                     tmp = tmp_sol.Solution()
-                signal.alarm(0)
+                timer.cancel()
             except Exception as e:
-                signal.alarm(0)
+                timer.cancel()
                 if debug:
                     print(f"type 0 compilation error = {e}")
                 results.append(-2)
@@ -138,8 +159,8 @@ def run_test(sample, test=None, debug=False, timeout=6):
                     "error_code": -1,
                     "error_message": "Compilation Error",
                 }
-            signal.alarm(0)
-
+            finally:
+                timer.cancel()
         elif which_type == CODE_TYPE.standard_input:
             # sol
             # if code has if __name__ == "__main__": then remove it
@@ -185,13 +206,13 @@ def run_test(sample, test=None, debug=False, timeout=6):
             if debug:
                 print(f"sol = {sol}")
             method_name = "code"
-            signal.alarm(timeout)
+            timer.start()
             try:
                 tmp_sol = RuntimeModule.from_string("tmp_sol", "", sol)
                 tmp = tmp_sol
-                signal.alarm(0)
+                timer.cancel()
             except Exception as e:
-                signal.alarm(0)
+                timer.cancel()
                 if debug:
                     print(f"type 1 compilation error = {e}")
                 results.append(-2)
@@ -200,14 +221,14 @@ def run_test(sample, test=None, debug=False, timeout=6):
                     "error_code": -1,
                     "error_message": "Compilation Error",
                 }
-            signal.alarm(0)
+            timer.cancel()
         if debug:
             print(f"get method = {datetime.now().time()}")
 
         try:
             method = getattr(tmp, method_name)  # get_attr second arg must be str
         except:
-            signal.alarm(0)
+            timer.cancel()
             e = sys.exc_info()
             print(f"unable to get function error = {e}")
             results.append(-2)
@@ -261,7 +282,7 @@ def run_test(sample, test=None, debug=False, timeout=6):
                     f"time: {datetime.now().time()} testing index = {index}  inputs = {inputs}, {type(inputs)}. type = {which_type}"
                 )
             if which_type == CODE_TYPE.call_based:  # Call-based
-                signal.alarm(timeout)
+                timer.start()
                 faulthandler.enable()
                 try:
                     output = method(*inputs)
@@ -302,16 +323,14 @@ def run_test(sample, test=None, debug=False, timeout=6):
                             "error_message": "Wrong Answer",
                         }
                     # reset the alarm
-                    signal.alarm(0)
+                    timer.cancel()
                 except Exception as e:
-                    signal.alarm(0)
+                    timer.cancel()
                     faulthandler.disable()
                     if debug:
-                        print(
-                            f"Standard input runtime error or time limit exceeded error = {e}"
-                        )
+                        print(f"Standard input runtime error or time limit exceeded error = {e}")
                     results.append(-1)
-                    if "timeoutexception" in repr(e).lower():
+                    if isinstance(e, TimeoutException):
                         return results, {
                             "error": repr(e),
                             "error_code": -3,
@@ -327,12 +346,9 @@ def run_test(sample, test=None, debug=False, timeout=6):
                             "inputs": raw_inputs,
                             "expected": raw_outputs,
                         }
-                faulthandler.disable()
-                signal.alarm(0)
-                if debug:
-                    print(
-                        f"outputs = {output}, test outputs = {in_outs['outputs'][index]}, inputs = {inputs}, {type(inputs)}, {output == [in_outs['outputs'][index]]}"
-                    )
+                finally:
+                    faulthandler.disable()
+                    timer.cancel()
             elif which_type == CODE_TYPE.standard_input:  # Standard input
                 faulthandler.enable()
                 passed = False
@@ -342,21 +358,17 @@ def run_test(sample, test=None, debug=False, timeout=6):
                 if isinstance(in_outs["outputs"][index], list):
                     in_outs["outputs"][index] = "\n".join(in_outs["outputs"][index])
 
-                signal.alarm(timeout)
+                timer.start()
                 with Capturing() as output:
                     try:
                         call_method(method, inputs)
-                        # reset the alarm
-                        signal.alarm(0)
+                        timer.cancel()
                         passed = True
                     except Exception as e:
-                        # runtime error or took too long
-                        signal.alarm(0)
-                        print(
-                            f"Call-based runtime error or time limit exceeded error = {repr(e)}{e}"
-                        )
+                        timer.cancel()
+                        print(f"Call-based runtime error or time limit exceeded error = {repr(e)}{e}")
                         results.append(-1)
-                        if "timeoutexception" in repr(e).lower():
+                        if isinstance(e, TimeoutException):
                             return results, {
                                 "error": repr(e),
                                 "error_code": -3,
@@ -372,7 +384,8 @@ def run_test(sample, test=None, debug=False, timeout=6):
                                 "inputs": raw_inputs,
                                 "expected": raw_outputs,
                             }
-                    signal.alarm(0)
+                    timer.cancel()
+
                 raw_true_output = output[0]
                 raw_true_output_copy = truncatefn(raw_true_output, 200)
                 output = raw_true_output.splitlines()
