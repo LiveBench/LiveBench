@@ -32,6 +32,9 @@ def amps_hard_process_results(ground_truth: str, llm_answer: str) -> int:
         if is_equiv(ground_truth, parsed_answer):
             retval = 1
 
+    debug = False
+    if retval == 0 and debug:
+        print("FAILED", ground_truth, "OUTPUT", llm_answer[-70:], "\n")
     return retval
 
 

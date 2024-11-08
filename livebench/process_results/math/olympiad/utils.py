@@ -32,7 +32,7 @@ def extract_expression_completions_from_generation(generation):
     new_numbers = []
     for i, n in enumerate(numbers):
         n, num_removed = remove_nonnumeric_chars_at_ends(n)
-        if n != '':
+        if n != '' and n != "₂":
             new_numbers.append(int(n))
         if (i > 0) and (num_removed > 0):
             break

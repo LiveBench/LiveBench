@@ -105,6 +105,8 @@ GOOGLE_GENERATIVEAI_MODEL_LIST = (
     "gemini-1.5-pro-exp-0827",
     "gemini-1.5-flash-exp-0827",
     "gemini-1.5-flash-8b-exp-0827",
+    "gemini-1.5-pro-002", 
+    "gemini-1.5-flash-002",
 )
 
 VERTEX_MODEL_LIST = (
@@ -140,6 +142,12 @@ DEEPSEEK_MODEL_LIST = (
 
 NVIDIA_MODEL_LIST = (
     "nemotron-4-340b-instruct",
+    "llama-3.1-nemotron-70b-instruct",
+)
+
+OPENROUTER_MODEL_LIST = (
+    "grok-2",
+    "grok-2-mini",
 )
 
 class BaseModelAdapter:
@@ -1168,7 +1176,7 @@ class ChatGPTAdapter(BaseModelAdapter):
     """The model adapter for ChatGPT"""
 
     def match(self, model_path: str):
-        return model_path in OPENAI_MODEL_LIST or model_path in INFERENCE_OPENAI_MODEL_LIST
+        return model_path in OPENAI_MODEL_LIST or model_path in INFERENCE_OPENAI_MODEL_LIST or model_path in OPENROUTER_MODEL_LIST
 
     def load_model(self, model_path: str, from_pretrained_kwargs: dict):
         raise NotImplementedError()

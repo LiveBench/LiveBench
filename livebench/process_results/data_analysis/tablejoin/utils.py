@@ -7,6 +7,8 @@ import ast
 def clean_llm_output(s):
     matches = re.findall('%s(.*)%s' % ("```python", "```"), s.replace("\n",""),re.MULTILINE)
     if len(matches) == 0:
+        matches = re.findall('%s(.*)%s' % ("```", "```"), s.replace("\n",""),re.MULTILINE)
+    if len(matches) == 0:
         matches = [s]
     try:
         match_d = literal_eval(matches[-1])

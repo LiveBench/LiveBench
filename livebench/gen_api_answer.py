@@ -30,6 +30,8 @@ from livebench.common import (
     chat_completion_deepseek,
     chat_completion_together,
     chat_completion_nvidia,
+    chat_completion_inference_openai,
+    chat_completion_openrouter,
     LIVE_BENCH_DATA_SUPER_PATH,
 )
 from livebench.model.model_adapter import (
@@ -42,6 +44,8 @@ from livebench.model.model_adapter import (
     DEEPSEEK_MODEL_LIST,
     TOGETHER_MODEL_LIST,
     NVIDIA_MODEL_LIST,
+    INFERENCE_OPENAI_MODEL_LIST,
+    OPENROUTER_MODEL_LIST,
 )
 
 def get_answer(
@@ -84,11 +88,15 @@ def get_answer(
             elif model in COHERE_MODEL_LIST:
                 output = chat_completion_cohere(model, conv, temperature, max_tokens)
             elif model in DEEPSEEK_MODEL_LIST:
-                output = chat_completion_deepseek(model, conv, temperature, max_tokens)         
+                output = chat_completion_deepseek(model, conv, temperature, max_tokens)
             elif model in TOGETHER_MODEL_LIST:
-                output = chat_completion_together(model, conv, temperature, max_tokens)        
+                output = chat_completion_together(model, conv, temperature, max_tokens)
             elif model in NVIDIA_MODEL_LIST:
-                output = chat_completion_nvidia(model, conv, temperature, max_tokens)     
+                output = chat_completion_nvidia(model, conv, temperature, max_tokens)
+            elif model in INFERENCE_OPENAI_MODEL_LIST:
+                output = chat_completion_inference_openai(model, conv, temperature, max_tokens)
+            elif model in OPENROUTER_MODEL_LIST:
+                output = chat_completion_openrouter(model, conv, temperature, max_tokens)
             else:
                 output = chat_completion_openai(model, conv, temperature, max_tokens)
 
@@ -193,14 +201,18 @@ if __name__ == "__main__":
         "--question-source", type=str, default="huggingface", help="The source of the questions. 'huggingface' will draw questions from huggingface. 'jsonl' will use local jsonl files to permit tweaking or writing custom questions."
     )
     parser.add_argument(
-        "--livebench-releases", type=str, nargs='+', default=['2024-07-26', '2024-06-24'], help="livebench releases to use. Provide a list of options, current options are {'2024-07-26' (july update), '2024-06-24' (original release)}. Providing all of these will run all questions."
+        "--livebench-release-option", type=str, default='2024-08-31', help="Livebench release to use. Provide a single date option, current options are {'2024-08-31' (august update), '2024-07-26' (july update), '2024-06-24' (original release)}. Will handle excluding deprecated questions for selected release."
     )
     args = parser.parse_args()
 
-    release_set = set(args.livebench_releases)
-    for r in release_set:
-        if r not in set(['2024-07-26', '2024-06-24']):
-            raise ValueError(f"Bad release {r}.")
+    valid_livebench_releases = set(['2024-07-26', '2024-06-24', '2024-08-31'])
+
+    if args.livebench_release_option not in valid_livebench_releases:
+        raise ValueError(f"Bad release {args.livebench_release_option}.")
+        
+    release_set = set([
+        r for r in valid_livebench_releases if r <= args.livebench_release_option
+    ])
 
     if args.api_base is not None:
         api_key = os.environ.get("LIVEBENCH_API_KEY", "EMPTY")
@@ -218,6 +230,10 @@ if __name__ == "__main__":
         for category_name, task_names in tasks.items():
             for task_name in task_names:
                 questions = load_questions(categories[category_name], release_set, task_name, args.question_begin, args.question_end)
+
+                questions = [
+                    q for q in questions if q['livebench_removal_date'] == "" or q['livebench_removal_date'] > args.livebench_release_option
+                ]
 
                 task_full_name = f"{LIVE_BENCH_DATA_SUPER_PATH}/{category_name}/{task_name}"
                 answer_file = f"data/{task_full_name}/model_answer/{args.model}.jsonl"
@@ -246,6 +262,11 @@ if __name__ == "__main__":
         for question_file in list_of_question_files:
             print(question_file)
             questions = load_questions_jsonl(question_file, release_set, args.question_begin, args.question_end)
+
+            questions = [
+                q for q in questions if q['livebench_removal_date'] == "" or q['livebench_removal_date'] > args.livebench_release_option
+            ]
+
             bench_name = os.path.dirname(question_file).replace("data/","")
             answer_file = f"data/{bench_name}/model_answer/{args.model}.jsonl"
 

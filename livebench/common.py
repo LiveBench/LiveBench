@@ -17,7 +17,7 @@ import openai
 import anthropic
 
 # API setting constants
-API_MAX_RETRY = 16
+API_MAX_RETRY = 12
 API_RETRY_SLEEP = 10
 API_ERROR_OUTPUT = "$ERROR$"
 
@@ -123,6 +123,8 @@ def load_questions(category: Dataset, livebench_releases: set, task_name: Option
     for q in questions:
         if 'livebench_release_date' in q.keys() and isinstance(q['livebench_release_date'], datetime):
             q['livebench_release_date'] = datetime.strftime(q['livebench_release_date'], '%Y-%m-%d')
+        if 'livebench_removal_date' in q.keys() and isinstance(q['livebench_removal_date'], datetime):
+            q['livebench_removal_date'] = datetime.strftime(q['livebench_removal_date'], '%Y-%m-%d')
         if 'release_date' in q.keys() and isinstance(q['release_date'], datetime):
             q['release_date'] = datetime.strftime(q['release_date'], '%Y-%m-%d')
         if 'original_json' in q.keys() and 'contest_date' in q['original_json'].keys() and isinstance(q['original_json']['contest_date'], datetime):
@@ -223,6 +225,35 @@ def chat_completion_openai(model, conv, temperature, max_tokens, api_dict=None):
 
     return output
 
+
+def chat_completion_inference_openai(model, conv, temperature, max_tokens, api_dict=None):
+    if api_dict is not None:
+        openai.api_base = api_dict["api_base"]
+        openai.api_key = api_dict["api_key"]
+    output = API_ERROR_OUTPUT
+
+    from openai import OpenAI
+    client = OpenAI()
+
+    for _ in range(API_MAX_RETRY):
+        try:
+            messages = conv.to_openai_api_messages()
+            messages = messages[1:]
+            response = client.chat.completions.create(
+                model=model,
+                messages=messages,
+                n=1,
+                #temperature=temperature,
+                #max_tokens=max_tokens,
+            )
+            output = response.choices[0].message.content
+            break
+        except Exception as e:
+            print(type(e), e)
+            time.sleep(API_RETRY_SLEEP)
+
+    return output
+
 def chat_completion_deepseek(model, conv, temperature, max_tokens, api_dict=None):
     if api_dict is not None and "api_key" in api_dict:
         api_key = api_dict["api_key"]
@@ -270,6 +301,40 @@ def chat_completion_nvidia(model, conv, temperature, max_tokens, api_dict=None):
             from openai import OpenAI
             client = OpenAI(api_key=api_key, base_url="https://integrate.api.nvidia.com/v1")
             messages = conv.to_openai_api_messages()
+            response = client.chat.completions.create(
+                model=full_model_name,
+                messages=messages,
+                temperature=0.5,
+                max_tokens=max_tokens,
+                top_p=1,
+                stream=False
+            )
+            output = response.choices[0].message.content
+            break
+        except Exception as e:
+            print(type(e), e)
+            time.sleep(API_RETRY_SLEEP)
+
+    return output
+
+def chat_completion_openrouter(model, conv, temperature, max_tokens, api_dict=None):
+    if api_dict is not None and "api_key" in api_dict:
+        api_key = api_dict["api_key"]
+    else:
+        api_key = os.environ["OPENROUTER_API_KEY"]
+    output = API_ERROR_OUTPUT
+    for _ in range(API_MAX_RETRY):
+        try:
+            print('sleeping for 2 sec')
+            time.sleep(2)
+            if "grok" in model:
+                full_model_name = "x-ai/" + model
+
+
+            from openai import OpenAI
+            client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=api_key)
+            messages = conv.to_openai_api_messages()
+
             response = client.chat.completions.create(
                 model=full_model_name,
                 messages=messages,

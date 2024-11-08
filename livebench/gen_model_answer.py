@@ -259,14 +259,18 @@ if __name__ == "__main__":
         "--question-source", type=str, default="huggingface", help="The source of the questions. 'huggingface' will draw questions from huggingface. 'jsonl' will use local jsonl files to permit tweaking or writing custom questions."
     )
     parser.add_argument(
-        "--livebench-releases", type=str, nargs='+', default=['2024-07-26', '2024-06-24'], help="livebench releases to use. Provide a list of options, current options are {'2024-07-26' (july update), '2024-06-24' (original release)}. Providing all of these will run all questions."
+        "--livebench-release-option", type=str, default='2024-08-31', help="Livebench release to use. Provide a single date option, current options are {'2024-08-31' (august update), '2024-07-26' (july update), '2024-06-24' (original release)}. Will handle excluding deprecated questions for selected release."
     )
     args = parser.parse_args()
 
-    release_set = set(args.livebench_releases)
-    for r in release_set:
-        if r not in set(['2024-07-26', '2024-06-24']):
-            raise ValueError(f"Bad release {r}.")
+    valid_livebench_releases = set(['2024-07-26', '2024-06-24', '2024-08-31'])
+
+    if args.livebench_release_option not in valid_livebench_releases:
+        raise ValueError(f"Bad release {args.livebench_release_option}.")
+        
+    release_set = set([
+        r for r in valid_livebench_releases if r <= args.livebench_release_option
+    ])
 
     if args.num_gpus_total // args.num_gpus_per_model > 1:
         import ray
@@ -322,6 +326,10 @@ if __name__ == "__main__":
 
     else:
         raise ValueError(f"Bad question source {args.question_source}.")
+
+    questions_all = [
+        q for q in questions_all if q[0]['livebench_removal_date'] == "" or q[0]['livebench_removal_date'] > args.livebench_release_option
+    ]
 
     run_eval(
         model_path=args.model_path,
