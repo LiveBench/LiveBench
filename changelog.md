@@ -7,6 +7,7 @@ This update focused on refreshing questions to check for contamination and incre
  - Refreshed Connections task with new puzzles from NYT
  - Updated Connections generation to more frequently ask for more groups
  - Regenerated Zebra Puzzles, skewing towards larger board sizes and more complex constraints
+ - Updated Connections and Zebra Puzzles questions to require answers to be in `<solution><\solution>` tags rather than bolded
 
 ### 2024-08-31
 
