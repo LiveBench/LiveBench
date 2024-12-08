@@ -8,9 +8,9 @@
     <a href="https://livebench.ai/livebench.pdf">📝 Paper</a> 
 </p>
 
-Top models as of 30th September 2024 (see the full leaderboard [here](https://livebench.ai/)):
+Top models as of December 1st, 2024 (see the full and up-to-date leaderboard [here](https://livebench.ai/)):
 
-![image](assets/livebench-2024-09-30.png)
+![image](assets/livebench-2024-12-01.png)
 
 Please see the [changelog](https://github.com/LiveBench/LiveBench/blob/main/changelog.md) for details about each LiveBench update.
 
