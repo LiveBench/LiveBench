@@ -11,7 +11,10 @@ This update focused on refreshing questions to check for contamination and incre
 
 ### 2024-08-31
 
-This update made no changes to the tasks themselves; instead, it focused on refreshing question sources. A portion of the questions for AMPS_Hard, math_comp, and olympiad were replaced with more recent questions from the respective math competitions.
+This update focused on refreshing question sources for all three math tasks. 
+ - A portion of the questions for AMPS_Hard were updated, to increase the difficulty, add new types of questions, and to remove previous ambiguity in the questions.
+ - All olympiad questions were fully updated to use IMO 2024 and USAMO 2024 questions as the source, replacing the IMO/USAMO 2023 questions. These questions were also made harder.
+ - All 50 AMC 2023 problems were updated to rearrange the multiple choice answer order, and to update the prose and proper nouns in the questions.
 
 ### 2024-07-26
 
@@ -22,12 +25,13 @@ This update included new questions for the coding completion and LCB generation 
  > Suppose I have three solid spheres of radius 5 resting on a plane. Each sphere is tangent to the other two spheres. Now I add a fourth solid sphere of radius 6 in such a way that maximizes the number of tangent points among all pairs of spheres. If I consider a new shape whose vertices are exactly the centers of the four spheres, what is this new shape? Is it a square, tetrahedron, circle, triangle, rectangle, sphere, rhombus, or rectangular pyramid? Think step by step, and then put your answer in **bold** as a single phrase (for example, **sphere**). If you don't know, guess.
 
 We found this task to be very difficult for LLMs and a good indicator of reasoning capabilities.
-
-### 2024-06-31
-
-Removed house traversal task.
+This brought the total number of questions to 1000, and all future updates add and remove the same number, to stay at 1000 total questions.
 
 ### 2024-06-24
+
+Removed house traversal task. We discovered ambiguity in the parsing of the answers, and upon fixing it, some models achieved 100% on the task. This made it unsuitable for LiveBench, which aims to only include tasks that are very challenging for even the current best LLMs.
+
+### 2024-06-12
 
 Introducing **LiveBench**: a benchmark for LLMs designed with test set contamination and objective evaluation in mind
 
