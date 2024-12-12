@@ -20,4 +20,4 @@ for category_name, task_names in tqdm(tasks.items()):
 
     os.makedirs(category_path, exist_ok=True)
     with open(question_file_path, 'w') as f:
-        f.writelines([json.dumps(example, default=str) for example in questions])
+        f.writelines([json.dumps(example, default=str) + '\n' for example in questions])
