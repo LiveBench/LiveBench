@@ -15,10 +15,9 @@ import torch
 from tqdm import tqdm
 
 from livebench.common import (
+    LIVE_BENCH_RELEASES,
     reorg_answer_file,
     get_categories_tasks,
-    get_hf_dataset,
-    get_tasks_from_hf_category,
     load_questions,
     load_questions_jsonl,
     LIVE_BENCH_DATA_SUPER_PATH,
@@ -28,17 +27,34 @@ from fastchat.utils import str_to_torch_dtype
 
 
 def run_eval(
-    model_path,
-    model_id,
-    questions,
-    max_new_token,
-    num_choices,
-    num_gpus_per_model,
-    num_gpus_total,
-    max_gpu_memory,
-    dtype,
-    revision,
+    model_path: str,
+    model_id: str,
+    questions: list[tuple[dict, str]],
+    max_new_token: int,
+    num_choices: int,
+    num_gpus_per_model: int,
+    num_gpus_total: int,
+    max_gpu_memory: str,
+    dtype: str,
+    revision: str,
 ):
+    """
+    Perform inference on the given questions using the model weights at model_path.
+    The answer to question i (given by questions[i][0]) will be output to the file questions[i][1]
+    Depending on the number of available GPUs, uses Ray to parallelize operations.
+
+    Args:
+        model_path: The path to model weights, either as a local path or a HuggingFace repo ID
+        model_id: A custom name for the model
+        questions: A list of (question, answer_file) pairs
+        max_new_token: The maximum number of generated tokens
+        num_choices: The number of completion choices to generate for each question
+        num_gpus_per_model: The number of GPUs that can be allocated to the model
+        num_gpus_total: The total number of available GPUs
+        max_gpu_memory: Maximum GPU memory available for model weights per GPU
+        dtype: The data type for vectors/weights; defaults to float16 on GPU and float32 on CPU
+        revision: The model revision to load
+    """
     random.shuffle(questions)
 
     # Split the question file into `num_gpus` files
@@ -108,7 +124,7 @@ def get_model_answers(
             for j in range(len(question["turns"])):
                 qs = question["turns"][j]
                 conv.append_message(conv.roles[0], qs)
-                conv.append_message(conv.roles[1], None)
+                conv.append_message(conv.roles[1], None)  # placeholder for model response
                 prompt = conv.get_prompt()
                 input_ids = tokenizer([prompt]).input_ids
 
@@ -126,12 +142,12 @@ def get_model_answers(
                         do_sample=do_sample,
                         temperature=temperature,
                         max_new_tokens=max_new_token,
-                        streamer=TextStreamer(tokenizer)
+                        #streamer=TextStreamer(tokenizer)
                     )
                     if model.config.is_encoder_decoder:
                         output_ids = output_ids[0]
                     else:
-                        output_ids = output_ids[0][len(input_ids[0]) :]
+                        output_ids = output_ids[0][len(input_ids[0]):]
 
                     # be consistent with the template's stop_token_ids
                     if conv.stop_token_ids:
@@ -141,6 +157,7 @@ def get_model_answers(
                             if id in conv.stop_token_ids
                         ]
                         if len(stop_token_ids_index) > 0:
+                            # truncate response at first found stop token
                             output_ids = output_ids[: stop_token_ids_index[0]]
 
                     output = tokenizer.decode(
@@ -156,11 +173,14 @@ def get_model_answers(
                             ]
                         )
                         if len(stop_str_indices) > 0:
+                            # truncate response at first found stop string
                             output = output[: stop_str_indices[0]]
                     elif conv.stop_str and output.find(conv.stop_str) > 0:
+                        # truncate response at stop string
                         output = output[: output.find(conv.stop_str)]
 
                     for special_token in tokenizer.special_tokens_map.values():
+                        # remove special token(s)
                         if isinstance(special_token, list):
                             for special_tok in special_token:
                                 output = output.replace(special_tok, "")
@@ -192,7 +212,7 @@ def get_model_answers(
             fout.write(json.dumps(ans_json) + "\n")
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description="Generate benchmark question answers using a model on HuggingFace repo or with locally-stored weights")
     parser.add_argument(
         "--model-path",
         type=str,
@@ -206,7 +226,7 @@ if __name__ == "__main__":
         "--bench-name",
         type=str,
         default="live_bench",
-        help="The name of the benchmark question set.",
+        help="The name of the benchmark question set. Defaults to 'live_bench', or all tasks in the benchmark. Specify e.g. live_bench/reasoning/web_of_lies_v2 to generate only for that task.",
     )
     parser.add_argument(
         "--question-begin",
@@ -256,20 +276,22 @@ if __name__ == "__main__":
         help="The model revision to load.",
     )
     parser.add_argument(
-        "--question-source", type=str, default="huggingface", help="The source of the questions. 'huggingface' will draw questions from huggingface. 'jsonl' will use local jsonl files to permit tweaking or writing custom questions."
+        "--question-source", type=str, default="huggingface", help="The source of the questions. 'huggingface' will draw questions from huggingface. 'jsonl' will gather local jsonl files at data/{bench_name}/**/question.jsonl to permit tweaking or writing custom questions."
     )
     parser.add_argument(
-        "--livebench-release-option", type=str, default='2024-08-31', help="Livebench release to use. Provide a single date option, current options are {'2024-08-31' (august update), '2024-07-26' (july update), '2024-06-24' (original release)}. Will handle excluding deprecated questions for selected release."
+        "--livebench-release-option", 
+        type=str, 
+        default=max(LIVE_BENCH_RELEASES),
+        choices=sorted(LIVE_BENCH_RELEASES),
+        help="Livebench release to use. Provide a single date option. Will handle excluding deprecated questions for selected release."
     )
     args = parser.parse_args()
 
-    valid_livebench_releases = set(['2024-07-26', '2024-06-24', '2024-08-31'])
-
-    if args.livebench_release_option not in valid_livebench_releases:
+    if args.livebench_release_option not in LIVE_BENCH_RELEASES:
         raise ValueError(f"Bad release {args.livebench_release_option}.")
         
     release_set = set([
-        r for r in valid_livebench_releases if r <= args.livebench_release_option
+        r for r in LIVE_BENCH_RELEASES if r <= args.livebench_release_option
     ])
 
     if args.num_gpus_total // args.num_gpus_per_model > 1:
@@ -285,7 +307,7 @@ if __name__ == "__main__":
 
         for category_name, task_names in tasks.items():
             for task_name in task_names:
-                questions = load_questions(categories[category_name], release_set, task_name, args.question_begin, args.question_end)
+                questions = load_questions(categories[category_name], release_set, task_name)
 
                 task_full_name = f"{LIVE_BENCH_DATA_SUPER_PATH}/{category_name}/{task_name}"
                 answer_file = f"data/{task_full_name}/model_answer/{args.model_id}.jsonl"
@@ -303,13 +325,15 @@ if __name__ == "__main__":
         list_of_question_files = []
         original_question_file = f"data/{args.bench_name}/question.jsonl"
         if os.path.exists(original_question_file):
+            # if one specific file for bench_name exists, use it (e.g. if bench_name = live_bench/math/AMPS_Hard)
             list_of_question_files = [original_question_file]
         else:
+            # gather all question files for bench_name (e.g. if bench_name = live_bench/math)
             list_of_question_files = glob.glob(f"data/{args.bench_name}/**/question.jsonl", recursive=True)
 
         for question_file in list_of_question_files:
             print(question_file)
-            questions = load_questions_jsonl(question_file, release_set, args.question_begin, args.question_end)
+            questions = load_questions_jsonl(question_file, release_set)
 
             bench_name = os.path.dirname(question_file).replace("data/","")
             answer_file = f"data/{bench_name}/model_answer/{args.model_id}.jsonl"
@@ -326,10 +350,8 @@ if __name__ == "__main__":
 
     else:
         raise ValueError(f"Bad question source {args.question_source}.")
-
-    questions_all = [
-        q for q in questions_all if q[0]['livebench_removal_date'] == "" or q[0]['livebench_removal_date'] > args.livebench_release_option
-    ]
+    
+    questions_all = questions_all[args.question_begin:args.question_end]
 
     run_eval(
         model_path=args.model_path,

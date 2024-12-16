@@ -1,7 +1,7 @@
 import re
-from typing import Optional
+from livebench.process_results.util import last_boxed_only_string, remove_boxed
 
-def spatial_process_results(ground_truth: str, llm_answer: str) -> int:
+def spatial_process_results(ground_truth: str, llm_answer: str, debug=False) -> int:
 
     word_to_number = {
         'zero': '0', 'one': '1', 'two': '2', 'three': '3', 'four': '4', 'five': '5',
@@ -42,56 +42,14 @@ def spatial_process_results(ground_truth: str, llm_answer: str) -> int:
             if parsed_answer == ground_truth:
                 score = 1
 
-    debug = False
     if debug and score == 0:
         print("INCORRECT")
         print("GROUND TRUTH", ground_truth.strip().lower())
         if bold_words:
             print("BOLD WORDS:", bold_words[-1].strip().lower())
+        if last_boxed:
+            print("LAST BOXED", last_boxed)
+            print("PARSED ANSWER", parsed_answer)
         print("END OF OUTPUT", llm_answer[-50:])        
 
     return score
-
-
-def last_boxed_only_string(string: str) -> Optional[str]:
-    idx = string.rfind("\\boxed")
-    if "\\boxed " in string:
-        return "\\boxed " + string.split("\\boxed ")[-1].split("$")[0]
-    if idx < 0:
-        idx = string.rfind("\\fbox")
-        if idx < 0:
-            return None
-
-    i = idx
-    right_brace_idx = None
-    num_left_braces_open = 0
-    while i < len(string):
-        if string[i] == "{":
-            num_left_braces_open += 1
-        if string[i] == "}":
-            num_left_braces_open -= 1
-            if num_left_braces_open == 0:
-                right_brace_idx = i
-                break
-        i += 1
-
-    if right_brace_idx is None:
-        retval = None
-    else:
-        retval = string[idx : right_brace_idx + 1].replace("$", "").replace("fbox","boxed")
-
-    return retval
-
-
-def remove_boxed(s: str) -> str:
-    if "\\boxed " in s:
-        left = "\\boxed "
-        assert s[: len(left)] == left
-        return s[len(left) :]
-
-    left = "\\boxed{"
-
-    assert s[: len(left)] == left
-    assert s[-1] == "}"
-
-    return s[len(left) : -1]

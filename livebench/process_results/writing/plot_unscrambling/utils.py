@@ -34,12 +34,12 @@ def extract_plot_summary(text: str) -> str:
     return match.group(1) if match else text
 
 
-def plot_unscrambling_process_results(ground_truth: str, llm_answer: str) -> float:
+def plot_unscrambling_process_results(ground_truth: str, llm_answer: str, debug=False) -> float:
     # Split the ground truth and answer into sentences based on full stops
     llm_answer = extract_plot_summary(llm_answer)
 
     gt_sentences = [s.strip() for s in ground_truth.split('.')]
-    ans_sentences = [s.strip() for s in llm_answer.split('.')]
+    ans_sentences = [s.strip() for s in llm_answer.split('.') if s.strip() != '</PLOT_SUMMARY>' and s.strip() != '**End of Plot Summary**']
 
     # Remove empty sentences resulting from trailing or double full stops.
     gt_sentences = [s for s in gt_sentences if s]
@@ -55,4 +55,9 @@ def plot_unscrambling_process_results(ground_truth: str, llm_answer: str) -> flo
     raw_distance = levenshtein_distance(list(range(len(gt_sentences))), ans_ordering)
     score = 1 - (raw_distance / n_sentences_gt)
 
+    if debug and score < 1:
+        print('INCORRECT', score)
+        print('GROUND TRUTH', gt_sentences)
+        print('SOLUTION', ans_sentences)
+        print('END OF OUTPUT', llm_answer[-50:])
     return score

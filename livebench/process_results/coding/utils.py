@@ -30,7 +30,7 @@ class Test:
         #     self.input = json.loads(self.input)
         #     self.output = json.loads(self.output)
 
-def LCB_generation_process_results(question: dict, llm_answer: str) -> int:
+def LCB_generation_process_results(question: dict, llm_answer: str, debug=False) -> int:
 
     llm_answer = extract_code(model_output=llm_answer, lmstyle=None) # Missing out only on some slightly different handling for CodeLlamaInstruct from the original LiveCodeBench
 
@@ -75,7 +75,7 @@ def LCB_generation_process_results(question: dict, llm_answer: str) -> int:
         )
     }
 
-    metrics = codegen_metrics(
+    metrics, results, metadata = codegen_metrics(
         [eval_sample],
         [[llm_answer]],
         k_list=[1], # can't compute higher pass@ because we don't have more than one prediction.
@@ -83,8 +83,13 @@ def LCB_generation_process_results(question: dict, llm_answer: str) -> int:
         timeout=6, # default eval setting from livecodebench.
     )
 
-    if metrics[0]['pass@1'] == 1.0:
+    if metrics['pass@1'] == 1.0:
         return 1
     else:
+        if debug:
+            print('INCORRECT', question['question_title'], question['question_id'])
+            print('llm answer', '\n', llm_answer)
+            print('results', results)
+            print('metadata', metadata)
         return 0
 
