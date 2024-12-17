@@ -70,6 +70,47 @@ Our repo is adapted from FastChat's excellent [llm_judge](https://github.com/lm-
 cd livebench
 ```
 
+### Bash Scripts
+
+The simplest way to run LiveBench inference and scoring is by using our provided Bash scripts. These scripts automate the process of generating and scoring model responses, and can automatically parallelize runs of different tasks or categories to speed up execution for models with higher rate limits.
+
+#### Basic
+To evaluate a single subset of LiveBench for a single model, do:
+```
+./scripts/run_livebench <bench-name> <model> <question-source> 
+```
+e.g. `./scripts/run_livebench live_bench/coding gpt-4o-mini` will evaluate gpt-4o-mini on all the coding tasks. `<question-source>` is optional and defaults to `huggingface`.
+
+If you'd like to run multiple LiveBench subsets in sequence, use
+```
+./scripts/run_livebench_sequential <model> <venv-path> <question-source>
+```
+where `<venv-path>` is a relative path to your `venv/bin/activate` script. The list of benchmarks to be evaluated can be viewed inside the script.
+
+For a local-weight model, use
+```
+./scripts/run_livebench_sequential_local_model <model-path> <model-id> <venv-path> <question-source>
+```
+
+#### Parallel
+For API-based models with high rate limits, evaluation of LiveBench can be sped up by evaluating different tasks in parallel. To do this automatically, run
+```
+./scripts/run_livebench_parallel <model> <venv-path> <question-source>
+```
+The set of categories or tasks to be evaluated is editable in `./scripts/run_livebench_parallel`. This script will spawn a tmux session, with each LiveBench process in a separate pane, so progress on all can be viewed at once. This setup will also persist on a remote server (i.e. through SSH) so that connection interrupts will not cancel the processes.
+
+If you'd like to start evaluation of multiple models at once, run
+```
+./scripts/run_livebench_parallel_models <venv-path> <question-source>
+```
+You can edit the list of models to be evaluated in the script file. This script runs `run_livebench_parallel` once for each model.
+
+Note: After the evaluation has completed, you will need to run `show_livebench_result.py` manually to view the leaderboard.
+
+### Python Scripts
+
+If you'd like, you can manually execute the Python scripts used to evaluate LiveBench.
+
 In all scripts, the `--bench-name` argument is used to specify the subset of questions to use.
 Setting `--bench-name` to `live_bench` will use all questions.
 Setting `--bench-name` to `live_bench/category` will use all questions in that category.
@@ -79,9 +120,9 @@ The `--question-source` argument is used to specify the source of questions; by 
 
 The `--livebench-release-option` argument is used to specify the version of livebench to use. By default, it is set to the latest version. Available options are `2024-07-26`, `2024-06-24`, `2024-08-31`, and `2024-11-25`.
 
-### Performing Inference
+#### Performing Inference
 
-#### API-Based Models
+##### API-Based Models
 Make sure you have the appropriate API keys set as environment variables (e.g. `export OPENAI_API_KEY=<your_key>`). If using a virtual environment, you can add the environment variable export to the `.venv/bin/activate` file.
 
 The `gen_api_answer.py` script is used to generate answers for API-based models. It can be run using the following command:
@@ -99,7 +140,7 @@ python gen_api_answer.py --model gpt-4o-mini --api-base http://localhost:8000/v1
 ```
 In this case, if an API key is needed, you should set the `LIVEBENCH_API_KEY` environment variable.
 
-#### Local Models
+##### Local Models
 
 To generate answers with local GPU inference on open source models, use the `gen_model_answer.py` script:
 ```bash
@@ -111,7 +152,7 @@ Other arguments are optional, but you may want to set `--num-gpus-per-model` and
 
  Run `python gen_model_answer.py --help` for more details.
 
-### Scoring Outputs
+#### Scoring Outputs
 
 To score the outputs of your model, run the `gen_ground_truth_judgment.py` script:
 ```bash
@@ -140,17 +181,7 @@ If no `--model-list` argument is provided, all models will be shown.
 The leaderboard will be displayed in the terminal. You can also find the breakdown by category in `all_groups.csv` and by task in `all_tasks.csv`.
 
 
-### Bash Scripts
 
-For your convenience, we provide a set of bash scripts to automate the process of evaluating and scoring models, as well as for running multiple subsets of LiveBench in parallel for models for which the API has higher rate limits.
-
-Parallelizing runs and using tmux (or another terminal multiplexer) is recommended when evaluating on a remote machine and using models with high rate limits.
-
-1. `./scripts/run_livebench <bench-name> <model> <question-source>`: Performs inference and scoring for a single model on a single subset of LiveBench. `<question-source>` is optional and defaults to `huggingface`.
-2. `./scripts/run_livebench_parallel <model> <venv-path> <question-source> <api-base> <api-key-name>`: Runs inference and scoring for a single model on multiple subsets of LiveBench in parallel. `<venv-path>` is required and is the relative path to the `activate` script of the virtual environment you are using. `<api-base>` and `<api-key-name>` are optional arguments for API-based models. This script will create a new tmux session and run each benchmark subset in a separate pane. You can specify what categories and tasks to run by editing the `run_livebench_parallel.sh` script.
-3. `./scripts/run_livebench_parallel_models <venv-path> <question-source>`: Run `run_livebench_parallel` for multiple models at once. You can specify what models to run by editing the `run_livebench_parallel_models.sh` script.
-4. `./scripts/run_livebench_sequential <model> <venv-path> <question-source>`: Perform inference and scoring for a single model sequentially over multiple subsets of LiveBench. This is useful for models with low rate limits. You can specify what categories and tasks to run by editing the `run_livebench_sequential.sh` script.
-5. `./scripts/run_livebench_sequential_local_model <model-path> <model-id> <venv-path> <question-source>`: Perform inference and scoring for a single local model sequentially over multiple subsets of LiveBench. You can specify what categories and tasks to run by editing the `run_livebench_sequential_local_model.sh` script.
 
 ### Error Checking
 
