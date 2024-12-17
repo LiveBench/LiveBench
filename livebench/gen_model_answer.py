@@ -3,6 +3,7 @@
 Usage:
 python3 gen_model_answer.py --model-path lmsys/fastchat-t5-3b-v1.0 --model-id fastchat-t5-3b-v1.0
 """
+
 import argparse
 import json
 import os
@@ -124,7 +125,9 @@ def get_model_answers(
             for j in range(len(question["turns"])):
                 qs = question["turns"][j]
                 conv.append_message(conv.roles[0], qs)
-                conv.append_message(conv.roles[1], None)  # placeholder for model response
+                conv.append_message(
+                    conv.roles[1], None
+                )  # placeholder for model response
                 prompt = conv.get_prompt()
                 input_ids = tokenizer([prompt]).input_ids
 
@@ -134,20 +137,21 @@ def get_model_answers(
                     do_sample = True
 
                 # some models may error out when generating long outputs
-                print('starting question', qs[:50])
+                print("starting question", qs[:50])
                 try:
                     from transformers.generation.streamers import TextStreamer
+
                     output_ids = model.generate(
                         torch.as_tensor(input_ids).cuda(),
                         do_sample=do_sample,
                         temperature=temperature,
                         max_new_tokens=max_new_token,
-                        #streamer=TextStreamer(tokenizer)
+                        # streamer=TextStreamer(tokenizer)
                     )
                     if model.config.is_encoder_decoder:
                         output_ids = output_ids[0]
                     else:
-                        output_ids = output_ids[0][len(input_ids[0]):]
+                        output_ids = output_ids[0][len(input_ids[0]) :]
 
                     # be consistent with the template's stop_token_ids
                     if conv.stop_token_ids:
@@ -211,8 +215,11 @@ def get_model_answers(
             }
             fout.write(json.dumps(ans_json) + "\n")
 
+
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Generate benchmark question answers using a model on HuggingFace repo or with locally-stored weights")
+    parser = argparse.ArgumentParser(
+        description="Generate benchmark question answers using a model on HuggingFace repo or with locally-stored weights"
+    )
     parser.add_argument(
         "--model-path",
         type=str,
@@ -276,23 +283,33 @@ if __name__ == "__main__":
         help="The model revision to load.",
     )
     parser.add_argument(
-        "--question-source", type=str, default="huggingface", help="The source of the questions. 'huggingface' will draw questions from huggingface. 'jsonl' will gather local jsonl files at data/{bench_name}/**/question.jsonl to permit tweaking or writing custom questions."
+        "--question-source",
+        type=str,
+        default="huggingface",
+        help="The source of the questions. 'huggingface' will draw questions from huggingface. 'jsonl' will gather local jsonl files at data/{bench_name}/**/question.jsonl to permit tweaking or writing custom questions.",
     )
     parser.add_argument(
-        "--livebench-release-option", 
-        type=str, 
+        "--livebench-release-option",
+        type=str,
         default=max(LIVE_BENCH_RELEASES),
         choices=sorted(LIVE_BENCH_RELEASES),
-        help="Livebench release to use. Provide a single date option. Will handle excluding deprecated questions for selected release."
+        help="Livebench release to use. Provide a single date option. Will handle excluding deprecated questions for selected release.",
+    )
+    parser.add_argument(
+        "--question-id",
+        type=str,
+        default=None,
+        nargs="+",
+        help="A list of question ids to generate answers for.",
     )
     args = parser.parse_args()
 
     if args.livebench_release_option not in LIVE_BENCH_RELEASES:
         raise ValueError(f"Bad release {args.livebench_release_option}.")
-        
-    release_set = set([
-        r for r in LIVE_BENCH_RELEASES if r <= args.livebench_release_option
-    ])
+
+    release_set = set(
+        [r for r in LIVE_BENCH_RELEASES if r <= args.livebench_release_option]
+    )
 
     if args.num_gpus_total // args.num_gpus_per_model > 1:
         import ray
@@ -300,24 +317,31 @@ if __name__ == "__main__":
         ray.init()
 
     questions_all = []
-    answer_files  = []
+    answer_files = []
 
     if args.question_source == "huggingface":
         categories, tasks = get_categories_tasks(args.bench_name)
 
         for category_name, task_names in tasks.items():
             for task_name in task_names:
-                questions = load_questions(categories[category_name], release_set, task_name)
-
-                task_full_name = f"{LIVE_BENCH_DATA_SUPER_PATH}/{category_name}/{task_name}"
-                answer_file = f"data/{task_full_name}/model_answer/{args.model_id}.jsonl"
-
-                questions_all.extend(
-                    [
-                        (q, answer_file)
-                        for q in questions
-                    ]
+                questions = load_questions(
+                    categories[category_name],
+                    release_set,
+                    args.livebench_release_option,
+                    task_name,
+                    args.question_id,
                 )
+
+                questions = questions[args.question_begin : args.question_end]
+
+                task_full_name = (
+                    f"{LIVE_BENCH_DATA_SUPER_PATH}/{category_name}/{task_name}"
+                )
+                answer_file = (
+                    f"data/{task_full_name}/model_answer/{args.model_id}.jsonl"
+                )
+
+                questions_all.extend([(q, answer_file) for q in questions])
 
                 answer_files.append(answer_file)
 
@@ -329,29 +353,33 @@ if __name__ == "__main__":
             list_of_question_files = [original_question_file]
         else:
             # gather all question files for bench_name (e.g. if bench_name = live_bench/math)
-            list_of_question_files = glob.glob(f"data/{args.bench_name}/**/question.jsonl", recursive=True)
+            list_of_question_files = glob.glob(
+                f"data/{args.bench_name}/**/question.jsonl", recursive=True
+            )
 
         for question_file in list_of_question_files:
             print(question_file)
-            questions = load_questions_jsonl(question_file, release_set)
+            questions = load_questions_jsonl(
+                question_file,
+                release_set,
+                args.livebench_release_option,
+                args.question_id,
+            )
 
-            bench_name = os.path.dirname(question_file).replace("data/","")
+            questions = questions[args.question_begin : args.question_end]
+
+            bench_name = os.path.dirname(question_file).replace("data/", "")
             answer_file = f"data/{bench_name}/model_answer/{args.model_id}.jsonl"
 
-            questions_all.extend(
-                [
-                    (q, answer_file)
-                    for q in questions
-                ]
-            )
+            questions_all.extend([(q, answer_file) for q in questions])
 
             if len(questions) > 0:
                 answer_files.append(answer_file)
 
     else:
         raise ValueError(f"Bad question source {args.question_source}.")
-    
-    questions_all = questions_all[args.question_begin:args.question_end]
+
+    questions_all = questions_all[args.question_begin : args.question_end]
 
     run_eval(
         model_path=args.model_path,
