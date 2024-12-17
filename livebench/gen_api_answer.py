@@ -3,57 +3,51 @@
 Usage:
 python3 gen_api_answer.py --model gpt-3.5-turbo
 """
+
 import argparse
 import json
 import os
 import time
 import concurrent.futures
 import glob
-import openai
 import shortuuid
 import tqdm
 
 from livebench.common import (
+    LIVE_BENCH_RELEASES,
     reorg_answer_file,
     get_categories_tasks,
-    get_hf_dataset,
-    get_tasks_from_hf_category,
     load_questions,
     load_questions_jsonl,
-    chat_completion_openai,
-    chat_completion_anthropic,
-    chat_completion_palm,
-    chat_completion_google_generativeai,
-    chat_completion_vertex,
-    chat_completion_mistral,
-    chat_completion_cohere,
-    chat_completion_deepseek,
-    chat_completion_together,
-    chat_completion_nvidia,
-    chat_completion_inference_openai,
-    chat_completion_openrouter,
     LIVE_BENCH_DATA_SUPER_PATH,
 )
-from livebench.model.model_adapter import (
-    get_conversation_template, 
-    ANTHROPIC_MODEL_LIST,
-    GOOGLE_GENERATIVEAI_MODEL_LIST, 
-    VERTEX_MODEL_LIST,
-    MISTRAL_MODEL_LIST, 
-    COHERE_MODEL_LIST, 
-    DEEPSEEK_MODEL_LIST,
-    TOGETHER_MODEL_LIST,
-    NVIDIA_MODEL_LIST,
-    INFERENCE_OPENAI_MODEL_LIST,
-    OPENROUTER_MODEL_LIST,
-)
+from livebench.model.completions import chat_completion_openai
+
+from livebench.model import Model, get_model
+
 
 def get_answer(
-    question: dict, model: str, num_choices: int, max_tokens: int, answer_file: str, api_dict: dict=None
+    question: dict,
+    model: Model,
+    num_choices: int,
+    max_tokens: int,
+    answer_file: str,
+    api_dict: dict | None = None,
 ):
+    """
+    Perform inference for a single question.
+
+    Args:
+        question: At minimum, a dictionary with a key 'turns' that maps to a list of messages in the conversation, the last of which should ask the question.
+        model: The API name for the model (e.g. gpt-4o-mini or claude-3-5-sonnet-20240620)
+        num_choices: The number of model outputs to generate for each question
+        max_tokens: The maximum number of tokens for each model response
+        answer_file: The path to the file in which to write answers
+        api_dict: A dictionary specifying the base API URL and key for model requests
+    """
     assert (
         args.force_temperature is not None and "required_temperature" in question.keys()
-    ) == False
+    ) is False
     if args.force_temperature is not None:
         temperature = args.force_temperature
     elif "required_temperature" in question.keys():
@@ -62,9 +56,9 @@ def get_answer(
         temperature = 0.0
 
     choices = []
-    chat_state = None  # for palm-2 model
+    total_num_tokens = 0
     for i in range(num_choices):
-        conv = get_conversation_template(model)
+        conv = model.adapter.get_default_conv_template(model.api_name)
 
         turns = []
         for j in range(len(question["turns"])):
@@ -72,36 +66,18 @@ def get_answer(
             conv.append_message(conv.roles[1], None)
 
             if api_dict is not None:
-                output = chat_completion_openai(model, conv, temperature, max_tokens, api_dict=api_dict)
-            elif model in ANTHROPIC_MODEL_LIST:
-                output = chat_completion_anthropic(model, conv, temperature, max_tokens)
-            elif model == "palm-2-chat-bison-001":
-                chat_state, output = chat_completion_palm(
-                    chat_state, model, conv, temperature, max_tokens
+                output, num_tokens = chat_completion_openai(
+                    model, conv, temperature, max_tokens, api_dict=api_dict
                 )
-            elif model in VERTEX_MODEL_LIST:
-                output = chat_completion_vertex(model, conv, temperature, max_tokens)
-            elif model in GOOGLE_GENERATIVEAI_MODEL_LIST:
-                output = chat_completion_google_generativeai(model, conv, temperature, max_tokens)
-            elif model in MISTRAL_MODEL_LIST:
-                output = chat_completion_mistral(model, conv, temperature, max_tokens)
-            elif model in COHERE_MODEL_LIST:
-                output = chat_completion_cohere(model, conv, temperature, max_tokens)
-            elif model in DEEPSEEK_MODEL_LIST:
-                output = chat_completion_deepseek(model, conv, temperature, max_tokens)
-            elif model in TOGETHER_MODEL_LIST:
-                output = chat_completion_together(model, conv, temperature, max_tokens)
-            elif model in NVIDIA_MODEL_LIST:
-                output = chat_completion_nvidia(model, conv, temperature, max_tokens)
-            elif model in INFERENCE_OPENAI_MODEL_LIST:
-                output = chat_completion_inference_openai(model, conv, temperature, max_tokens)
-            elif model in OPENROUTER_MODEL_LIST:
-                output = chat_completion_openrouter(model, conv, temperature, max_tokens)
             else:
-                output = chat_completion_openai(model, conv, temperature, max_tokens)
+                assert model.api_function is not None
+                output, num_tokens = model.api_function(
+                    model, conv, temperature, max_tokens, api_dict=api_dict
+                )
 
             conv.update_last_message(output)
             turns.append(output)
+            total_num_tokens += num_tokens
 
         choices.append({"index": i, "turns": turns})
 
@@ -109,9 +85,10 @@ def get_answer(
     ans = {
         "question_id": question["question_id"],
         "answer_id": shortuuid.uuid(),
-        "model_id": model,
+        "model_id": model.display_name,
         "choices": choices,
         "tstamp": time.time(),
+        "total_output_tokens": total_num_tokens,
     }
 
     os.makedirs(os.path.dirname(answer_file), exist_ok=True)
@@ -119,7 +96,27 @@ def get_answer(
         fout.write(json.dumps(ans) + "\n")
 
 
-def run_questions(parallel, questions, model, num_choices, max_tokens, answer_file, api_dict):
+def run_questions(
+    parallel,
+    questions: list[dict],
+    model: Model,
+    num_choices: int,
+    max_tokens: int,
+    answer_file: str,
+    api_dict: dict | None,
+):
+    """
+    Perform inference on a list of questions. Output answers to answer_file.
+
+    Args:
+        questions: The list of questions.
+        model: The API name for the model (e.g. gpt-4o-mini or claude-3-5-sonnet-20240620)
+        num_choices: The number of model outputs to generate for each question
+        max_tokens: The maximum number of tokens for each model response
+        answer_file: The path to the file in which to write answers
+        parallel: The number of workers to use to make concurrent API requests
+        api_dict: A dictionary specifying the base API URL and key for model requests
+    """
     if parallel == 1:
         for question in tqdm.tqdm(questions):
             get_answer(
@@ -146,7 +143,7 @@ def run_questions(parallel, questions, model, num_choices, max_tokens, answer_fi
                     answer_file,
                     api_dict=api_dict,
                 )
-                futures.append(future)      
+                futures.append(future)
 
             for future in tqdm.tqdm(
                 concurrent.futures.as_completed(futures), total=len(futures)
@@ -157,12 +154,14 @@ def run_questions(parallel, questions, model, num_choices, max_tokens, answer_fi
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        description="Generate benchmark question answers using an API-based model"
+    )
     parser.add_argument(
         "--bench-name",
         type=str,
         default="live_bench",
-        help="The name of the benchmark question set.",
+        help="The name of the benchmark question set. Defaults to 'live_bench', or all tasks in the benchmark. Specify e.g. live_bench/reasoning/web_of_lies_v2 to generate only for that task.",
     )
     parser.add_argument(
         "--api-base",
@@ -198,23 +197,39 @@ if __name__ == "__main__":
         "--parallel", type=int, default=1, help="The number of concurrent API calls."
     )
     parser.add_argument(
-        "--question-source", type=str, default="huggingface", help="The source of the questions. 'huggingface' will draw questions from huggingface. 'jsonl' will use local jsonl files to permit tweaking or writing custom questions."
+        "--question-source",
+        type=str,
+        default="huggingface",
+        help="The source of the questions. 'huggingface' will draw questions from huggingface. 'jsonl' will gather local jsonl files at data/{bench_name}/**/question.jsonl to permit tweaking or writing custom questions.",
     )
     parser.add_argument(
-        "--livebench-release-option", type=str, default='2024-08-31', help="Livebench release to use. Provide a single date option, current options are {'2024-08-31' (august update), '2024-07-26' (july update), '2024-06-24' (original release)}. Will handle excluding deprecated questions for selected release."
+        "--livebench-release-option",
+        type=str,
+        default=max(LIVE_BENCH_RELEASES),
+        choices=sorted(LIVE_BENCH_RELEASES),
+        help="Livebench release to use. Provide a single date option. Will handle excluding deprecated questions for selected release.",
+    )
+    parser.add_argument(
+        "--question-id",
+        type=str,
+        default=None,
+        nargs="+",
+        help="A list of question ids to generate answers for.",
     )
     args = parser.parse_args()
 
-    valid_livebench_releases = set(['2024-07-26', '2024-06-24', '2024-08-31'])
+    model = get_model(args.model)
 
-    if args.livebench_release_option not in valid_livebench_releases:
+    if args.livebench_release_option not in LIVE_BENCH_RELEASES:
         raise ValueError(f"Bad release {args.livebench_release_option}.")
-        
-    release_set = set([
-        r for r in valid_livebench_releases if r <= args.livebench_release_option
-    ])
+
+    release_set = set(
+        [r for r in LIVE_BENCH_RELEASES if r <= args.livebench_release_option]
+    )
 
     if args.api_base is not None:
+        # use manually-specified model API
+
         api_key = os.environ.get("LIVEBENCH_API_KEY", "EMPTY")
 
         api_dict = {
@@ -229,60 +244,73 @@ if __name__ == "__main__":
 
         for category_name, task_names in tasks.items():
             for task_name in task_names:
-                questions = load_questions(categories[category_name], release_set, task_name, args.question_begin, args.question_end)
+                questions = load_questions(
+                    categories[category_name],
+                    release_set,
+                    args.livebench_release_option,
+                    task_name,
+                    args.question_id
+                )
 
-                questions = [
-                    q for q in questions if q['livebench_removal_date'] == "" or q['livebench_removal_date'] > args.livebench_release_option
-                ]
+                questions = questions[args.question_begin:args.question_end]
 
-                task_full_name = f"{LIVE_BENCH_DATA_SUPER_PATH}/{category_name}/{task_name}"
-                answer_file = f"data/{task_full_name}/model_answer/{args.model}.jsonl"
+                task_full_name = (
+                    f"{LIVE_BENCH_DATA_SUPER_PATH}/{category_name}/{task_name}"
+                )
+                answer_file = (
+                    f"data/{task_full_name}/model_answer/{model.display_name}.jsonl"
+                )
 
                 print(f"Questions from {task_full_name}")
                 print(f"Output to {answer_file}")
 
                 run_questions(
                     parallel=args.parallel,
-                    questions=questions, 
-                    model=args.model, 
+                    questions=questions,
+                    model=model,
                     num_choices=args.num_choices,
-                    max_tokens=args.max_tokens, 
-                    answer_file=answer_file, 
-                    api_dict=api_dict
+                    max_tokens=args.max_tokens,
+                    answer_file=answer_file,
+                    api_dict=api_dict,
                 )
 
     elif args.question_source == "jsonl":
+        # use locally-provided questions
+
         list_of_question_files = []
         original_question_file = f"data/{args.bench_name}/question.jsonl"
         if os.path.exists(original_question_file):
+            # if one specific file for bench_name exists, use it (e.g. if bench_name = live_bench/math/AMPS_Hard)
             list_of_question_files = [original_question_file]
         else:
-            list_of_question_files = glob.glob(f"data/{args.bench_name}/**/question.jsonl", recursive=True)
+            # gather all question files for bench_name (e.g. if bench_name = live_bench/math)
+            list_of_question_files = glob.glob(
+                f"data/{args.bench_name}/**/question.jsonl", recursive=True
+            )
 
         for question_file in list_of_question_files:
             print(question_file)
-            questions = load_questions_jsonl(question_file, release_set, args.question_begin, args.question_end)
+            questions = load_questions_jsonl(
+                question_file, release_set, args.livebench_release_option, args.question_id
+            )
+            
+            questions = questions[args.question_begin:args.question_end]
 
-            questions = [
-                q for q in questions if q['livebench_removal_date'] == "" or q['livebench_removal_date'] > args.livebench_release_option
-            ]
-
-            bench_name = os.path.dirname(question_file).replace("data/","")
-            answer_file = f"data/{bench_name}/model_answer/{args.model}.jsonl"
+            bench_name = os.path.dirname(question_file).replace("data/", "")
+            answer_file = f"data/{bench_name}/model_answer/{model.display_name}.jsonl"
 
             print(f"Questions from {question_file}")
             print(f"Output to {answer_file}")
 
             run_questions(
                 parallel=args.parallel,
-                questions=questions, 
-                model=args.model, 
+                questions=questions,
+                model=model,
                 num_choices=args.num_choices,
-                max_tokens=args.max_tokens, 
-                answer_file=answer_file, 
-                api_dict=api_dict
+                max_tokens=args.max_tokens,
+                answer_file=answer_file,
+                api_dict=api_dict,
             )
 
     else:
         raise ValueError(f"Bad question source {args.question_source}.")
-    

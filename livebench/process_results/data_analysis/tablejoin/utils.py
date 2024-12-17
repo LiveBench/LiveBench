@@ -3,15 +3,24 @@ import numpy as np
 from ast import literal_eval
 import json
 import ast
+from livebench.process_results.util import last_boxed_only_string, remove_boxed
 
 def clean_llm_output(s):
-    matches = re.findall('%s(.*)%s' % ("```python", "```"), s.replace("\n",""),re.MULTILINE)
+    matches = re.findall('%s(.*?)%s' % ("```python", "```"), s.replace("\n",""),re.MULTILINE)
     if len(matches) == 0:
-        matches = re.findall('%s(.*)%s' % ("```", "```"), s.replace("\n",""),re.MULTILINE)
+        matches = re.findall('%s(.*?)%s' % ("```", "```"), s.replace("\n",""),re.MULTILINE)
+    if len(matches) == 0:
+        if '\\boxed' in s:
+            boxed = last_boxed_only_string(s.replace('\n', ''))
+            if boxed:
+                no_boxed = remove_boxed(boxed)
+                matches = [re.sub(r"\\text{[\'|\"](.*?)[\'|\"]}", r"'\1'", no_boxed).replace('\\', '')]
     if len(matches) == 0:
         matches = [s]
+    if len(matches) >= 1:
+        matches = matches[-1]
     try:
-        match_d = literal_eval(matches[-1])
+        match_d = literal_eval(matches)
     except:
         return {}
     if not isinstance(match_d, dict):
@@ -19,11 +28,15 @@ def clean_llm_output(s):
     else:
         return match_d
 
-def joinmap_process_results(_, ground_truth, llm):
+def joinmap_process_results(_, ground_truth, llm, debug=False):
     if type(ground_truth) != dict:
         ground_truth = ast.literal_eval(ground_truth)
     llm_clean = clean_llm_output(llm)
     if len(llm_clean) == 0:
+        if debug:
+            print('could not parse output')
+            print('GROUND TRUTH', ground_truth)
+            print('END OF OUTPUT', llm[-min(500, len(llm)):])
         return 0.0
     tp = 0
     fp = 0
@@ -44,4 +57,9 @@ def joinmap_process_results(_, ground_truth, llm):
         if not llm_resp:
             fn += 1
     result = np.round(((2 * tp) / ((2 * tp) + fp + fn)), 2)
+    if debug and result < 1:
+        print('INCORRECT')
+        print('GROUND TRUTH', ground_truth)
+        print('SOLUTION', llm_clean)
+        print('END OF OUTPUT', llm[-min(500, len(llm)):])
     return result 

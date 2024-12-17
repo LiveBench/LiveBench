@@ -4,7 +4,7 @@ import difflib
 
 def typos_process_results(ground_truth: str, llm_answer: str, debug=False) -> int:
 
-    llm_answer = list(filter(None, llm_answer.split('\n')))[-1]
+    llm_answer = ' '.join(list(filter(None, llm_answer.split('\n'))))
 
     if debug and ground_truth not in llm_answer:
 
@@ -23,10 +23,9 @@ def typos_process_results(ground_truth: str, llm_answer: str, debug=False) -> in
             if tag == 'insert':
                 print("<inserted>", b[j1:j2], "::::", a[mi1:mi2], "-->", b[mj1:mj2])
 
-    if not int(ground_truth in llm_answer):
-        # print("Ground Truth: ")
-        # print(ground_truth)
-        print("LLM Answer: ")
-        print(llm_answer)
+    if debug and not int(ground_truth in llm_answer):
+        print('INCORRECT')
+        print('GROUND TRUTH', ground_truth)
+        print('SOLUTION', llm_answer)
 
     return int(ground_truth in llm_answer)

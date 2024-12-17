@@ -35,19 +35,18 @@ for dir_name, dataset in [
             else:
                 models = set(
                     [
-                        row['model_id'] for row in rows_task
+                        row['model_id'] for row in rows_task if '/' not in row['model_id'] # some models have broken ids, skip those
                     ]
                 )
 
                 for model in models:
-                    if "/" not in model:
-                        rows_model = [
-                            r for r in rows_task if r['model_id'] == model
-                        ]
+                    rows_model = [
+                        r for r in rows_task if r['model_id'] == model
+                    ]
 
-                        task_path = f"data/{LIVE_BENCH_DATA_SUPER_PATH}/{category_name}/{task_name}/{dir_name}"
-                        file_path = f"{task_path}/{model}.jsonl"
+                    task_path = f"data/{LIVE_BENCH_DATA_SUPER_PATH}/{category_name}/{task_name}/{dir_name}"
+                    file_path = f"{task_path}/{model}.jsonl"
 
-                        os.makedirs(task_path, exist_ok=True)
-                        with open(file_path, 'w') as f:
-                            f.writelines([json.dumps(row, default=str) + '\n' for row in rows_model])
+                    os.makedirs(task_path, exist_ok=True)
+                    with open(file_path, 'w') as f:
+                        f.writelines([json.dumps(row, default=str) + '\n' for row in rows_model])

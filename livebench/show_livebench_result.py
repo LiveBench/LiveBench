@@ -8,58 +8,72 @@ import glob
 import os
 
 from livebench.common import (
+    LIVE_BENCH_RELEASES,
     get_categories_tasks,
     load_questions,
     load_questions_jsonl
 )
+from livebench.model.api_models import get_model
 
 
-def display_result_single(args, update_names=True):
+def display_result_single(args):
 
-    valid_livebench_releases = set(['2024-07-26', '2024-06-24', '2024-08-31'])
-
-    if args.livebench_release_option not in valid_livebench_releases:
+    if args.livebench_release_option not in LIVE_BENCH_RELEASES:
         raise ValueError(f"Bad release {args.livebench_release_option}.")
-        
+    print(f"Using release {args.livebench_release_option}")
     release_set = set([
-        r for r in valid_livebench_releases if r <= args.livebench_release_option
+        r for r in LIVE_BENCH_RELEASES if r <= args.livebench_release_option
     ])
 
     if args.input_file is None:
-        input_files = (
-            glob.glob(f"data/{args.bench_name}/**/model_judgment/ground_truth_judgment.jsonl", recursive=True)
-        )
+        # read all judgments for bench_name
+        input_files = []
+        for bench in args.bench_name:
+            files = (
+                glob.glob(f"data/{bench}/**/model_judgment/ground_truth_judgment.jsonl", recursive=True)
+            )
+            input_files += files
     else:
+        # read only the judgments in input_file
         input_files = args.input_file
 
-    categories, tasks = get_categories_tasks(args.bench_name)
+    #categories, tasks = get_categories_tasks(args.bench_name)
+    categories = {}
+    tasks = {}
+    for bench in args.bench_name:
+        bench_cats, bench_tasks = get_categories_tasks(bench)
+        categories.update(bench_cats)
+        for k, v in bench_tasks.items():
+            if k in tasks and isinstance(tasks[k], list):
+                tasks[k].extend(v)
+            else:
+                tasks[k] = v
+    print(tasks)
 
+    tasks_set = set([task for task_list in tasks.values() for task in task_list])
+    
     questions_all = []
     if args.question_source == "huggingface":
         for category_name, task_names in tasks.items():
             for task_name in task_names:
-                questions = load_questions(categories[category_name], release_set, task_name, None, None)
+                questions = load_questions(categories[category_name], release_set, args.livebench_release_option, task_name, None)
                 questions_all.extend(questions)
-        
     elif args.question_source == "jsonl":
-        list_of_question_files = []
-        original_question_file = f"data/{args.bench_name}/question.jsonl"
-        if os.path.exists(original_question_file):
-            list_of_question_files = [original_question_file]
-        else:
-            list_of_question_files = glob.glob(f"data/{args.bench_name}/**/question.jsonl", recursive=True)
+        for bench in args.bench_name:
+            list_of_question_files = []
+            original_question_file = f"data/{bench}/question.jsonl"
+            if os.path.exists(original_question_file):
+                list_of_question_files = [original_question_file]
+            else:
+                list_of_question_files = glob.glob(f"data/{bench}/**/question.jsonl", recursive=True)
 
-        for question_file in list_of_question_files:
-            print(question_file)
-            questions = load_questions_jsonl(question_file, release_set, None, None)
-            questions_all.extend(questions)
+            for question_file in list_of_question_files:
+                print(question_file)
+                questions = load_questions_jsonl(question_file, release_set, args.livebench_release_option, None)
+                questions_all.extend(questions)
 
-    questions_all = [
-        q for q in questions_all if q['livebench_removal_date'] == "" or q['livebench_removal_date'] > args.livebench_release_option
-    ]
-
+    print('loaded ', len(questions_all), ' questions')
     question_id_set = set([q['question_id'] for q in questions_all])
-    print(len(question_id_set))
 
     df_all = pd.concat((pd.read_json(f, lines=True) for f in input_files), ignore_index=True)
     df = df_all[["model", "score", "task", "category","question_id"]]
@@ -68,32 +82,11 @@ def display_result_single(args, update_names=True):
     df['model'] = df['model'].str.lower()
     df["score"] *= 100
 
-    if update_names:
-        # update model names
-        df.loc[df['model'] == 'gemini-1.5-pro-latest', 'model'] = 'gemini-1.5-pro-api-0514'
-        df.loc[df['model'] == 'gemini-1.5-flash-latest', 'model'] = 'gemini-1.5-flash-api-0514'
-        df.loc[df['model'] == 'deepseek-coder', 'model'] = 'deepseek-coder-v2'
-        df.loc[df['model'] == 'deepseek-chat', 'model'] = 'deepseek-v2.5'
-        df.loc[df['model'] == 'acm_rewrite_qwen2-72b-chat', 'model'] = 'smaug-qwen2-72b-instruct'
-        df.loc[df['model'] == 'open-mixtral-8x22b', 'model'] = 'mixtral-8x22b-instruct-v0.1'    
-        df.loc[df['model'] == 'open-mixtral-8x7b', 'model'] = 'mixtral-8x7b-instruct-v0.1'    
-        df.loc[df['model'] == 'coding-meta-llama-3.1-70b-instruct-chk-50', 'model'] = 'dracarys-llama-3.1-70b-instruct'  
-        df.loc[df['model'] == 'lcb-math-qwen2-72b-instructv3-merged-50', 'model'] = 'dracarys-72b-instruct'  
-        df.loc[df['model'] == 'lcb-math-qwen2-72b-instructv3-chk-50', 'model'] = 'dracarys-72b-instruct'  
-        df.loc[df['model'] == 'chatgpt-4o-latest', 'model'] = 'chatgpt-4o-latest-0903'  
-        df.loc[df['model'] == 'coding2-amcfull-apifull-mmlu12k-meta-llama-3.1-70b-instruct-chk-150', 'model'] = 'dracarys2-llama-3.1-70b-instruct'
-        df.loc[df['model'] == 'codegen3_5k-qwen2.5-72b-instruct-2-chk-50', 'model'] = 'dracarys2-72b-instruct'
 
-        # remove old models
-        df = df[df["model"] != "gpt-4-1106-preview"]
-        df = df[df["model"] != "gpt-3.5-turbo-1106"]
-        df = df[df["model"] != "qwen2-math-72b-instruct"]
-        df = df[df["model"] != 'dracarys-llama-3.1-70b-instruct']
-        df = df[df["model"] != 'dracarys-72b-instruct']
-        df = df[df["model"] != 'reflection-llama-3.1-70b']
 
     if args.model_list is not None:
-        df = df[df["model"].isin([x.lower() for x in args.model_list])]
+        model_list = [get_model(x).display_name for x in args.model_list]
+        df = df[df["model"].isin([x.lower() for x in model_list])]
         model_list_to_check = args.model_list
     else:
         model_list_to_check = set(df["model"])
@@ -101,7 +94,12 @@ def display_result_single(args, update_names=True):
         df_model = df[df["model"] == model]
         
         if len(df_model) < len(questions_all):
-            print('removing model', model, "has missing", len(questions_all) - len(df_model), "judgments")
+            print('removing model', model, "has missing", len(questions_all) - len(df_model), "judgments - has ", len(df_model))
+            missing_tasks = set()
+            for task in tasks_set:
+                if len(df_model[df_model['task'] == task]) != len([q for q in questions_all if q['task'] == task]):
+                    missing_tasks.add(task)
+            print('missing judgments in ', missing_tasks)
             df = df[df["model"] != model]
             #raise ValueError(f'Invalid result, missing judgments (and possibly completions) for {len(questions_all) - len(df_model)} questions for model {model}.')
 
@@ -111,6 +109,8 @@ def display_result_single(args, update_names=True):
     df_1 = df[["model", "score", "task"]]
     df_1 = df_1.groupby(["model", "task"]).mean()
     df_1 = pd.pivot_table(df_1, index=['model'], values = "score", columns=["task"], aggfunc="sum")
+    if args.show_average:
+        df_1.loc['average'] = df_1.mean()
     df_1 = df_1.round(3)
     print(df_1.sort_values(by="model")[:60])
     df_1.to_csv('all_tasks.csv')
@@ -125,6 +125,8 @@ def display_result_single(args, update_names=True):
     df_1.insert(0, 'average', first_col)
     df_1 = df_1.sort_values(by="average", ascending=False)
     df_1 = df_1.round(1)
+    if args.show_average:
+        df_1.loc['average'] = df_1.mean()
     print(df_1[:60])
     df_1.to_csv('all_groups.csv')
 
@@ -136,8 +138,8 @@ def display_result_single(args, update_names=True):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--bench-name", type=str, default="live_bench")
+    parser = argparse.ArgumentParser(description="Display benchmark results for the provided models")
+    parser.add_argument("--bench-name", type=str, default=["live_bench"], nargs="+")
     parser.add_argument("--input-file", type=str)
     parser.add_argument("--baseline-model", type=str, default="gpt-3.5-turbo")
     parser.add_argument(
@@ -157,7 +159,17 @@ if __name__ == "__main__":
         "--question-source", type=str, default="huggingface", help="The source of the questions. 'huggingface' will draw questions from huggingface. 'jsonl' will use local jsonl files to permit tweaking or writing custom questions."
     )
     parser.add_argument(
-        "--livebench-release-option", type=str, default='2024-08-31', help="Livebench release to use. Provide a single date option, current options are {'2024-08-31' (august update), '2024-07-26' (july update), '2024-06-24' (original release)}. Will handle excluding deprecated questions for selected release."
+        "--livebench-release-option", 
+        type=str, 
+        default=max(LIVE_BENCH_RELEASES),
+        choices=LIVE_BENCH_RELEASES,
+        help="Livebench release to use. Provide a single date option. Will handle excluding deprecated questions for selected release."
+    )
+    parser.add_argument(
+        "--show-average",
+        default=False,
+        help="Show the average score for each task",
+        action='store_true'
     )
     args = parser.parse_args()
 

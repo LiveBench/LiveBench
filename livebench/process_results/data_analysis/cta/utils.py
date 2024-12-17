@@ -1,4 +1,5 @@
 import re
+from livebench.process_results.util import last_boxed_only_string, remove_boxed
 
 
 def clean_text(text):
@@ -7,9 +8,22 @@ def clean_text(text):
     return text
 
 
-def cta_process_results(ground_truth: str, llm_answer: str) -> int:
+def cta_process_results(ground_truth: str, llm_answer: str, debug=False) -> int:
 
-    if clean_text(ground_truth) == clean_text(llm_answer):
+    parsed_answer = llm_answer
+
+    if '\\boxed{' in parsed_answer:
+        parsed_answer = last_boxed_only_string(parsed_answer)
+        parsed_answer = remove_boxed(parsed_answer)
+        parsed_answer = parsed_answer.replace('\\text{', '').replace('}', '').replace('\\', '')
+
+    if clean_text(ground_truth) == clean_text(parsed_answer):
         return 1
     else:
+        if debug:
+            print('INCORRECT')
+            print('GROUND TRUTH', ground_truth)
+            print('SOLUTION', parsed_answer)
+            if parsed_answer != llm_answer:
+                print('END OF OUTPUT', llm_answer[-100:])
         return 0
