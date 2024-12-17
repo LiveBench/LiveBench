@@ -127,6 +127,12 @@ INFERENCE_OPENAI_MODELS = [
         aliases=["o1-preview"],
         inference_api=True,
     ),
+    OpenAIModel(
+        api_name="o1-2024-12-17",
+        display_name="o1-2024-12-17",
+        aliases=[],
+        inference_api=True
+    )
 ]
 
 # Together Models

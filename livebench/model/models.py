@@ -1,6 +1,6 @@
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from livebench.conversation import Conversation
+from fastchat.conversation import Conversation
 from livebench.model.model_adapter import (
     BaseModelAdapter,
     ClaudeAdapter,

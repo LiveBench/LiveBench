@@ -16,7 +16,7 @@ from livebench.common import (
 from livebench.model.api_models import get_model
 
 
-def display_result_single(args, update_names=True):
+def display_result_single(args):
 
     if args.livebench_release_option not in LIVE_BENCH_RELEASES:
         raise ValueError(f"Bad release {args.livebench_release_option}.")
@@ -56,7 +56,7 @@ def display_result_single(args, update_names=True):
     if args.question_source == "huggingface":
         for category_name, task_names in tasks.items():
             for task_name in task_names:
-                questions = load_questions(categories[category_name], release_set, task_name, None, None)
+                questions = load_questions(categories[category_name], release_set, args.livebench_release_option, task_name, None)
                 questions_all.extend(questions)
     elif args.question_source == "jsonl":
         for bench in args.bench_name:
@@ -69,16 +69,11 @@ def display_result_single(args, update_names=True):
 
             for question_file in list_of_question_files:
                 print(question_file)
-                questions = load_questions_jsonl(question_file, release_set, None, None)
+                questions = load_questions_jsonl(question_file, release_set, args.livebench_release_option, None)
                 questions_all.extend(questions)
 
     print('loaded ', len(questions_all), ' questions')
-    questions_all = [
-        q for q in questions_all if q['livebench_removal_date'] <= "" or q['livebench_removal_date'] > args.livebench_release_option
-    ]  # filter out questions that were removed prior to args.livebench_release_option
-
     question_id_set = set([q['question_id'] for q in questions_all])
-    print(len(question_id_set), ' valid questions')
 
     df_all = pd.concat((pd.read_json(f, lines=True) for f in input_files), ignore_index=True)
     df = df_all[["model", "score", "task", "category","question_id"]]

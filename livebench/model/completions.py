@@ -46,9 +46,9 @@ def chat_completion_openai(
         client = OpenAI(timeout=1000)
     
     messages = conv.to_openai_api_messages()
-    if isinstance(model, OpenAIModel) and model.inference_api:
-        # o1 models don't support system messages
-        messages = messages[1:]
+    for message in messages:
+        if message["role"] == "system":
+            message["role"] = "developer"
     response = client.chat.completions.create(
         model=model.api_name,
         messages=messages,
@@ -58,11 +58,10 @@ def chat_completion_openai(
             if isinstance(model, OpenAIModel) and not model.inference_api
             else NOT_GIVEN
         ),
-        max_tokens=(
+        max_completion_tokens=(
             max_tokens
-            if isinstance(model, OpenAIModel) and not model.inference_api
-            else NOT_GIVEN
         ),
+
     )
     message = response.choices[0].message.content
     if message is None:

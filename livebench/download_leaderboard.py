@@ -35,7 +35,7 @@ for dir_name, dataset in [
             else:
                 models = set(
                     [
-                        row['model_id'] for row in rows_task
+                        row['model_id'] for row in rows_task if '/' not in row['model_id'] # some models have broken ids, skip those
                     ]
                 )
 

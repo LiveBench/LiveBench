@@ -32,7 +32,7 @@ LIVE_BENCH_CATEGORIES = [
     "reasoning",
     "language",
 ]
-LIVE_BENCH_RELEASES = {"2024-07-26", "2024-06-24", "2024-08-31", "2024-11-25"}
+LIVE_BENCH_RELEASES = {"2024-07-26", "2024-06-24", "2024-08-31"} # TODO: add 2024-11-25 once questions are released
 
 
 @dataclasses.dataclass
@@ -183,9 +183,10 @@ def load_questions(
     questions = [
         q for q in questions if q["livebench_release_date"] in livebench_releases
     ]
-    questions = [
-        q for q in questions if q['livebench_removal_date'] == "" or q['livebench_removal_date'] > livebench_release
-    ]
+    if livebench_release is not None:
+        questions = [
+            q for q in questions if q['livebench_removal_date'] == "" or q['livebench_removal_date'] > livebench_release
+        ]
 
     if question_ids is not None:
         questions = [q for q in questions if q['question_id'] in question_ids]
@@ -217,9 +218,10 @@ def load_questions_jsonl(
     questions = [
         q for q in questions if q["livebench_release_date"] in livebench_releases
     ]
-    questions = [
-        q for q in questions if q['livebench_removal_date'] == "" or q['livebench_removal_date'] > livebench_release
-    ]
+    if livebench_release is not None:
+        questions = [
+            q for q in questions if q['livebench_removal_date'] == "" or q['livebench_removal_date'] > livebench_release
+        ]
     if question_ids is not None:
         questions = [q for q in questions if q['question_id'] in question_ids]
     return questions
