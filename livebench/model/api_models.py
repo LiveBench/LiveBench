@@ -377,7 +377,6 @@ def get_model(name: str) -> Model:
             or any(alias.lower() == name.lower() for alias in model.aliases)
         ):
             return model
-    warnings.warn(f"Model {name} not found, returning base model")
     return Model(
         api_name=name,
         display_name=name,
