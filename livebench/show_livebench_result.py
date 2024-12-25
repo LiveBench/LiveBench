@@ -134,6 +134,18 @@ def display_result_single(args):
     for column in df_1.columns[1:]:
         max_value = df_1[column].max()
         df_1[column] = df_1[column].apply(lambda x: f'\\textbf{{{x}}}' if x == max_value else x)
+    # create new csv file in results directory and write results to it
+    # name of the csv file is model_name_date_time_results.csv
+    current_date_time_as_string = pd.to_datetime('today').strftime('%Y-%m-%d-%H-%M-%S')
+    model_list_as_string = args.model_list if args.model_list is not None else args.model
+    model_list_as_string = "_".join(model_list_as_string)
+    model_list_as_string = model_list_as_string.replace(" ", "_")
+
+    model_folder = (model_list_as_string.split("/"))[0] # OpenRouter model support. Model names with slashes are interpreted as folders, i.e "meta-llama/llama-3.1-8b-instruct" would create a folder named "meta-llama"
+    os.makedirs(f"results/{model_folder}", exist_ok=True)
+
+    csv_file_name = f"results/{model_list_as_string}{current_date_time_as_string}_results.csv"
+    df_1.to_csv(f"{csv_file_name}")
     df_1.to_csv('latex_table.csv', sep='&', lineterminator='\\\\\n', quoting=3,escapechar=" ")
 
 
