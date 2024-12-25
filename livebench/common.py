@@ -233,12 +233,16 @@ def load_model_answers(answer_dir: str):
     The return value is a python dict of type:
     Dict[model_name: str -> Dict[question_id: int -> answer: dict]]
     """
-    filenames = glob.glob(os.path.join(answer_dir, "*.jsonl"))
+    
+    filenames = glob.glob(os.path.join(answer_dir, "**", "*.jsonl"), recursive=True)
+    for i in range(len(filenames)):
+        filenames[i] = filenames[i].replace("\\", "/")
+
     filenames.sort()
     model_answers = {}
-
     for filename in filenames:
-        model_name = os.path.basename(filename)[: -len(".jsonl")]
+        model_name = filename.removeprefix(answer_dir)
+        model_name = model_name.removesuffix(".jsonl")
         model_name = get_model(model_name).display_name
         answer = {}
         with open(filename) as fin:
