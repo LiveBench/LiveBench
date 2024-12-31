@@ -146,7 +146,7 @@ def play_a_match_gt(match: MatchSingle, output_file: str, debug=False, treat_exc
         else:
             raise NotImplementedError(f"This task ({task_or_subtask}) has not been implemented yet.")
     except:
-        if ():
+        if (treat_exceptions_as_fails == False):
             raise RuntimeError(f"Error occurred evaluating question {question['question_id']}")
         score = 0
 
