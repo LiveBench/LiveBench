@@ -62,13 +62,14 @@ def reorg_output_file(output_file):
             fout.write(judgments[key])
 
 
-def play_a_match_gt(match: MatchSingle, output_file: str, debug=False):
+def play_a_match_gt(match: MatchSingle, output_file: str, debug=False, treat_exceptions_as_fails=False):
     """
     Evaluate a model's answer to a question.
 
     Args:
         match: An object containing the question, model name, and model answer.
         output_file: The path to which the judgment should be outputted.
+        treat_exceptions_as_fails: Whether or not to treat exceptions (errors) as that LLM failing the task
     
     Returns:
         result: The judgment, containing the question id, task name, model name, score, turn, timestamp, and category name
@@ -95,57 +96,59 @@ def play_a_match_gt(match: MatchSingle, output_file: str, debug=False):
     splits = task_or_subtask.split('_')
     try:
         if splits[0] in ["amc", "smc"] or (len(splits) > 1 and splits[1] == "amc"):
+            category = "math"
             score = mathcontest_process_results(ground_truth, llm_answer, question_text, debug)
-            category = "math"
         elif splits[0] == "aime":
+            category = "math"
             score = aime_process_results(ground_truth, llm_answer, debug)
-            category = "math"
         elif splits[0] in ["imo", "usamo"]:
+            category = "math"
             score = proof_rearrangement_process_results(ground_truth, llm_answer, edit_distance=True, debug=debug)
-            category = "math"
         elif task_or_subtask == "cta":
+            category = "data_analysis"
             score = cta_process_results(ground_truth, llm_answer, debug)
-            category = "data_analysis"
         elif task_or_subtask == "tablereformat":
+            category = "data_analysis"
             score = table_process_results(question_text, ground_truth, llm_answer, debug)
-            category = "data_analysis"
         elif task_or_subtask == "tablejoin":
-            score = joinmap_process_results(question_text, ground_truth, llm_answer, debug)
             category = "data_analysis"
+            score = joinmap_process_results(question_text, ground_truth, llm_answer, debug)
         elif "amps_hard" in task_or_subtask:
-            score = amps_hard_process_results(ground_truth, llm_answer, debug)
             category = "math"
+            score = amps_hard_process_results(ground_truth, llm_answer, debug)
         elif task_or_subtask == "web_of_lies_v2":
+            category = "reasoning"
             score = web_of_lies_process_results(ground_truth, llm_answer, debug)
-            category = "reasoning"
         elif task_or_subtask == "house_traversal":
-            score = house_traversal_process_results(ground_truth, llm_answer, debug)
             category = "reasoning"
+            score = house_traversal_process_results(ground_truth, llm_answer, debug)
         elif task_or_subtask == "zebra_puzzle":
+            category = "reasoning"
             zebra_evaluator = get_zebra_puzzle_evaluator(question["livebench_release_date"])
             score = zebra_evaluator(ground_truth, llm_answer, debug)
-            category = "reasoning"
         elif task_or_subtask == "spatial":
-            score = spatial_process_results(ground_truth, llm_answer, debug)
             category = "reasoning"
+            score = spatial_process_results(ground_truth, llm_answer, debug)
         elif task_or_subtask == 'typos':
-            score = typos_process_results(ground_truth, llm_answer, debug)
             category = "language"
+            score = typos_process_results(ground_truth, llm_answer, debug)
         elif task_or_subtask == "connections":
+            category = "language"
             connections_evaluator = get_connections_puzzle_evaluator(question["livebench_release_date"])
             score = connections_evaluator(ground_truth, llm_answer, debug)
-            category = "language"
         elif task_or_subtask == "plot_unscrambling":
-            score = plot_unscrambling_process_results(ground_truth, llm_answer, debug)
             category = "language"
+            score = plot_unscrambling_process_results(ground_truth, llm_answer, debug)
         elif task_or_subtask in coding_test_case_tasks:
+            category = "coding"
             # use entire question object, because there are test cases inside.
             score = LCB_generation_process_results(question, llm_answer, debug)
-            category = "coding"
         else:
             raise NotImplementedError(f"This task ({task_or_subtask}) has not been implemented yet.")
     except:
-        raise RuntimeError(f"Error occurred evaluating question {question['question_id']}")
+        if (treat_exceptions_as_fails == False):
+            raise RuntimeError(f"Error occurred evaluating question {question['question_id']}")
+        score = 0
 
     if not category:
         raise NotImplementedError(f"A category must be assigned to each task")
@@ -185,6 +188,7 @@ def gen_judgments(
     remove_existing_file: bool,
     bench_name: str,
     debug=False,
+    treat_exceptions_as_fails=False,
 ):
     """
     Evaluate answers to questions for all the given models, compared to the expected ground truth answer for each question.
@@ -275,7 +279,7 @@ def gen_judgments(
         # Play matches
         if parallel == 1:
             for match in tqdm(matches):
-                results = play_a_match_func(match, output_file=output_file, debug=debug)
+                results = play_a_match_func(match, output_file=output_file, debug=debug, treat_exceptions_as_fails=treat_exceptions_as_fails)
         else:
 
             def play_a_match_wrapper(match):
@@ -346,6 +350,10 @@ if __name__ == "__main__":
         "--question-id", type=str, nargs="+", default=None,
         help="A debug option. The question id to be evaluated."
     )
+    parser.add_argument(
+        "--treat-exceptions-as-fails", type=bool, nargs="+", default=None,
+        help="Whether or not to treat exceptions (errors) as the LLM failing that question. Optional argument. Provide exactly either True or False"
+    )
     args = parser.parse_args()
 
     if args.livebench_release_option not in LIVE_BENCH_RELEASES:
@@ -384,6 +392,7 @@ if __name__ == "__main__":
                     remove_existing_file=args.remove_existing_file,
                     bench_name=task_full_name,
                     debug=args.debug,
+                    treat_exceptions_as_fails=args.treat_exceptions_as_fails
                 )
 
 
@@ -416,6 +425,7 @@ if __name__ == "__main__":
                     remove_existing_file=args.remove_existing_file,
                     bench_name=bench_name,
                     debug=args.debug,
+                    treat_exceptions_as_fails=args.treat_exceptions_as_fails
                 )
 
     else:
