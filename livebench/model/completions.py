@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 from tenacity import retry, stop_after_attempt, retry_if_exception_type, wait_fixed, after_log
 
 import logging
+import litellm
 import sys
 logging.basicConfig(stream=sys.stdout, level=logging.WARNING)
 
@@ -36,20 +37,17 @@ def chat_completion_openai(
     model: "Model", conv, temperature, max_tokens, api_dict=None
 ) -> tuple[str, int]:
     from livebench.model.models import OpenAIModel
-    from openai import OpenAI, NOT_GIVEN
+    from openai import NOT_GIVEN
 
-    if api_dict is not None:
-        client = OpenAI(
-            api_key=api_dict["api_key"], base_url=api_dict["api_base"], timeout=1000
-        )
-    else:
-        client = OpenAI(timeout=1000)
+    api_dict = api_dict or {}
+    api_key = api_dict.get("api_key")
+    base_url = api_dict.get("api_base")
     
     messages = conv.to_openai_api_messages()
     for message in messages:
         if message["role"] == "system":
             message["role"] = "developer"
-    response = client.chat.completions.create(
+    response = litellm.completion(
         model=model.api_name,
         messages=messages,
         n=1,
@@ -61,7 +59,8 @@ def chat_completion_openai(
         max_completion_tokens=(
             max_tokens
         ),
-
+        api_key=api_key,
+        base_url=base_url,
     )
     message = response.choices[0].message.content
     if message is None:
