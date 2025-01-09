@@ -43,11 +43,19 @@ tmux new-session -d -s $SESSION
 # Array of benchmark names
 BENCHMARKS=(
     # "live_bench/coding"
+<<<<<<< HEAD
     "live_bench/coding/coding_completion_1"
     "live_bench/coding/coding_completion_2"
     "live_bench/coding/LCB_generation_1"
     "live_bench/coding/LCB_generation_2"
     "live_bench/coding/LCB_generation_3"
+=======
+    # "live_bench/coding/coding_completion_1"
+    # "live_bench/coding/coding_completion_2"
+    # "live_bench/coding/LCB_generation_1"
+    # "live_bench/coding/LCB_generation_2"
+    # "live_bench/coding/LCB_generation_3"
+>>>>>>> 8bc7fad (code updates for january update)
     # "live_bench/data_analysis"
     # "live_bench/data_analysis/cta"
     # "live_bench/data_analysis/tablejoin"
@@ -68,6 +76,12 @@ BENCHMARKS=(
     # "live_bench/reasoning/zebra_puzzle_2"
     # "live_bench/reasoning/spatial"
     # "live_bench/reasoning/web_of_lies_v2"
+
+    "live_bench/coding_2/coding_completion"
+    "live_bench/coding_2/LCB_generation"
+    "live_bench/language/plot_unscrambling_2"
+    "live_bench/language/typos_2"
+    "live_bench/math/math_comp_3"
 
 )
 

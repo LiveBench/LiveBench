@@ -63,11 +63,11 @@ def chat_completion_openai(
             n=1,
             temperature=(
                 temperature
-                if not isinstance(model, OpenAIModel) or not model.inference_api
+                if isinstance(model, OpenAIModel) and not model.inference_api
                 else NOT_GIVEN
             ),
             max_completion_tokens=(
-                max_tokens if not isinstance(model, OpenAIModel) or not model.inference_api else NOT_GIVEN
+                max_tokens if isinstance(model, OpenAIModel) and not model.inference_api else NOT_GIVEN
             ),
             reasoning_effort=model.api_kwargs['reasoning_effort'] if model.api_kwargs is not None and 'reasoning_effort' in model.api_kwargs else NOT_GIVEN
 
@@ -82,7 +82,7 @@ def chat_completion_openai(
         return output, num_tokens
     except Exception as e:
         if "invalid_prompt" in str(e).lower():
-            print("invalid prompt, giving up")
+            print("invalid prompt (model refusal), giving up")
             return API_ERROR_OUTPUT, 0
         elif "timeout" in str(e).lower():
             print("timeout, giving up")
