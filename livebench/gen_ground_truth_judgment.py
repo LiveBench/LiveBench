@@ -39,6 +39,7 @@ from livebench.common import (
     load_model_answers,
     check_data,
     get_model_list,
+    load_test_cases_jsonl,
     make_match_single,
     MatchSingle,
     get_categories_tasks,
@@ -207,6 +208,7 @@ def gen_judgments(
     if model_list is None:
         # evaluate answers for all models who have answers in answer_dir
         models = get_model_list(answer_dir)
+        models = [m for m in models if m != 'deepseek-chat']
     else:
         models = model_list
 
@@ -431,6 +433,7 @@ if __name__ == "__main__":
         for question_file in list_of_question_files:
             print('questions from', question_file)
             questions = load_questions_jsonl(question_file, release_set, args.livebench_release_option, args.question_id)
+            questions = load_test_cases_jsonl(question_file, questions)
             if args.first_n:
                 questions = questions[: args.first_n]
             

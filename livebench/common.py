@@ -32,7 +32,7 @@ LIVE_BENCH_CATEGORIES = [
     "reasoning",
     "language",
 ]
-LIVE_BENCH_RELEASES = {"2024-07-26", "2024-06-24", "2024-08-31", "2024-11-25"}
+LIVE_BENCH_RELEASES = {"2024-07-26", "2024-06-24", "2024-08-31", "2024-11-25", "2025-01-25"}
 
 
 @dataclasses.dataclass
@@ -223,6 +223,37 @@ def load_questions_jsonl(
         ]
     if question_ids is not None:
         questions = [q for q in questions if q['question_id'] in question_ids]
+    return questions
+
+def load_test_cases_jsonl(question_file_path: str, questions: list[dict]):
+    """
+    Load test cases from a jsonl file in the same directory as the question file.
+    """
+    question_folder = os.path.dirname(question_file_path)
+
+    print('loading test cases from', question_folder)
+
+    # find all files of the form test_cases_<index>.jsonl and load them in order
+    test_cases = {}
+    test_cases_files = glob.glob(os.path.join(question_folder, "test_cases_*.jsonl"))
+    test_cases_files.sort()
+    for test_cases_file in test_cases_files:
+        print('loading test cases from', test_cases_file)
+        with open(test_cases_file, "r") as test_cases_file:
+            for line in test_cases_file:
+                test_case = json.loads(line)
+                question_id = test_case["question_id"]
+                test_cases[question_id] = test_case
+
+    if len(test_cases.keys()) > 0:
+        for question in questions:
+            if question['question_id'] in test_cases:
+                if any(key in question for key in test_cases[question['question_id']].keys() if key != "question_id"):
+                    print(f"Warning: Question {question['question_id']} already has keys {', '.join(key for key in test_cases[question['question_id']].keys() if key in question and key != 'question_id')}")
+                else:
+                    question.update(test_cases[question['question_id']])
+            else:
+                print(f"Warning: Question {question['question_id']} has no test cases")
     return questions
 
 
