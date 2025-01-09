@@ -1,4 +1,6 @@
-"""Model adapter registration."""
+"""Model adapter registration.
+From https://github.com/lm-sys/FastChat/blob/main/fastchat/model/model_adapter.py
+"""
 import math
 import os
 import re
