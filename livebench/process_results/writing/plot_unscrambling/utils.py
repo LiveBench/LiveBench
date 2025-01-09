@@ -29,8 +29,11 @@ def levenshtein_distance(A, B):
 
 
 def extract_plot_summary(text: str) -> str:
-    pattern = r'<PLOT_SUMMARY>(.*)'
+    pattern = r'<PLOT_SUMMARY>(.*)</PLOT_SUMMARY>'
     match = re.search(pattern, text, re.DOTALL)  # re.DOTALL allows . to match newline characters
+    if not match:
+        pattern = r'<PLOT_SUMMARY>(.*)'
+        match = re.search(pattern, text, re.DOTALL)
     return match.group(1) if match else text
 
 

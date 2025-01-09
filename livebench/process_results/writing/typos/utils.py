@@ -5,23 +5,31 @@ def extract_answer(llm_answer):
     pattern = r'.* --- (.*?) --- .*'
     match = re.search(pattern, llm_answer)
     return match.group(1) if match else llm_answer
-
-
+    
 def typos_process_results(ground_truth: str, llm_answer: str, debug=False) -> int:
 
-    llm_answer = ' '.join(list(filter(None, llm_answer.split('\n'))))
+    parsed_answer = None
 
-    llm_answer = extract_answer(llm_answer)
+    # extract text from <solution></solution> tags
+    solution_matches = re.findall(r'<solution>(.*?)</solution>', llm_answer)
+    if len(solution_matches) > 0:
+        match = solution_matches[-1]
+        parsed_answer = match
+    else:
+        parsed_answer = llm_answer.replace('<solution>', '').replace('</solution>', '')
+        parsed_answer = extract_answer(parsed_answer)
 
-    if debug and ground_truth not in llm_answer:
+    parsed_answer = ' '.join(list(filter(None, parsed_answer.strip().split('\n'))))
+
+    if debug and ground_truth not in parsed_answer:
 
         a = ground_truth
-        b = llm_answer
+        b = parsed_answer
         m = difflib.SequenceMatcher(a=a, b=b)
         pad = 10
 
         for tag, i1, i2, j1, j2 in m.get_opcodes():
-            length = min(len(llm_answer), len(ground_truth))
+            length = min(len(parsed_answer), len(ground_truth))
             mi1, mi2, mj1, mj2 = max(0,i1-pad), min(length, i2+pad), max(0, j1-pad), min(length, j2+pad)
             if tag == 'replace':
                 print("<changed>", a[i1:i2], b[j1:j2], "::::", a[mi1:mi2], "-->", b[mj1:mj2])
@@ -30,9 +38,10 @@ def typos_process_results(ground_truth: str, llm_answer: str, debug=False) -> in
             if tag == 'insert':
                 print("<inserted>", b[j1:j2], "::::", a[mi1:mi2], "-->", b[mj1:mj2])
 
-    if debug and not int(ground_truth in llm_answer):
+    if debug and not int(ground_truth in parsed_answer):
         print('INCORRECT')
         print('GROUND TRUTH', ground_truth)
-        print('SOLUTION', llm_answer)
+        print('SOLUTION', parsed_answer)
+        print('END OF OUTPUT', llm_answer[-len(parsed_answer):])
 
-    return int(ground_truth in llm_answer)
+    return int(ground_truth in parsed_answer)
