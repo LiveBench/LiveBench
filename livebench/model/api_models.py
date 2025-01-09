@@ -1,22 +1,14 @@
-from livebench.model.models import (
-    Model,
-    OpenAIModel,
-    AnthropicModel,
-    GeminiModel,
-    MistralModel,
-    CohereModel,
-    DeepseekModel,
-    NvidiaModel,
-    GemmaModel,
-    LlamaModel,
-    QwenModel,
-    AWSModel,
-    XAIModel,
-)
+import sys
+import warnings
+
 from livebench.model.completions import chat_completion_openai, chat_completion_palm
 from livebench.model.model_adapter import BaseModelAdapter, PaLM2Adapter, get_model_adapter
-import warnings
-import sys
+from livebench.model.models import (
+    AnthropicModel, AWSModel, CohereModel, DeepseekModel, GeminiModel,
+    GemmaModel, LlamaModel, MistralModel, Model, NvidiaModel, OpenAIModel,
+    QwenModel, XAIModel
+)
+
 
 if sys.version_info >= (3, 9):
     from functools import cache
@@ -59,12 +51,12 @@ ANTHROPIC_MODELS = [
     AnthropicModel(
         api_name="claude-3-5-sonnet-20241022",
         display_name="claude-3-5-sonnet-20241022",
-        aliases=[],
+        aliases=['claude-3-5-sonnet'],
     ),
     AnthropicModel(
         api_name="claude-3-5-haiku-20241022",
         display_name="claude-3-5-haiku-20241022",
-        aliases=[],
+        aliases=['claude-3-5-haiku'],
     ),
 ]
 
@@ -104,7 +96,7 @@ OPENAI_MODELS = [
     OpenAIModel(
         api_name="gpt-4o-mini-2024-07-18",
         display_name="gpt-4o-mini-2024-07-18",
-        aliases=[],
+        aliases=['gpt-4o-mini'],
     ),
     OpenAIModel(
         api_name="gpt-4o-2024-08-06", display_name="gpt-4o-2024-08-06", aliases=[]
@@ -129,9 +121,17 @@ INFERENCE_OPENAI_MODELS = [
     ),
     OpenAIModel(
         api_name="o1-2024-12-17",
-        display_name="o1-2024-12-17",
-        aliases=[],
-        inference_api=True
+        display_name="o1-2024-12-17-high",
+        aliases=['o1', 'o1-high', 'o1-2024-12-17'],
+        inference_api=True,
+        api_kwargs={'reasoning_effort': 'high'}
+    ),
+    OpenAIModel(
+        api_name="o1-2024-12-17",
+        display_name="o1-2024-12-17-low",
+        aliases=['o1-low'],
+        inference_api=True,
+        api_kwargs={'reasoning_effort': 'low'}
     )
 ]
 
@@ -229,6 +229,12 @@ GOOGLE_GENERATIVEAI_MODELS = [
         display_name="learnlm-1.5-pro-experimental",
         aliases=[],
     ),
+    GeminiModel(
+        api_name="gemini-2.0-flash-thinking-exp-1219",
+        display_name="gemini-2.0-flash-thinking-exp-1219",
+        aliases=['gemini-2.0-flash-thinking-exp'],
+        api_kwargs={'max_tokens': None}
+    )
 ]
 
 # Vertex Models
@@ -300,12 +306,7 @@ COHERE_MODELS = [
 
 # Deepseek Models
 DEEPSEEK_MODELS = [
-    DeepseekModel(api_name="deepseek-coder", display_name="deepseek-coder", aliases=[]),
-    DeepseekModel(
-        api_name="deepseek-chat",
-        display_name="deepseek-v2.5",
-        aliases=["deepseek-v2.5"],
-    ),
+    DeepseekModel(api_name="deepseek-chat", display_name="deepseek-v3", aliases=[]),
 ]
 
 # Nvidia Models
@@ -365,22 +366,29 @@ ALL_MODELS = (
     + NVIDIA_MODELS
     + XAI_MODELS
     + AWS_MODELS
+    + GOOGLE_GENERATIVEAI_MODELS
 )
 
 
 @cache
 def get_model(name: str) -> Model:
+    matches = []
     for model in ALL_MODELS:
         if (
-            model.api_name.lower() == name.lower()
-            or model.display_name.lower() == name.lower()
+            model.display_name.lower() == name.lower()
             or any(alias.lower() == name.lower() for alias in model.aliases)
         ):
-            return model
-    return Model(
-        api_name=name,
-        display_name=name,
-        aliases=[],
-        adapter=get_model_adapter(name),
-        api_function=chat_completion_openai,
-    )
+            matches.append(model)
+    if len(matches) > 1:
+        raise ValueError(f"Multiple models found for {name}")
+    elif len(matches) == 0:
+        warnings.warn(f"No model found for {name}")
+        return Model(
+            api_name=name,
+            display_name=name,
+            aliases=[],
+            adapter=get_model_adapter(name),
+            api_function=chat_completion_openai,
+        )
+    else:
+        return matches[0]

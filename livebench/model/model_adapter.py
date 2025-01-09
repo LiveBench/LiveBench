@@ -3,8 +3,9 @@ import math
 import os
 import re
 import sys
-from typing import Dict, List, Optional
 import warnings
+from typing import Dict, List, Optional
+
 
 if sys.version_info >= (3, 9):
     from functools import cache
@@ -13,37 +14,31 @@ else:
 
 import psutil
 import torch
-from transformers import (
-    AutoConfig,
-    AutoModel,
-    AutoModelForCausalLM,
-    AutoModelForSeq2SeqLM,
-    AutoTokenizer,
-    LlamaTokenizer,
-    LlamaForCausalLM,
-    T5Tokenizer,
-)
-
 from fastchat.constants import CPU_ISA
-from fastchat.conversation import Conversation, get_conv_template
 from fastchat.model.compression import load_compress_model
 from fastchat.model.llama_condense_monkey_patch import replace_llama_with_condense
 from fastchat.model.model_chatglm import generate_stream_chatglm
 from fastchat.model.model_codet5p import generate_stream_codet5p
-from fastchat.model.model_falcon import generate_stream_falcon
-from fastchat.model.model_yuan2 import generate_stream_yuan2
 from fastchat.model.model_exllama import generate_stream_exllama
+from fastchat.model.model_falcon import generate_stream_falcon
 from fastchat.model.model_xfastertransformer import generate_stream_xft
-#from fastchat.model.model_cllm import generate_stream_cllm
-
-from fastchat.model.monkey_patch_non_inplace import (
-    replace_llama_attn_with_non_inplace_operations,
-)
+from fastchat.model.model_yuan2 import generate_stream_yuan2
+from fastchat.model.monkey_patch_non_inplace import replace_llama_attn_with_non_inplace_operations
 from fastchat.modules.awq import AWQConfig, load_awq_quantized
 from fastchat.modules.exllama import ExllamaConfig, load_exllama_model
-from fastchat.modules.xfastertransformer import load_xft_model, XftConfig
 from fastchat.modules.gptq import GptqConfig, load_gptq_quantized
+from fastchat.modules.xfastertransformer import XftConfig, load_xft_model
 from fastchat.utils import get_gpu_memory
+from transformers import (
+    AutoConfig, AutoModel, AutoModelForCausalLM, AutoModelForSeq2SeqLM,
+    AutoTokenizer, LlamaForCausalLM, LlamaTokenizer, T5Tokenizer
+)
+
+from livebench.conversation import Conversation, get_conv_template
+
+
+#from fastchat.model.model_cllm import generate_stream_cllm
+
 
 # Check an environment variable to check if we should be sharing Peft model
 # weights.  When false we treat all Peft models as separate.
@@ -155,7 +150,7 @@ COHERE_MODEL_LIST = (
 
 DEEPSEEK_MODEL_LIST = (
     "deepseek-coder",
-    "deepseek-chat",
+    "deepseek-v3",
 )
 
 NVIDIA_MODEL_LIST = (
@@ -308,6 +303,7 @@ def load_model(
 ):
     """Load a model from Hugging Face."""
     import accelerate
+
     # get model adapter
     adapter = get_model_adapter(model_path)
     # Handle device mapping

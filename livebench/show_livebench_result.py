@@ -87,7 +87,7 @@ def display_result_single(args):
     if args.model_list is not None:
         model_list = [get_model(x).display_name for x in args.model_list]
         df = df[df["model"].isin([x.lower() for x in model_list])]
-        model_list_to_check = args.model_list
+        model_list_to_check = model_list
     else:
         model_list_to_check = set(df["model"])
     for model in model_list_to_check:

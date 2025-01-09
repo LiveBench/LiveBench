@@ -1,6 +1,6 @@
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from fastchat.conversation import Conversation
+from livebench.conversation import Conversation
 from livebench.model.model_adapter import (
     BaseModelAdapter,
     ClaudeAdapter,
@@ -37,6 +37,7 @@ class Model:
     aliases: list[str]
     adapter: BaseModelAdapter
     api_function: model_api_function | None = None
+    api_kwargs: dict | None = None
 
 
 @dataclass(kw_only=True, frozen=True)

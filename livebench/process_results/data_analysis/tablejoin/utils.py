@@ -6,26 +6,34 @@ import ast
 from livebench.process_results.util import last_boxed_only_string, remove_boxed
 
 def clean_llm_output(s):
-    matches = re.findall('%s(.*?)%s' % ("```python", "```"), s.replace("\n",""),re.MULTILINE)
-    if len(matches) == 0:
-        matches = re.findall('%s(.*?)%s' % ("```", "```"), s.replace("\n",""),re.MULTILINE)
-    if len(matches) == 0:
-        if '\\boxed' in s:
-            boxed = last_boxed_only_string(s.replace('\n', ''))
-            if boxed:
-                no_boxed = remove_boxed(boxed)
-                matches = [re.sub(r"\\text{[\'|\"](.*?)[\'|\"]}", r"'\1'", no_boxed).replace('\\', '')]
-    if len(matches) == 0:
-        matches = [s]
-    if len(matches) >= 1:
-        matches = matches[-1]
     try:
-        match_d = literal_eval(matches)
+        match_d = literal_eval(s)
     except:
-        return {}
+        matches = re.findall('%s(.*?)%s' % ("```python", "```"), s.replace("\n",""),re.MULTILINE)
+        if len(matches) == 0:
+            matches = re.findall('%s(.*?)%s' % ("```", "```"), s.replace("\n",""),re.MULTILINE)
+        if len(matches) == 0:
+            if '\\boxed' in s:
+                boxed = last_boxed_only_string(s.replace('\n', ''))
+                if boxed:
+                    no_boxed = remove_boxed(boxed)
+                    matches = [re.sub(r"\\text{[\'|\"](.*?)[\'|\"]}", r"'\1'", no_boxed).replace('\\', '')]
+        if len(matches) == 0:
+            matches = [s]
+        if len(matches) >= 1:
+            matches = matches[-1]
+        matches = matches.replace('null', 'None')
+        try:
+            match_d = literal_eval(matches)
+        except:
+            return {}
     if not isinstance(match_d, dict):
         return {}
     else:
+        keys = list(match_d.keys())
+        for k in keys:
+            if match_d[k] is None:
+                del match_d[k]
         return match_d
 
 def joinmap_process_results(_, ground_truth, llm, debug=False):

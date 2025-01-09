@@ -2,7 +2,7 @@ import os
 import time
 from typing import TYPE_CHECKING
 
-from tenacity import retry, stop_after_attempt, retry_if_exception_type, wait_fixed, after_log
+from tenacity import retry, stop_after_attempt, retry_if_exception_type, wait_fixed
 
 import logging
 import sys
@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from livebench.model.models import Model
 
 # API setting constants
-API_MAX_RETRY = 12
+API_MAX_RETRY = 3
 API_RETRY_SLEEP = 10
 API_ERROR_OUTPUT = "$ERROR$"
 
@@ -46,31 +46,40 @@ def chat_completion_openai(
         client = OpenAI(timeout=1000)
     
     messages = conv.to_openai_api_messages()
-    for message in messages:
-        if message["role"] == "system":
-            message["role"] = "developer"
-    response = client.chat.completions.create(
-        model=model.api_name,
-        messages=messages,
-        n=1,
-        temperature=(
-            temperature
-            if isinstance(model, OpenAIModel) and not model.inference_api
-            else NOT_GIVEN
-        ),
-        max_completion_tokens=(
-            max_tokens
-        ),
+    if isinstance(model, OpenAIModel):
+        for message in messages:
+            if message["role"] == "system":
+                message["role"] = "developer"
+    try:
 
-    )
-    message = response.choices[0].message.content
-    if message is None:
-        raise Exception("No message returned from OpenAI")
-    output = message
-    num_tokens = response.usage.completion_tokens
+        response = client.chat.completions.create(
+            model=model.api_name,
+            messages=messages,
+            n=1,
+            temperature=(
+                temperature
+                if not isinstance(model, OpenAIModel) or not model.inference_api
+                else NOT_GIVEN
+            ),
+            max_completion_tokens=(
+                max_tokens if not isinstance(model, OpenAIModel) or not model.inference_api else NOT_GIVEN
+            ),
+            reasoning_effort=model.api_kwargs['reasoning_effort'] if model.api_kwargs is not None and 'reasoning_effort' in model.api_kwargs else NOT_GIVEN
 
-    return output, num_tokens
+        )
+        
+        message = response.choices[0].message.content
+        if message is None:
+            raise Exception("No message returned from OpenAI")
+        output = message
+        num_tokens = response.usage.completion_tokens
 
+        return output, num_tokens
+    except Exception as e:
+        if "invalid_prompt" in str(e).lower():
+            print("invalid prompt, giving up")
+            return API_ERROR_OUTPUT, 0
+        raise e
 
 
 @retry(
@@ -82,7 +91,6 @@ def chat_completion_openai(
 )
 def chat_completion_aws(model, conv, temperature, max_tokens, api_dict=None) -> tuple[str, int]:
     import boto3
-    from botocore.exceptions import ClientError
 
     brt = boto3.client("bedrock-runtime", region_name="us-east-1")
     prompt = [text for role, text in conv.messages if role == "user"][0]
@@ -162,7 +170,7 @@ def chat_completion_nvidia(model, conv, temperature, max_tokens, api_dict=None) 
     response = client.chat.completions.create(
         model=model.api_name,
         messages=messages,
-        temperature=0.5,
+        temperature=temperature,
         max_tokens=max_tokens,
         top_p=1,
         stream=False,
@@ -243,37 +251,62 @@ def chat_completion_vertex(
 def chat_completion_google_generativeai(
     model, conv, temperature, max_tokens, api_dict=None
 ) -> tuple[str, int]:
-    import google.generativeai as genai
+    from google import genai
+    from google.genai import types
+
+    
 
     if api_dict is not None and "api_key" in api_dict:
         api_key = api_dict["api_key"]
     else:
         api_key = os.environ["GEMINI_API_KEY"]
-    genai.configure(api_key=api_key)
+    client = genai.Client(api_key=api_key)
+
     safety_settings = [
-        {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
-        {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
-        {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
-        {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
+        types.SafetySetting(category="HARM_CATEGORY_HARASSMENT", threshold="BLOCK_NONE"),
+        types.SafetySetting(category="HARM_CATEGORY_HATE_SPEECH", threshold="BLOCK_NONE"),
+        types.SafetySetting(category="HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold="BLOCK_NONE"),
+        types.SafetySetting(category="HARM_CATEGORY_DANGEROUS_CONTENT", threshold="BLOCK_NONE"),
     ]
-    generation_config = {
-        "temperature": temperature,
-        "top_p": 1,
-        "top_k": 1,
-        "max_output_tokens": max_tokens,
-    }
 
-    gemini = genai.GenerativeModel(
-        model_name=model.api_name,
-        generation_config=generation_config,
-        safety_settings=safety_settings,
-    )
-
-    convo = gemini.start_chat(history=[])
+    system = [text for role, text in conv.messages if role == "system"][0] if len([text for role, text in conv.messages if role == "system"]) > 0 else None
     prompt = [text for role, text in conv.messages if role == "user"][0]
 
-    response = convo.send_message(prompt)
-    return convo.last.text, response.usage_metadata.candidates_token_count
+    config = types.GenerateContentConfig(
+        temperature=temperature,
+        max_output_tokens=model.api_kwargs['max_tokens'] if model.api_kwargs is not None and 'max_tokens' in model.api_kwargs else max_tokens,
+        safety_settings=safety_settings,
+        system_instruction=system
+    )
+
+    response = client.models.generate_content(
+        model=model.api_name,
+        contents=prompt,
+        config=config
+    )
+
+    if response is None or response.candidates is None or len(response.candidates) == 0 or response.candidates[0].content is None or response.candidates[0].content.parts is None or len(response.candidates[0].content.parts) == 0:
+        msg = "No message returned from Google Generative AI"
+        if response is not None and response.candidates is not None and len(response.candidates) > 0 and response.candidates[0].finish_reason is not None:
+            msg += f" - finish reason: {response.candidates[0].finish_reason}"
+        raise Exception(msg)
+
+    if len(response.candidates[0].content.parts) > 1:
+        # if using a reasoning model, don't return the CoT text
+        final_res = response.candidates[0].content.parts[-1].text
+        cot = '\n'.join([part.text for part in response.candidates[0].content.parts[:-1]])
+    else:
+        final_res = response.candidates[0].content.parts[0].text
+        cot = ''
+
+    full = final_res + '\n' + cot
+
+    tokens = client.models.count_tokens(
+        model=model.api_name,
+        contents=full
+    ).total_tokens
+
+    return final_res, tokens
 
 
 @retry(

@@ -32,7 +32,7 @@ LIVE_BENCH_CATEGORIES = [
     "reasoning",
     "language",
 ]
-LIVE_BENCH_RELEASES = {"2024-07-26", "2024-06-24", "2024-08-31"} # TODO: add 2024-11-25 once questions are released
+LIVE_BENCH_RELEASES = {"2024-07-26", "2024-06-24", "2024-08-31", "2024-11-25"}
 
 
 @dataclasses.dataclass
@@ -65,7 +65,6 @@ def get_categories_tasks(bench_name: str):
         tasks: A dictionary mapping each category name to the list of tasks in that category
     """
     split_bench_name = bench_name.rstrip("/").split("/")
-    assert split_bench_name[0] == "live_bench"
     if len(split_bench_name) == 1:
         # specify entire bench
 
@@ -352,3 +351,12 @@ def get_model_list(answer_dir):
     file_paths = glob.glob(f"{answer_dir}/*.jsonl")
     file_names = [os.path.splitext(os.path.basename(f))[0] for f in file_paths]
     return file_names
+
+
+def find_last_question_id(answer_file):
+    id = None
+    with open(answer_file, "r") as fin:
+        for line in fin:
+            qid = json.loads(line)["question_id"]
+            id = qid
+    return id

@@ -48,13 +48,22 @@ def connections_process_results_old(ground_truth: str, llm_answer: str, debug=Fa
 def connections_process_results(ground_truth: str, llm_answer: str, debug=False) -> int:
 
     # extract text from <solution></solution> tags
-    solution_matches = re.findall(r'<solution>(.*?)</solution>', llm_answer.replace('\n', ''))
+    solution_matches = re.findall(r'<solution>(.*?)<\/solution>', llm_answer)
+    if len(solution_matches) == 0:
+        solution_matches = re.findall(r'<solution>(.*?)<\/solution>', llm_answer.replace('\n', ''))
+    if len(solution_matches) == 0:
+        solution_matches = re.findall(r'</solution>(.*?)<\/solution>', llm_answer)
+    if len(solution_matches) == 0:
+        solution_matches = re.findall(r'</solution>(.*?)<\/solution>', llm_answer.replace('\n', ''))
+
     ground_truth_words = ground_truth.split(',')
 
     if len(solution_matches) == 0 and '\\boxed' in llm_answer:
         boxed = last_boxed_only_string(llm_answer)
         no_box = remove_boxed(boxed)
         solution_matches = [no_box.replace('\\text{', '').replace('}', '').replace('\\', '')]
+
+    solution_matches = [match.replace('\n', '') for match in solution_matches]
 
     if len(solution_matches) == 0:
         if debug:

@@ -62,11 +62,22 @@ def amps_hard_process_results(ground_truth: str, llm_answer: str, debug=False) -
     llm_answer = llm_answer.replace("+c", "")
     llm_answer = llm_answer.replace("\\\\fbox{", "\\\\boxed{")
     llm_answer = llm_answer.replace("\\dfrac", "\\frac")
+    llm_answer = llm_answer.replace("\\tfrac", "\\frac")
     llm_answer = llm_answer.replace("\\left", "")
     llm_answer = llm_answer.replace("\\right", "")
+    llm_answer = llm_answer.replace("\\bigl", "")
+    llm_answer = llm_answer.replace("\\bigr", "")
+    llm_answer = llm_answer.replace("\\Bigl", "")
+    llm_answer = llm_answer.replace("\\Bigr", "")
+    llm_answer = llm_answer.replace("\\,", "")
+    llm_answer = llm_answer.replace("\\;", "")
+    llm_answer = llm_answer.replace("\n", "")
+    llm_answer = llm_answer.replace("\\cdot", "*")
 
     ground_truth = ground_truth.replace("\\left", "")
     ground_truth = ground_truth.replace("\\right", "")
+    ground_truth = ground_truth.replace(" ^", "^")
+    ground_truth = ground_truth.replace("\\ ", "*")
 
     last_boxed = last_boxed_only_string(llm_answer)
     if last_boxed:
@@ -82,6 +93,12 @@ def amps_hard_process_results(ground_truth: str, llm_answer: str, debug=False) -
             warnings.warn("Timeout when comparing ground truth and parsed answer")
         except Exception as e:
             warnings.warn(f"Error when comparing ground truth and parsed answer: {e}")
+    else:
+        if llm_answer[-1] == '.':
+            llm_answer = llm_answer[:-1]
+        if ground_truth == llm_answer[-len(ground_truth):]:
+            parsed_answer = llm_answer[-len(ground_truth):]
+            retval = 1
 
     if debug and retval == 0:
         print('INCORRECT')
