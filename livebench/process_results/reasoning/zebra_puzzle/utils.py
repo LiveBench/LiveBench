@@ -60,6 +60,9 @@ def zebra_puzzle_process_results(ground_truth: str, llm_answer: str, debug=False
     # extract text from <solution></solution> tags
     solution_matches = re.findall(r'<solution>(.*?)</solution>', llm_answer)
 
+    if len(solution_matches) == 0:
+        solution_matches = re.findall(r'</solution>(.*?)</solution>', llm_answer)
+
     
     allow_boxed = True
     if len(solution_matches) == 0 and allow_boxed:
@@ -71,8 +74,15 @@ def zebra_puzzle_process_results(ground_truth: str, llm_answer: str, debug=False
             solution_matches.append(boxed_removed)
 
     if len(solution_matches) == 0:
+        last_line = llm_answer.strip().split('\n')[-1]
+        if last_line.count(',') == len(ground_truth) - 1:
+            solution_matches.append(last_line)
+
+
+    if len(solution_matches) == 0:
         if debug:
             print('No solution text found for zebra puzzle')
+            print('GROUND TRUTH', ground_truth)
             print('END OF OUTPUT', llm_answer[-100:])
         return 0
     

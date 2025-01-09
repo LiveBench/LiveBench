@@ -19,6 +19,8 @@ def cta_process_results(ground_truth: str, llm_answer: str, debug=False) -> int:
 
     if clean_text(ground_truth) == clean_text(parsed_answer):
         return 1
+    elif clean_text(ground_truth) == clean_text(parsed_answer)[-len(clean_text(ground_truth)):]:
+        return 1
     else:
         if debug:
             print('INCORRECT')
@@ -26,4 +28,5 @@ def cta_process_results(ground_truth: str, llm_answer: str, debug=False) -> int:
             print('SOLUTION', parsed_answer)
             if parsed_answer != llm_answer:
                 print('END OF OUTPUT', llm_answer[-100:])
+                
         return 0

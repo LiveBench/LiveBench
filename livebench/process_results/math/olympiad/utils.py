@@ -26,14 +26,27 @@ def remove_nonnumeric_chars_at_ends(s):
 
 def extract_expression_completions_from_generation(generation):
     numbers = None
-    if '\\boxed' in generation:
+    if numbers is None and generation.strip().split('\n')[-1].startswith('Answer:'):
+        numbers = []
+        for n in generation.strip().split('\n')[-1].split(':')[-1].split(','):
+            n = n.strip().replace('.', '')
+            try:
+                numbers.append(int(n))
+            except:
+                numbers.append('NO ANSWER')
+
+    if numbers is None and '\\boxed' in generation:
         boxed = last_boxed_only_string(generation)
         no_box = remove_boxed(boxed)
         string = no_box.replace('\\text{', '').replace('}', '').replace('\\', '')
-        try:
-            numbers = [int(n.strip()) for n in string.strip().split(',')]
-        except:
-            pass
+        numbers = []
+        for n in string.strip().split(','):
+            try:
+                numbers.append(int(n.strip()))
+            except:
+                numbers.append('NO ANSWER')
+
+
     
     if numbers is None:
         # generation has Answer: comma separated list of numbers. I want to extract the last such comma separated list

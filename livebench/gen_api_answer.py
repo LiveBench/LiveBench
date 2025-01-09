@@ -15,6 +15,7 @@ import tqdm
 
 from livebench.common import (
     LIVE_BENCH_RELEASES,
+    find_last_question_id,
     reorg_answer_file,
     get_categories_tasks,
     load_questions,
@@ -216,6 +217,12 @@ if __name__ == "__main__":
         nargs="+",
         help="A list of question ids to generate answers for.",
     )
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        default=False,
+        help="Resume from the last question id in the file."
+    )
     args = parser.parse_args()
 
     model = get_model(args.model)
@@ -261,6 +268,15 @@ if __name__ == "__main__":
                     f"data/{task_full_name}/model_answer/{model.display_name}.jsonl"
                 )
 
+                if args.resume:
+                    last_question_id = find_last_question_id(answer_file)
+                    last_question_id_index = next((i for i, q in enumerate(questions) if q['question_id'] == last_question_id), None)
+                    if last_question_id_index is not None:
+                        questions = questions[last_question_id_index + 1:]
+                        print(f"Resuming from question {last_question_id_index + 1}")
+                    else:
+                        print(f"No question ids found in {answer_file}, starting from the beginning.")
+
                 print(f"Questions from {task_full_name}")
                 print(f"Output to {answer_file}")
 
@@ -298,6 +314,15 @@ if __name__ == "__main__":
 
             bench_name = os.path.dirname(question_file).replace("data/", "")
             answer_file = f"data/{bench_name}/model_answer/{model.display_name}.jsonl"
+
+            if args.resume:
+                last_question_id = find_last_question_id(answer_file)
+                last_question_id_index = next((i for i, q in enumerate(questions) if q['question_id'] == last_question_id), None)
+                if last_question_id_index is not None:
+                    questions = questions[last_question_id_index + 1:]
+                    print(f"Resuming from question {last_question_id_index + 1}")
+                else:
+                    print(f"No question ids found in {answer_file}, starting from the beginning.")
 
             print(f"Questions from {question_file}")
             print(f"Output to {answer_file}")

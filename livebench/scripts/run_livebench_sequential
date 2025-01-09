@@ -36,12 +36,14 @@ BENCHMARKS=(
     "live_bench/data_analysis"
     "live_bench/instruction_following"
     "live_bench/language"
-    "live_bench/math/AMPS_Hard"
-    "live_bench/math/AMPS_Hard_2"
-    "live_bench/math/math_comp"
-    "live_bench/math/math_comp_2"
-    "live_bench/math/olympiad_2"
+    "live_bench/math"
+    # "live_bench/math/AMPS_Hard"
+    # "live_bench/math/AMPS_Hard_2"
+    # "live_bench/math/math_comp"
+    # "live_bench/math/math_comp_2"
+    # "live_bench/math/olympiad_2"
     "live_bench/reasoning"
+    
 )
 
 gen_api_answer="python -u gen_api_answer.py --model $model --question-source $question_source"

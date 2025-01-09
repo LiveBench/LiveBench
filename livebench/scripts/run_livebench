@@ -39,17 +39,9 @@ fi
 cd ..
 
 if [ -z "$question_source" ]; then
-    python -u gen_ground_truth_judgment.py --model-list $model --bench-name $benchmark
+    python -u gen_ground_truth_judgment.py --model $model --bench-name $benchmark
 else
-    python -u gen_ground_truth_judgment.py --model-list $model --bench-name $benchmark --question-source $question_source
+    python -u gen_ground_truth_judgment.py --model $model --bench-name $benchmark --question-source $question_source
 fi
 
 echo "Finished running $benchmark with $model"
-
-show_cmd="python -u show_livebench_result.py --model-list $model --bench-name $benchmark"
-
-if [ -z "$question_source" ]; then
-    show_cmd="$show_cmd --question-source $question_source"
-fi
-
-$show_cmd
