@@ -163,7 +163,7 @@ INFERENCE_OPENAI_MODELS = [
         display_name="o1-2024-12-17-high",
         aliases=['o1', 'o1-high', 'o1-2024-12-17'],
         inference_api=True,
-        api_kwargs={'reasoning_effort': 'high'}
+        api_kwargs={'reasoning_effort': 'high', 'use_developer_messages': True}
     ),
     OpenAIModel(
         api_name="o1-2024-12-17",

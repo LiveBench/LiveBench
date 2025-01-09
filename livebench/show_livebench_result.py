@@ -6,6 +6,7 @@ import argparse
 import pandas as pd
 import glob
 import os
+import re
 
 from livebench.common import (
     LIVE_BENCH_RELEASES,
@@ -41,7 +42,12 @@ def display_result_single(args):
     categories = {}
     tasks = {}
     for bench in args.bench_name:
-        bench_cats, bench_tasks = get_categories_tasks(bench)
+        hf_bench = bench
+        # check if bench ends with _{i} for some number i
+        number_match = re.match(r'(.*)_\d+$', hf_bench)
+        if number_match:
+            hf_bench = number_match.group(1)
+        bench_cats, bench_tasks = get_categories_tasks(hf_bench)
         categories.update(bench_cats)
         for k, v in bench_tasks.items():
             if k in tasks and isinstance(tasks[k], list):

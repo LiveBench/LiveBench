@@ -31,7 +31,7 @@ class Model:
     aliases: list[str]
     adapter: BaseModelAdapter
     api_function: model_api_function | None = None
-    api_kwargs: dict | None = None
+    api_kwargs: dict = field(default_factory=dict)
 
 
 @dataclass(kw_only=True, frozen=True)

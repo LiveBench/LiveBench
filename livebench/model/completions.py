@@ -141,7 +141,7 @@ def chat_completion_openai(
         return output, num_tokens
     except Exception as e:
         if "invalid_prompt" in str(e).lower():
-            print("invalid prompt, giving up")
+            print("invalid prompt (model refusal), giving up")
             return API_ERROR_OUTPUT, 0
         raise e
 
