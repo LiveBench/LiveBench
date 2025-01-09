@@ -7,6 +7,13 @@ def mathcontest_process_results(ground_truth: str, llm_answer: str, question_tex
     # the reference answer must be a single capital letter from A to E (I.e., the multiple choice answer)
     if not (isinstance(ground_truth, str) and len(ground_truth) == 1 and 'A' <= ground_truth <= 'E'):
         raise ValueError("amc_answer must be a single capital letter between A and E.")
+    
+    # extract text from <solution></solution> tags
+    solution_matches = re.findall(r'<solution>(.*?)</solution>', llm_answer)
+    if len(solution_matches) > 0:
+        solution_match = solution_matches[-1]
+        if len(set(solution_match)) == 1 and next(iter(set(solution_match))).lower() == ground_truth.lower():
+            score = 1
 
     # The LLM was prompted to repeat letter answer 5 times, to make it easy to pull out the answer        
     if ground_truth * 4 in llm_answer:
@@ -38,6 +45,8 @@ def mathcontest_process_results(ground_truth: str, llm_answer: str, question_tex
         if not letter_answer and score == 0:
             print("INCORRECT")
             print("GROUND TRUTH", ground_truth.strip().lower())
+            if len(solution_matches) > 0:
+                print("<SOLUTION> MATCH:", solution_match)
             if last_boxed:
                 print("PARSED ANSWER:", parsed_answer)
             print("END OF OUTPUT", llm_answer[-200:])      

@@ -1,14 +1,22 @@
-import sys
-import warnings
-
+from livebench.model.models import (
+    Model,
+    OpenAIModel,
+    AnthropicModel,
+    GeminiModel,
+    MistralModel,
+    CohereModel,
+    DeepseekModel,
+    NvidiaModel,
+    GemmaModel,
+    LlamaModel,
+    QwenModel,
+    AWSModel,
+    XAIModel,
+)
 from livebench.model.completions import chat_completion_openai, chat_completion_palm
 from livebench.model.model_adapter import BaseModelAdapter, PaLM2Adapter, get_model_adapter
-from livebench.model.models import (
-    AnthropicModel, AWSModel, CohereModel, DeepseekModel, GeminiModel,
-    GemmaModel, LlamaModel, MistralModel, Model, NvidiaModel, OpenAIModel,
-    QwenModel, XAIModel
-)
-
+import warnings
+import sys
 
 if sys.version_info >= (3, 9):
     from functools import cache
@@ -104,6 +112,9 @@ OPENAI_MODELS = [
     OpenAIModel(
         api_name="chatgpt-4o-latest", display_name="chatgpt-4o-latest-2025-01-30", aliases=[]
     ),
+    OpenAIModel(
+        api_name="gpt-4o-2024-11-20", display_name="gpt-4o-2024-11-20", aliases=[]
+    ),
 ]
 
 INFERENCE_OPENAI_MODELS = [
@@ -124,7 +135,7 @@ INFERENCE_OPENAI_MODELS = [
         display_name="o1-2024-12-17-high",
         aliases=['o1', 'o1-high', 'o1-2024-12-17'],
         inference_api=True,
-        api_kwargs={'reasoning_effort': 'high'}
+        api_kwargs={'reasoning_effort': 'high', 'use_developer_messages': True}
     ),
     OpenAIModel(
         api_name="o1-2024-12-17",
