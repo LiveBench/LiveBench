@@ -1,10 +1,17 @@
 import difflib
+import re
 
+def extract_answer(llm_answer):
+    pattern = r'.* --- (.*?) --- .*'
+    match = re.search(pattern, llm_answer)
+    return match.group(1) if match else llm_answer
 
 
 def typos_process_results(ground_truth: str, llm_answer: str, debug=False) -> int:
 
     llm_answer = ' '.join(list(filter(None, llm_answer.split('\n'))))
+
+    llm_answer = extract_answer(llm_answer)
 
     if debug and ground_truth not in llm_answer:
 
