@@ -88,7 +88,7 @@ def display_result_single(args):
     df['model'] = df['model'].str.lower()
     df["score"] *= 100
 
-
+    df = df.dropna(inplace=False)
 
     if args.model_list is not None:
         model_list = [get_model(x).display_name for x in args.model_list]
