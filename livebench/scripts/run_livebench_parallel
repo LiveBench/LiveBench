@@ -11,7 +11,7 @@ venv=$2
 question_source=${3:-'huggingface'}
 api_base=$4
 api_key_name=$5
-model_display_name=${6:-$model}
+model_display_name=$6
 
 if [ -z "$model" ] || [ -z "$venv" ]; then
     echo "Usage: run_livebench_parallel <model> <venv-path> <optional-question-source>"
