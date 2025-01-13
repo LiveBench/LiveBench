@@ -359,12 +359,12 @@ if __name__ == "__main__":
         r for r in LIVE_BENCH_RELEASES if r <= args.livebench_release_option
     ])
 
-    if args.model_list is None:
+    if args.model is None:
         model_list = None
     else:
         # model_list = [get_model(model_name).display_name for model_name in args.model_list]
         model_list = []
-        for i, model_name in enumerate(args.model_list):
+        for i, model_name in enumerate(args.model):
             if args.model_display_name is not None:
                 model_list.append(args.model_display_name[i])
             else:
