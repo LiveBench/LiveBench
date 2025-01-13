@@ -11,6 +11,7 @@ venv=$2
 question_source=${3:-'huggingface'}
 api_base=$4
 api_key_name=$5
+model_display_name=${6:-$model}
 
 if [ -z "$model" ] || [ -z "$venv" ]; then
     echo "Usage: run_livebench_parallel <model> <venv-path> <optional-question-source>"
@@ -79,6 +80,12 @@ fi
 
 if [ -n "$api_key_name" ]; then
     gen_api_answer="export LIVEBENCH_API_KEY=${!api_key_name} && $gen_api_answer"
+fi
+
+if [ -n "$model_display_name" ]; then
+    echo "Using model display name: $model_display_name"
+    gen_api_answer="$gen_api_answer --model-display-name $model_display_name"
+    gen_ground_truth_judgment="$gen_ground_truth_judgment --model-display-name $model_display_name"
 fi
 
 # Create a new window for the first benchmark

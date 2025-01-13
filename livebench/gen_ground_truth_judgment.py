@@ -346,6 +346,10 @@ if __name__ == "__main__":
         "--question-id", type=str, nargs="+", default=None,
         help="A debug option. The question id to be evaluated."
     )
+    parser.add_argument(
+        "--model-display-name", type=str, nargs="+",default=None,
+        help="The display name of the model(s). If provided, will be used to name the output file. Will match order to --model-list. If not provided, will be generated from --model-list."
+    )
     args = parser.parse_args()
 
     if args.livebench_release_option not in LIVE_BENCH_RELEASES:
@@ -358,7 +362,13 @@ if __name__ == "__main__":
     if args.model_list is None:
         model_list = None
     else:
-        model_list = [get_model(model_name).display_name for model_name in args.model_list]
+        # model_list = [get_model(model_name).display_name for model_name in args.model_list]
+        model_list = []
+        for i, model_name in enumerate(args.model_list):
+            if args.model_display_name is not None:
+                model_list.append(args.model_display_name[i])
+            else:
+                model_list.append(get_model(model_name).display_name)
 
     if args.question_source == "huggingface":
         categories, tasks = get_categories_tasks(args.bench_name)

@@ -223,9 +223,18 @@ if __name__ == "__main__":
         default=False,
         help="Resume from the last question id in the file."
     )
+    parser.add_argument(
+        "--model-display-name",
+        type=str,
+        default=None,
+        help="Optional display name of the model. If not provided, will be inferred from --model.",
+    )
     args = parser.parse_args()
 
     model = get_model(args.model)
+
+    if args.model_display_name is not None:
+        model = Model(**model.__dict__, display_name=args.model_display_name)
 
     if args.livebench_release_option not in LIVE_BENCH_RELEASES:
         raise ValueError(f"Bad release {args.livebench_release_option}.")
