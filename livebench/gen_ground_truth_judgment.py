@@ -304,7 +304,7 @@ if __name__ == "__main__":
         help="The name of the benchmark question set. Defaults to 'live_bench', or all tasks in the benchmark. Specify e.g. live_bench/reasoning/web_of_lies_v2 to generate only for that task.",
     )
     parser.add_argument(
-        "--model-list",
+        "--model",
         type=str,
         nargs="+",
         default=None,
