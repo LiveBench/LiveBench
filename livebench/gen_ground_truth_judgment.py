@@ -144,8 +144,8 @@ def play_a_match_gt(match: MatchSingle, output_file: str, debug=False):
             category = "coding"
         else:
             raise NotImplementedError(f"This task ({task_or_subtask}) has not been implemented yet.")
-    except:
-        raise RuntimeError(f"Error occurred evaluating question {question['question_id']}")
+    except Exception as e:
+        raise RuntimeError(f"Error occurred evaluating question {question['question_id']}") from e
 
     if not category:
         raise NotImplementedError(f"A category must be assigned to each task")

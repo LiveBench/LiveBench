@@ -37,8 +37,12 @@ def extract_expression_completions_from_generation(generation):
 
     if numbers is None and '\\boxed' in generation:
         boxed = last_boxed_only_string(generation)
-        no_box = remove_boxed(boxed)
-        string = no_box.replace('\\text{', '').replace('}', '').replace('\\', '')
+        if boxed is not None:
+            no_box = remove_boxed(boxed)
+            string = no_box
+        else:
+            string = generation
+        string = string.replace('\\text{', '').replace('}', '').replace('\\', '')
         numbers = []
         for n in string.strip().split(','):
             try:
