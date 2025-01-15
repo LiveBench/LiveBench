@@ -231,8 +231,6 @@ def load_test_cases_jsonl(question_file_path: str, questions: list[dict]):
     """
     question_folder = os.path.dirname(question_file_path)
 
-    print('loading test cases from', question_folder)
-
     # find all files of the form test_cases_<index>.jsonl and load them in order
     test_cases = {}
     test_cases_files = glob.glob(os.path.join(question_folder, "test_cases_*.jsonl"))
