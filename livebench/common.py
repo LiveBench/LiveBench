@@ -221,8 +221,9 @@ def load_questions_jsonl(
         questions = [
             q for q in questions if q['livebench_removal_date'] == "" or q['livebench_removal_date'] > livebench_release
         ]
+        
     if question_ids is not None:
-        questions = [q for q in questions if q['question_id'] in question_ids]
+        questions = [q for q in questions if str(q['question_id']) in question_ids]
     return questions
 
 def load_test_cases_jsonl(question_file_path: str, questions: list[dict]):
