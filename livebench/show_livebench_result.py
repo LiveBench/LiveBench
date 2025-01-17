@@ -100,6 +100,9 @@ def display_result_single(args):
         if len(df_model) < len(questions_all) and not args.ignore_missing_judgments:
             if args.verbose:
                 print('removing model', model, "has missing", len(questions_all) - len(df_model), "judgments - has ", len(df_model))
+                if len(questions_all) - len(df_model) < 10:
+                    missing_question_ids = set([q['question_id'] for q in questions_all]) - set(df_model['question_id'])
+                    print('missing ids', missing_question_ids)
             missing_tasks = set()
             for task in tasks_set:
                 if len(df_model[df_model['task'] == task]) != len([q for q in questions_all if q['task'] == task]):
