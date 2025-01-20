@@ -111,6 +111,7 @@ class DeepseekModel(Model):
     api_function: model_api_function = field(
         default=chat_completion_deepseek
     )
+    reasoner: bool = field(default=False)
 
 
 @dataclass(kw_only=True, frozen=True)

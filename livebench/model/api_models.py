@@ -307,6 +307,7 @@ COHERE_MODELS = [
 # Deepseek Models
 DEEPSEEK_MODELS = [
     DeepseekModel(api_name="deepseek-chat", display_name="deepseek-v3", aliases=[]),
+    DeepseekModel(api_name="deepseek-reasoner", display_name="deepseek-r1", aliases=[], reasoner=True)
 ]
 
 # Nvidia Models

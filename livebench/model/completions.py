@@ -1,6 +1,6 @@
 import os
 import time
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from tenacity import retry, stop_after_attempt, retry_if_exception_type, wait_fixed
 
@@ -122,16 +122,19 @@ def chat_completion_deepseek(model, conv, temperature, max_tokens, api_dict=None
     else:
         api_key = os.environ["DEEPSEEK_API_KEY"]
 
+    from livebench.model.models import DeepseekModel
+    model = cast(DeepseekModel, model)
+
     print("sleeping for 3 sec")
     time.sleep(3)
-    from openai import OpenAI
+    from openai import OpenAI, NOT_GIVEN
 
     client = OpenAI(api_key=api_key, base_url="https://api.deepseek.com")
     messages = conv.to_openai_api_messages()
     response = client.chat.completions.create(
         model=model.api_name,
         messages=messages,
-        temperature=temperature,
+        temperature=temperature if not model.reasoner else NOT_GIVEN,
         max_tokens=max_tokens,
         n=1,
         stream=False,
