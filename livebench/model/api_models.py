@@ -261,6 +261,9 @@ TOGETHER_MODELS = [
     QwenModel(
         api_name="qwen/qwq-32b-preview", display_name="Qwen-32B-Preview", aliases=[]
     ),
+    LlamaModel(
+        api_name="llama-3.3-70b-instruct-turbo", display_name="llama-3.3-70b-instruct-turbo", aliases=[]
+    )
 ]
 
 QWEN_ALIBABA_MODELS = [
@@ -315,6 +318,11 @@ GOOGLE_GENERATIVEAI_MODELS = [
     GeminiModel(
         api_name="learnlm-1.5-pro-experimental",
         display_name="learnlm-1.5-pro-experimental",
+        aliases=[],
+    ),
+    GeminiModel(
+        api_name='gemini-exp-1206',
+        display_name='gemini-exp-1206',
         aliases=[],
     ),
     GeminiModel(
