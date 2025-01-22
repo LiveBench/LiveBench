@@ -260,9 +260,6 @@ TOGETHER_MODELS = [
     ),
     QwenModel(
         api_name="qwen/qwq-32b-preview", display_name="Qwen-32B-Preview", aliases=[]
-    ),
-    LlamaModel(
-        api_name="llama-3.3-70b-instruct-turbo", display_name="llama-3.3-70b-instruct-turbo", aliases=[]
     )
 ]
 
@@ -523,6 +520,7 @@ ALL_MODELS = (
     + PERPLEXITY_MODELS
     + GOOGLE_GENERATIVEAI_MODELS
     + QWEN_ALIBABA_MODELS
+    + TOGETHER_MODELS
 )
 
 
