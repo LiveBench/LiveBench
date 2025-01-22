@@ -8,6 +8,8 @@ import logging
 import sys
 logging.basicConfig(stream=sys.stdout, level=logging.WARNING)
 
+import httpx
+
 logger = logging.getLogger(__name__)
 if TYPE_CHECKING:
     from livebench.model.models import Model
@@ -23,7 +25,7 @@ def retry_fail(_):
 
 def retry_log(retry_state):
     exception = retry_state.outcome.exception()
-    logger.warning(f"{retry_state.fn.__name__}: attempt {retry_state.attempt_number} failed with {exception.__class__.__name__}: {exception}")
+    logger.warning(f"{retry_state.fn.__name__}: attempt {retry_state.attempt_number} failed with {exception.__class__.__name__}: {exception}; {retry_state.seconds_since_start} seconds elapsed total")
 
 @retry(
     stop=stop_after_attempt(API_MAX_RETRY),
@@ -40,7 +42,7 @@ def chat_completion_openai(
 
     if api_dict is not None:
         client = OpenAI(
-            api_key=api_dict["api_key"], base_url=api_dict["api_base"], timeout=1000
+            api_key=api_dict["api_key"], base_url=api_dict["api_base"], timeout=httpx.Timeout(timeout=2400.0, connect=10.0)
         )
     else:
         client = OpenAI(timeout=1000)
@@ -78,6 +80,9 @@ def chat_completion_openai(
     except Exception as e:
         if "invalid_prompt" in str(e).lower():
             print("invalid prompt, giving up")
+            return API_ERROR_OUTPUT, 0
+        elif "timeout" in str(e).lower():
+            print("timeout, giving up")
             return API_ERROR_OUTPUT, 0
         raise e
 

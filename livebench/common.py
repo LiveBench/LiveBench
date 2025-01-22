@@ -238,7 +238,7 @@ def load_model_answers(answer_dir: str):
 
     for filename in filenames:
         model_name = os.path.basename(filename)[: -len(".jsonl")]
-        model_name = get_model(model_name).display_name
+        model_name = get_model(model_name).display_name.lower()
         answer = {}
         with open(filename) as fin:
             for line in fin:
@@ -349,7 +349,7 @@ def check_data(questions, model_answers, models):
 def get_model_list(answer_dir):
     """Get list of models for which there are answer files in answer_dir"""
     file_paths = glob.glob(f"{answer_dir}/*.jsonl")
-    file_names = [os.path.splitext(os.path.basename(f))[0] for f in file_paths]
+    file_names = [os.path.splitext(os.path.basename(f))[0].lower() for f in file_paths]
     return file_names
 
 

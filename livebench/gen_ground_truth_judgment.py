@@ -88,6 +88,7 @@ def play_a_match_gt(match: MatchSingle, output_file: str, debug=False):
     question_text = question["turns"][0]
     ground_truth = question.get("ground_truth", None)
     llm_answer = answer['choices'][0]['turns'][-1]
+    llm_answer = re.sub(f"<think>.*?<\/think>", "", llm_answer, flags=re.DOTALL)
     score = 0
     category = None
 
@@ -366,9 +367,9 @@ if __name__ == "__main__":
         model_list = []
         for i, model_name in enumerate(args.model):
             if args.model_display_name is not None:
-                model_list.append(args.model_display_name[i])
+                model_list.append(args.model_display_name[i].lower())
             else:
-                model_list.append(get_model(model_name).display_name)
+                model_list.append(get_model(model_name).display_name.lower())
 
     if args.question_source == "huggingface":
         categories, tasks = get_categories_tasks(args.bench_name)

@@ -33,15 +33,11 @@ tmux kill-session -t $SESSION 2>/dev/null
 tmux new-session -d -s $SESSION
 
 BENCHMARKS=(
-    # "live_bench/coding"
-    # "live_bench/data_analysis"
-    # "live_bench/instruction_following"
-    # "live_bench/language"
-    # "live_bench/math/AMPS_Hard"
-    # "live_bench/math/AMPS_Hard_2"
-    # "live_bench/math/math_comp"
-    "live_bench/math/math_comp_2"
-    "live_bench/math/olympiad_2"
+    "live_bench/coding"
+    "live_bench/data_analysis"
+    "live_bench/instruction_following"
+    "live_bench/language"
+    "live_bench/math"
     "live_bench/reasoning"
     
 )
