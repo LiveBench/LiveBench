@@ -268,7 +268,7 @@ def chat_completion_google_generativeai(
         api_key = api_dict["api_key"]
     else:
         api_key = os.environ["GEMINI_API_KEY"]
-    client = genai.Client(api_key=api_key)
+    client = genai.Client(api_key=api_key, http_options={'api_version': 'v1alpha'})
 
     safety_settings = [
         types.SafetySetting(category="HARM_CATEGORY_HARASSMENT", threshold="BLOCK_NONE"),
@@ -280,12 +280,12 @@ def chat_completion_google_generativeai(
     system = [text for role, text in conv.messages if role == "system"][0] if len([text for role, text in conv.messages if role == "system"]) > 0 else None
     prompt = [text for role, text in conv.messages if role == "user"][0]
 
-    config = types.GenerateContentConfig(
-        temperature=temperature,
-        max_output_tokens=model.api_kwargs['max_tokens'] if model.api_kwargs is not None and 'max_tokens' in model.api_kwargs else max_tokens,
-        safety_settings=safety_settings,
-        system_instruction=system
-    )
+    kwargs = {'safety_settings': safety_settings, 'system_instruction': system}
+
+    if model.api_kwargs is not None:
+        kwargs.update(model.api_kwargs)
+
+    config = types.GenerateContentConfig(**kwargs)
 
     response = client.models.generate_content(
         model=model.api_name,
@@ -301,8 +301,13 @@ def chat_completion_google_generativeai(
 
     if len(response.candidates[0].content.parts) > 1:
         # if using a reasoning model, don't return the CoT text
-        final_res = response.candidates[0].content.parts[-1].text
-        cot = '\n'.join([part.text for part in response.candidates[0].content.parts[:-1]])
+        final_res = ''
+        cot = ''
+        for part in response.candidates[0].content.parts:
+            if part.thought:
+                cot += part.text
+            else:
+                final_res += part.text
     else:
         final_res = response.candidates[0].content.parts[0].text
         cot = ''

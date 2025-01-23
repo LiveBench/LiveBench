@@ -252,6 +252,8 @@ def load_model_answers(answer_dir: str):
 def reorg_answer_file(answer_file):
     """Sort the entires in the file answer_file by question id and de-duplicate"""
     answers = {}
+    if not os.path.exists(answer_file):
+        return
     with open(answer_file, "r") as fin:
         for l in fin:
             qid = json.loads(l)["question_id"]
@@ -351,12 +353,21 @@ def get_model_list(answer_dir):
     file_paths = glob.glob(f"{answer_dir}/*.jsonl")
     file_names = [os.path.splitext(os.path.basename(f))[0].lower() for f in file_paths]
     return file_names
+    
 
-
-def find_last_question_id(answer_file):
-    id = None
+def filter_questions(questions, answer_file, resume=False, retry_failures=False):
+    from livebench.model.completions import API_ERROR_OUTPUT
+    reorg_answer_file(answer_file)
+    new_questions_ids = set([q["question_id"] for q in questions])
+    if not os.path.exists(answer_file):
+        return questions
     with open(answer_file, "r") as fin:
         for line in fin:
-            qid = json.loads(line)["question_id"]
-            id = qid
-    return id
+            ans = json.loads(line)
+            qid = ans["question_id"]
+            error = ans["choices"][0]["turns"][0] == API_ERROR_OUTPUT
+            if qid in new_questions_ids and (resume or retry_failures) and not error:
+                new_questions_ids.remove(qid)
+            elif qid in new_questions_ids and error and not retry_failures:
+                new_questions_ids.remove(qid)
+    return sorted([q for q in questions if q["question_id"] in new_questions_ids], key=lambda x: x["question_id"])

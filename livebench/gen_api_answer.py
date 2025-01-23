@@ -15,12 +15,12 @@ import tqdm
 
 from livebench.common import (
     LIVE_BENCH_RELEASES,
-    find_last_question_id,
     reorg_answer_file,
     get_categories_tasks,
     load_questions,
     load_questions_jsonl,
     LIVE_BENCH_DATA_SUPER_PATH,
+    filter_questions
 )
 from livebench.model.completions import chat_completion_openai
 
@@ -221,13 +221,19 @@ if __name__ == "__main__":
         "--resume",
         action="store_true",
         default=False,
-        help="Resume from the last question id in the file."
+        help="Do not generate answers for questions that have already been generated, unless they were errors and --retry-failures is set."
     )
     parser.add_argument(
         "--model-display-name",
         type=str,
         default=None,
         help="Optional display name of the model. If not provided, will be inferred from --model.",
+    )
+    parser.add_argument(
+        "--retry-failures",
+        action="store_true",
+        default=False,
+        help="Retry generating answers for questions that have failed in the past.",
     )
     args = parser.parse_args()
 
@@ -279,14 +285,7 @@ if __name__ == "__main__":
                     f"data/{task_full_name}/model_answer/{model.display_name}.jsonl"
                 )
 
-                if args.resume:
-                    last_question_id = find_last_question_id(answer_file)
-                    last_question_id_index = next((i for i, q in enumerate(questions) if q['question_id'] == last_question_id), None)
-                    if last_question_id_index is not None:
-                        questions = questions[last_question_id_index + 1:]
-                        print(f"Resuming from question {last_question_id_index + 1}")
-                    else:
-                        print(f"No question ids found in {answer_file}, starting from the beginning.")
+                questions = filter_questions(questions, answer_file, args.resume, args.retry_failures)
 
                 print(f"Questions from {task_full_name}")
                 print(f"Output to {answer_file}")
@@ -326,15 +325,8 @@ if __name__ == "__main__":
             bench_name = os.path.dirname(question_file).replace("data/", "")
             answer_file = f"data/{bench_name}/model_answer/{model.display_name}.jsonl"
 
-            if args.resume:
-                last_question_id = find_last_question_id(answer_file)
-                last_question_id_index = next((i for i, q in enumerate(questions) if q['question_id'] == last_question_id), None)
-                if last_question_id_index is not None:
-                    questions = questions[last_question_id_index + 1:]
-                    print(f"Resuming from question {last_question_id_index + 1}")
-                else:
-                    print(f"No question ids found in {answer_file}, starting from the beginning.")
-
+            questions = filter_questions(questions, answer_file, args.resume, args.retry_failures)
+                    
             print(f"Questions from {question_file}")
             print(f"Output to {answer_file}")
 
