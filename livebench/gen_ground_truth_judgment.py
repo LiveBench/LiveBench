@@ -321,6 +321,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--bench-name",
         type=str,
+        nargs="+",
         default="live_bench",
         help="The name(s) of the benchmark question set. Defaults to 'live_bench', or all tasks in the benchmark. Specify e.g. live_bench/reasoning/web_of_lies_v2 to generate only for that task.",
     )
@@ -401,14 +402,15 @@ if __name__ == "__main__":
                 model_list.append(get_model(model_name).display_name.lower())
 
     if args.question_source == "huggingface":
-        categories, tasks = get_categories_tasks(args.bench_name)
+        for bench_name in args.bench_name:
+            categories, tasks = get_categories_tasks(bench_name)
 
-        for category_name, task_names in tasks.items():
-            for task_name in task_names:
-                questions = load_questions(categories[category_name], release_set, args.livebench_release_option, task_name, args.question_id)
-                if args.first_n:
-                    questions = questions[: args.first_n]
-                questions = questions[args.question_begin:args.question_end]
+            for category_name, task_names in tasks.items():
+                for task_name in task_names:
+                    questions = load_questions(categories[category_name], release_set, args.livebench_release_option, task_name, args.question_id)
+                    if args.first_n:
+                        questions = questions[: args.first_n]
+                    questions = questions[args.question_begin:args.question_end]
 
                 task_full_name = f"{LIVE_BENCH_DATA_SUPER_PATH}/{category_name}/{task_name}"
                 output_file = f"data/{task_full_name}/model_judgment/ground_truth_judgment.jsonl" if args.output_file is None else args.output_file
@@ -428,22 +430,23 @@ if __name__ == "__main__":
 
 
     elif args.question_source == "jsonl":
-        list_of_question_files = []
-        original_question_file = f"data/{args.bench_name}/question.jsonl"
-        if os.path.exists(original_question_file):
-            list_of_question_files = [original_question_file]
-        else:
-            list_of_question_files = glob.glob(f"data/{args.bench_name}/**/question.jsonl", recursive=True)
-        for question_file in list_of_question_files:
-            print('questions from', question_file)
-            questions = load_questions_jsonl(question_file, release_set, args.livebench_release_option, args.question_id)
-            questions = load_test_cases_jsonl(question_file, questions)
-            if args.first_n:
-                questions = questions[: args.first_n]
-            
-            questions = questions[args.question_begin:args.question_end]
+        for bench_name in args.bench_name:
+            list_of_question_files = []
+            original_question_file = f"data/{bench_name}/question.jsonl"
+            if os.path.exists(original_question_file):
+                list_of_question_files = [original_question_file]
+            else:
+                list_of_question_files = glob.glob(f"data/{bench_name}/**/question.jsonl", recursive=True)
+            for question_file in list_of_question_files:
+                print('questions from', question_file)
+                questions = load_questions_jsonl(question_file, release_set, args.livebench_release_option, args.question_id)
+                questions = load_test_cases_jsonl(question_file, questions)
+                if args.first_n:
+                    questions = questions[: args.first_n]
+                
+                questions = questions[args.question_begin:args.question_end]
 
-            bench_name = os.path.dirname(question_file).replace("data/","")
+                bench_name = os.path.dirname(question_file).replace("data/","")
 
             output_file = f"data/{bench_name}/model_judgment/ground_truth_judgment.jsonl" if args.output_file is None else args.output_file
             answer_dir = f"data/{bench_name}/model_answer/" if args.answer_file is None else args.answer_file # expected location of model answers
