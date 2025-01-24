@@ -238,14 +238,20 @@ TOGETHER_MODELS = [
         aliases=[],
     ),
     QwenModel(
-        api_name="qwen/Qwen2.5-7B-Instruct-Turbo",
-        display_name="Qwen-2.5-7B-Instruct-Turbo",
-        aliases=[],
+        api_name="Qwen/Qwen2.5-7B-Instruct-Turbo",
+        display_name="qwen2.5-7b-instruct-turbo",
+        aliases=['qwen2.5-7b-instruct'],
     ),
     QwenModel(
-        api_name="qwen/Qwen2.5-72B-Instruct-Turbo",
-        display_name="Qwen-2.5-72B-Instruct-Turbo",
+        api_name="Qwen/Qwen2.5-72B-Instruct-Turbo",
+        display_name="qwen2.5-72b-instruct-turbo",
+        aliases=['qwen2.5-72b-instruct'],
+    ),
+    QwenModel(
+        api_name="Qwen/QwQ-32B-Preview",
+        display_name="qwq-32b-preview",
         aliases=[],
+        api_kwargs={'max_tokens': 16000}
     ),
     LlamaModel(
         api_name="Llama-3.1-Nemotron-70B-Instruct-HF",
@@ -323,10 +329,15 @@ GOOGLE_GENERATIVEAI_MODELS = [
         aliases=[],
     ),
     GeminiModel(
+        api_name='gemini-2.0-flash-exp',
+        display_name='gemini-2.0-flash-exp',
+        aliases=[],
+    ),
+    GeminiModel(
         api_name="gemini-2.0-flash-thinking-exp-1219",
         display_name="gemini-2.0-flash-thinking-exp-1219",
         aliases=[],
-        api_kwargs={'max_output_tokens': 65536, 'temperature': 0.7, 'top_p': 0.95, 'top_k': 64, 'thinking_config': {'include_thoughts': True}}
+        api_kwargs={'max_output_tokens': 65536, 'temperature': 0.7, 'top_p': 0.95, 'top_k': 64}
     ),
     GeminiModel(
         api_name='gemini-exp-1206',
