@@ -230,6 +230,7 @@ def chat_completion_aws(model, conv, temperature, max_tokens, api_dict=None) -> 
             "temperature": temperature,
         },
     )
+
     output = response["output"]["message"]["content"][0]["text"]
     num_tokens = response["usage"]["output"]["totalTokens"]
 
