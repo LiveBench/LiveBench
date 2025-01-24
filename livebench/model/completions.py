@@ -27,6 +27,7 @@ def retry_fail(_):
 def retry_log(retry_state):
     exception = retry_state.outcome.exception()
     logger.warning(f"{retry_state.fn.__name__}: attempt {retry_state.attempt_number} failed with {exception.__class__.__name__}: {exception}; {retry_state.seconds_since_start} seconds elapsed total")
+    logger.warning(f"Exception stack trace:", exc_info=exception)    
 
 @retry(
     stop=stop_after_attempt(API_MAX_RETRY),
@@ -112,6 +113,7 @@ def chat_completion_aws(model, conv, temperature, max_tokens, api_dict=None) -> 
             "temperature": temperature,
         },
     )
+
     output = response["output"]["message"]["content"][0]["text"]
     num_tokens = response["usage"]["output"]["totalTokens"]
 
