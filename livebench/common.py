@@ -274,9 +274,12 @@ def load_model_answers(answer_dir: str):
         model_name = get_model(model_name).display_name.lower()
         answer = {}
         with open(filename) as fin:
-            for line in fin:
-                line = json.loads(line)
-                answer[line["question_id"]] = line
+            for i, line in enumerate(fin):
+                try:
+                    line = json.loads(line)
+                    answer[line["question_id"]] = line
+                except Exception as e:
+                    raise ValueError(f"Error loading line {i + 1} ({line}) from {filename}: {e}") from e
         model_answers[model_name] = answer
 
     return model_answers
@@ -395,6 +398,11 @@ def get_model_list(answer_dir):
     
 
 def filter_questions(questions, answer_file, resume=False, retry_failures=False):
+    """
+    Filter questions based on the ones for which there are already answers in the answer_file.
+    If resume is true, include only unanswered questions.
+    If retry_failures is true, include questions for which the existing answer is an error.
+    """
     from livebench.model.completions import API_ERROR_OUTPUT
     reorg_answer_file(answer_file)
     new_questions_ids = set([q["question_id"] for q in questions])
