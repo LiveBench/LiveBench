@@ -232,7 +232,7 @@ def chat_completion_aws(model, conv, temperature, max_tokens, api_dict=None) -> 
     )
 
     output = response["output"]["message"]["content"][0]["text"]
-    num_tokens = response["usage"]["output"]["totalTokens"]
+    num_tokens = response["usage"]["outputTokens"]
 
     return output, num_tokens
 
