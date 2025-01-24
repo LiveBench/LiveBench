@@ -2,7 +2,7 @@ import os
 import time
 from typing import TYPE_CHECKING, cast
 
-from tenacity import retry, stop_after_attempt, retry_if_exception_type, wait_fixed
+from tenacity import retry, stop_after_attempt, retry_if_exception_type, wait_fixed, wait_incrementing
 
 import logging
 import sys
@@ -16,7 +16,8 @@ if TYPE_CHECKING:
 
 # API setting constants
 API_MAX_RETRY = 3
-API_RETRY_SLEEP = 10
+API_RETRY_SLEEP_MIN = 10
+API_RETRY_SLEEP_MAX = 60
 API_ERROR_OUTPUT = "$ERROR$"
 
 def retry_fail(_):
@@ -29,7 +30,7 @@ def retry_log(retry_state):
 
 @retry(
     stop=stop_after_attempt(API_MAX_RETRY),
-    wait=wait_fixed(API_RETRY_SLEEP),
+    wait=wait_fixed(API_RETRY_SLEEP_MIN),
     retry=retry_if_exception_type(Exception),
     after=retry_log,
     retry_error_callback=retry_fail
@@ -92,7 +93,7 @@ def chat_completion_openai(
 
 @retry(
     stop=stop_after_attempt(API_MAX_RETRY),
-    wait=wait_fixed(API_RETRY_SLEEP),
+    wait=wait_fixed(API_RETRY_SLEEP_MIN),
     retry=retry_if_exception_type(Exception),
     after=retry_log,
     retry_error_callback=retry_fail
@@ -119,7 +120,7 @@ def chat_completion_aws(model, conv, temperature, max_tokens, api_dict=None) -> 
 
 @retry(
     stop=stop_after_attempt(API_MAX_RETRY),
-    wait=wait_fixed(API_RETRY_SLEEP),
+    wait=wait_fixed(API_RETRY_SLEEP_MIN),
     retry=retry_if_exception_type(Exception),
     after=retry_log,
     retry_error_callback=retry_fail
@@ -158,7 +159,7 @@ def chat_completion_deepseek(model, conv, temperature, max_tokens, api_dict=None
 
 @retry(
     stop=stop_after_attempt(API_MAX_RETRY),
-    wait=wait_fixed(API_RETRY_SLEEP),
+    wait=wait_fixed(API_RETRY_SLEEP_MIN),
     retry=retry_if_exception_type(Exception),
     after=retry_log,
     retry_error_callback=retry_fail
@@ -195,7 +196,7 @@ def chat_completion_nvidia(model, conv, temperature, max_tokens, api_dict=None) 
 
 @retry(
     stop=stop_after_attempt(API_MAX_RETRY),
-    wait=wait_fixed(API_RETRY_SLEEP),
+    wait=wait_fixed(API_RETRY_SLEEP_MIN),
     retry=retry_if_exception_type(Exception),
     after=retry_log,
     retry_error_callback=retry_fail
@@ -228,7 +229,7 @@ def chat_completion_xai(model, conv, temperature, max_tokens, api_dict=None) -> 
 
 @retry(
     stop=stop_after_attempt(API_MAX_RETRY),
-    wait=wait_fixed(API_RETRY_SLEEP),
+    wait=wait_fixed(API_RETRY_SLEEP_MIN),
     retry=retry_if_exception_type(Exception),
     after=retry_log,
     retry_error_callback=retry_fail
@@ -251,10 +252,23 @@ def chat_completion_vertex(
 
     return message.strip(), response.usage.output_tokens
 
+incremental_wait = wait_incrementing(start=API_RETRY_SLEEP_MIN, max=API_RETRY_SLEEP_MAX, increment=20)
+
+def gemini_custom_wait(retry_state):
+    if retry_state.outcome.failed:
+        exception = retry_state.outcome.exception()
+        if exception and "RECITATION" in str(exception) or "MAX_TOKENS" in str(exception):
+            return 0.0  # don't wait for recitation or max token errors
+
+    val = incremental_wait(retry_state)
+    print(f"Waiting for {val} seconds before retrying attempt {retry_state.attempt_number + 1}")
+
+    # other errors might indicate rate limiting, wait for these
+    return val
 
 @retry(
     stop=stop_after_attempt(API_MAX_RETRY),
-    wait=wait_fixed(API_RETRY_SLEEP),
+    wait=gemini_custom_wait,
     retry=retry_if_exception_type(Exception),
     after=retry_log,
     retry_error_callback=retry_fail
@@ -327,7 +341,7 @@ def chat_completion_google_generativeai(
 
 @retry(
     stop=stop_after_attempt(API_MAX_RETRY),
-    wait=wait_fixed(API_RETRY_SLEEP),
+    wait=wait_fixed(API_RETRY_SLEEP_MIN),
     retry=retry_if_exception_type(Exception),
     after=retry_log,
     retry_error_callback=retry_fail
@@ -343,11 +357,14 @@ def chat_completion_together(model, conv, temperature, max_tokens, api_dict=None
     
     prompt = [text for role, text in conv.messages if "user" in role][0]
 
+    kwargs = {'max_tokens': max_tokens, 'temperature': temperature}
+    if model.api_kwargs is not None:
+        kwargs.update(model.api_kwargs)
+
     response = client.chat.completions.create(
         model=model.api_name,
         messages=[{"role": "user", "content": prompt}],
-        temperature=temperature,
-        max_tokens=max_tokens,
+        **kwargs
     )
     
     return response.choices[0].message.content, response.usage.completion_tokens
@@ -355,7 +372,7 @@ def chat_completion_together(model, conv, temperature, max_tokens, api_dict=None
 
 @retry(
     stop=stop_after_attempt(API_MAX_RETRY),
-    wait=wait_fixed(API_RETRY_SLEEP),
+    wait=wait_fixed(API_RETRY_SLEEP_MIN),
     retry=retry_if_exception_type(Exception),
     after=retry_log,
     retry_error_callback=retry_fail
@@ -393,7 +410,7 @@ def chat_completion_openai_azure(model, conv, temperature, max_tokens, api_dict=
 
 @retry(
     stop=stop_after_attempt(API_MAX_RETRY),
-    wait=wait_fixed(API_RETRY_SLEEP),
+    wait=wait_fixed(API_RETRY_SLEEP_MIN),
     retry=retry_if_exception_type(Exception),
     after=retry_log,
     retry_error_callback=retry_fail
@@ -423,7 +440,7 @@ def chat_completion_anthropic(model, conv, temperature, max_tokens, api_dict=Non
 
 @retry(
     stop=stop_after_attempt(API_MAX_RETRY),
-    wait=wait_fixed(API_RETRY_SLEEP),
+    wait=wait_fixed(API_RETRY_SLEEP_MIN),
     retry=retry_if_exception_type(Exception),
     after=retry_log,
     retry_error_callback=retry_fail
@@ -453,7 +470,7 @@ def chat_completion_mistral(model, conv, temperature, max_tokens, api_dict=None)
 
 @retry(
     stop=stop_after_attempt(API_MAX_RETRY),
-    wait=wait_fixed(API_RETRY_SLEEP),
+    wait=wait_fixed(API_RETRY_SLEEP_MIN),
     retry=retry_if_exception_type(Exception),
     after=retry_log,
     retry_error_callback=retry_fail
@@ -482,7 +499,7 @@ def chat_completion_cohere(model, conv, temperature, max_tokens, api_dict=None) 
 
 @retry(
     stop=stop_after_attempt(API_MAX_RETRY),
-    wait=wait_fixed(API_RETRY_SLEEP),
+    wait=wait_fixed(API_RETRY_SLEEP_MIN),
     retry=retry_if_exception_type(Exception),
     after=retry_log,
     retry_error_callback=retry_fail
