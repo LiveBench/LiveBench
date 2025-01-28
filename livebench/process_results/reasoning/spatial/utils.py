@@ -3,6 +3,9 @@ from livebench.process_results.util import last_boxed_only_string, remove_boxed
 
 def spatial_process_results(ground_truth: str, llm_answer: str, debug=False) -> int:
 
+    if llm_answer == ground_truth:
+        return 1
+
     word_to_number = {
         'zero': '0', 'one': '1', 'two': '2', 'three': '3', 'four': '4', 'five': '5',
         'six': '6', 'seven': '7', 'eight': '8', 'nine': '9', 'ten': '10',

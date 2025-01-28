@@ -170,7 +170,8 @@ def play_a_match_gt(match: MatchSingle, output_file: str, debug=False):
     )
 
     if output_file:
-        os.makedirs(os.path.dirname(output_file), exist_ok=True)
+        if '/' in output_file:
+            os.makedirs(os.path.dirname(output_file), exist_ok=True)
         with open(output_file, "a") as fout:
             fout.write(json.dumps(result) + "\n")
 
@@ -186,6 +187,7 @@ def gen_judgments(
     remove_existing_file: bool,
     bench_name: str,
     debug=False,
+    ignore_missing_answers=False
 ):
     """
     Evaluate answers to questions for all the given models, compared to the expected ground truth answer for each question.
@@ -211,12 +213,14 @@ def gen_judgments(
 
     play_a_match_func = play_a_match_gt
 
-    os.makedirs(os.path.dirname(output_file), exist_ok=True)
+    if '/' in output_file:
+        os.makedirs(os.path.dirname(output_file), exist_ok=True)
     if output_file and os.path.exists(output_file) and remove_existing_file:
         os.remove(output_file)
 
     make_match_func = make_match_single
-    check_data(questions, model_answers, models)
+    if not ignore_missing_answers:
+        check_data(questions, model_answers, models)
 
     # Make matches
     matches = []
@@ -224,7 +228,11 @@ def gen_judgments(
         questions,
         models,
         model_answers,
+        ignore_missing_answers=ignore_missing_answers
     )
+
+    if len(matches) == 0:
+        return
 
     match_stat = {}
     match_stat["bench_name"] = bench_name
@@ -351,6 +359,15 @@ if __name__ == "__main__":
         "--model-display-name", type=str, nargs="+",default=None,
         help="The display name of the model(s). If provided, will be used to name the output file. Will match order to --model-list. If not provided, will be generated from --model-list."
     )
+    parser.add_argument(
+        "--ignore-missing-answers", action="store_true", default=False, help="Don't raise an error if a model is missing answers to some questions"
+    )
+    parser.add_argument(
+        "--answer-file", type=str, default=None
+    )
+    parser.add_argument(
+        "--output-file", type=str, default=None
+    )
     args = parser.parse_args()
 
     if args.livebench_release_option not in LIVE_BENCH_RELEASES:
@@ -382,9 +399,8 @@ if __name__ == "__main__":
                 questions = questions[args.question_begin:args.question_end]
 
                 task_full_name = f"{LIVE_BENCH_DATA_SUPER_PATH}/{category_name}/{task_name}"
-                output_file = f"data/{task_full_name}/model_judgment/ground_truth_judgment.jsonl"
-
-                answer_dir = f"data/{task_full_name}/model_answer/"  # expected location of model answers
+                output_file = f"data/{task_full_name}/model_judgment/ground_truth_judgment.jsonl" if args.output_file is None else args.output_file
+                answer_dir = f"data/{task_full_name}/model_answer/" if args.answer_file is None else args.answer_file # expected location of model answers
 
                 gen_judgments(
                     parallel=args.parallel,
@@ -395,6 +411,7 @@ if __name__ == "__main__":
                     remove_existing_file=args.remove_existing_file,
                     bench_name=task_full_name,
                     debug=args.debug,
+                    ignore_missing_answers=args.ignore_missing_answers
                 )
 
 
@@ -415,8 +432,8 @@ if __name__ == "__main__":
 
             bench_name = os.path.dirname(question_file).replace("data/","")
 
-            output_file = f"data/{bench_name}/model_judgment/ground_truth_judgment.jsonl"
-            answer_dir = f"data/{bench_name}/model_answer/"  # expected location of model answers
+            output_file = f"data/{bench_name}/model_judgment/ground_truth_judgment.jsonl" if args.output_file is None else args.output_file
+            answer_dir = f"data/{bench_name}/model_answer/" if args.answer_file is None else args.answer_file # expected location of model answers
             if len(questions) > 0:
                 gen_judgments(
                     parallel=args.parallel,
@@ -427,6 +444,7 @@ if __name__ == "__main__":
                     remove_existing_file=args.remove_existing_file,
                     bench_name=bench_name,
                     debug=args.debug,
+                    ignore_missing_answers=args.ignore_missing_answers
                 )
 
     else:

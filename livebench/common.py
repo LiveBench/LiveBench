@@ -232,8 +232,11 @@ def load_model_answers(answer_dir: str):
     The return value is a python dict of type:
     Dict[model_name: str -> Dict[question_id: int -> answer: dict]]
     """
-    filenames = glob.glob(os.path.join(answer_dir, "*.jsonl"))
-    filenames.sort()
+    if not answer_dir.endswith('jsonl'):
+        filenames = glob.glob(os.path.join(answer_dir, "*.jsonl"))
+        filenames.sort()
+    else:
+        filenames = [answer_dir]
     model_answers = {}
 
     for filename in filenames:
@@ -269,6 +272,7 @@ def make_match_single(
     questions: list[dict],
     models: list[str],
     model_answers,
+    ignore_missing_answers=False,
     multi_turn=False,
 ):
     """
@@ -282,9 +286,14 @@ def make_match_single(
         for i in range(len(models)):
             q_id = q["question_id"]
             m = models[i]
-            a = model_answers[m][q_id]
-
-            matches.append(MatchSingle(dict(q), m, a, multi_turn=multi_turn))
+            try:
+                a = model_answers[m][q_id]
+                matches.append(MatchSingle(dict(q), m, a, multi_turn=multi_turn))
+            except KeyError as e:
+                if ignore_missing_answers:
+                    continue
+                else:
+                    raise e
     return matches
 
 

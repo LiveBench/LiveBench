@@ -4,6 +4,7 @@ from pathlib import Path
 import subprocess
 import sys
 from collections import defaultdict
+import os
 
 def find_error_questions(root_dir, target_model_id=None, include_max_tokens=None):
     model_errors = defaultdict(list)
@@ -32,7 +33,7 @@ def find_error_questions(root_dir, target_model_id=None, include_max_tokens=None
 
     return model_errors
 
-def run_commands_for_model(model_id, question_ids, max_tokens=None, api_base=None):
+def run_commands_for_model(model_id, question_ids, max_tokens=None, api_base=None, api_key_name=None):
     if not question_ids:
         return
 
@@ -47,6 +48,11 @@ def run_commands_for_model(model_id, question_ids, max_tokens=None, api_base=Non
     
     if api_base:
         cmd1.extend(['--api-base', api_base])
+
+    if api_key_name:
+        api_key = os.environ[api_key_name]
+        cmd1 = ['LIVEBENCH_API_KEY=' + api_key] + cmd1
+
 
     # Second command: gen_ground_truth_judgment.py
     cmd2 = ['python', 'gen_ground_truth_judgment.py', '--model', model_id,
@@ -83,6 +89,7 @@ def main():
     parser.add_argument('--rerun-token-error', type=int, default=None, help='Rerun questions for which there was no error but max tokens was exceeded')
     parser.add_argument('--max-tokens', type=int, help='Maximum number of tokens')
     parser.add_argument('--api-base', type=str, help='API base URL')
+    parser.add_argument('--api-key-name', type=str, default=None)
     
     args = parser.parse_args()
     
@@ -99,6 +106,9 @@ def main():
     api_base = args.api_base
     if api_base:
         print(f"API base: {api_base}")
+    api_key_name = args.api_key_name
+    if api_key_name:
+        print(f"API key name: {api_key_name}")
 
     # Find all question IDs with errors
     model_errors = find_error_questions(root_dir, target_model_id, include_max_tokens)
@@ -115,7 +125,7 @@ def main():
             print(qid)
 
         # Run both commands in sequence for this model
-        run_commands_for_model(model_id, error_ids, max_tokens, api_base)
+        run_commands_for_model(model_id, error_ids, max_tokens, api_base, api_key_name)
 
 if __name__ == "__main__":
     main()
