@@ -18,10 +18,7 @@ def jsonl_to_csv(input_filename, output_filename, task):
 
         # Define the CSV writer and write the header
         csv_writer = csv.writer(csv_file)
-        header = ["question_id", "citation", "prompt"]
-        if "coding_completion" in task:
-            header.append("partial_solution")
-            header.append("remainder")
+        header = ["question_id", "prompt"]
         csv_writer.writerow(header)
 
         # Process each line in the JSONL file
@@ -31,27 +28,20 @@ def jsonl_to_csv(input_filename, output_filename, task):
 
             # Extract the required fields
             question_id = data.get("question_id", "")
-            citation = data.get("citation", "").split(' ')[0]
             turns = data.get("turns", [])
-            if "coding_completion" in task:
-                partial_solution = data.get("partial_solution", "")
-                remainder = data.get("remainder", "")
 
             # Get the first turn as the prompt, if available
             prompt = turns[0] if turns else ""
 
             # Write the row to the CSV file
-            row = [question_id, citation, prompt]
-            if "coding_completion" in task:
-                row.append(partial_solution)
-                row.append(remainder)
+            row = [question_id, prompt]
             csv_writer.writerow(row)
 
 
 if __name__ == "__main__":
     if len(sys.argv) != 4:
         print(
-            "Usage: python code_question_to_csv.py <input_filename> <output_filename> <task>"
+            "Usage: python question_to_csv.py <input_filename> <output_filename> <task>"
         )
         sys.exit(1)
 
