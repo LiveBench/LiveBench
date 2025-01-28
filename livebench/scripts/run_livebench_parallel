@@ -70,15 +70,17 @@ BENCHMARKS=(
 
     # "live_bench/coding_2/coding_completion"
     # "live_bench/coding_2/LCB_generation"
-    "live_bench/coding_2"
-    "live_bench/language/plot_unscrambling_2"
-    "live_bench/language/typos_2"
-    "live_bench/math/math_comp_3"
-    "live_bench/reasoning/temporal"
+    # "live_bench/coding_2"
+    "live_bench/coding_2/coding_completion"
+    "live_bench/coding_2/LCB_generation"
+    # "live_bench/language/plot_unscrambling_2"
+    # "live_bench/language/typos_2"
+    # "live_bench/math/math_comp_3"
+    # "live_bench/reasoning/temporal"
 
 )
 
-gen_api_answer="python -u gen_api_answer.py --resume --model $model --question-source $question_source"
+gen_api_answer="python -u gen_api_answer.py --model $model --question-source $question_source"
 gen_ground_truth_judgment="python -u gen_ground_truth_judgment.py --model $model --question-source $question_source"
 
 if [ -n "$api_base" ]; then
