@@ -258,13 +258,21 @@ def chat_completion_deepseek(model, conv, temperature, max_tokens, api_dict=None
     from openai import NOT_GIVEN, OpenAI
     client = OpenAI(api_key=api_key, base_url="https://api.deepseek.com")
     messages = conv.to_openai_api_messages()
+
+    kwargs = {
+        'temperature': temperature if not model.reasoner else NOT_GIVEN,
+        'max_tokens': max_tokens
+    }
+    kwargs.update(model.api_kwargs)
+
+    print(model.api_name, messages, kwargs)
+
     response = client.chat.completions.create(
         model=model.api_name,
         messages=messages,
-        temperature=temperature if not model.reasoner else NOT_GIVEN,
-        max_tokens=max_tokens,
         n=1,
         stream=False,
+        **kwargs
     )
     message = response.choices[0].message.content
     if message is None:
