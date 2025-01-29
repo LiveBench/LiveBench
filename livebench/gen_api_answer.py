@@ -240,9 +240,9 @@ if __name__ == "__main__":
     model = get_model(args.model)
 
     if args.model_display_name is not None:
-        model_dict = dict(model)
+        model_dict = model.__dict__
         model_dict["display_name"] = args.model_display_name
-        model = Model(**model_dict)
+        model = type(model)(**model_dict)
 
     if args.livebench_release_option not in LIVE_BENCH_RELEASES:
         raise ValueError(f"Bad release {args.livebench_release_option}.")
