@@ -52,7 +52,6 @@ def chat_completion_openai(
         for message in messages:
             if message["role"] == "system":
                 message["role"] = "developer"
-    messages = [message for message in messages if message['role'] != 'system']
     try:
 
         response = client.chat.completions.create(

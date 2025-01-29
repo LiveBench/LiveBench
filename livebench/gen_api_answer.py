@@ -67,8 +67,6 @@ def get_answer(
             conv.append_message(conv.roles[1], None)
 
             if api_dict is not None:
-                if question['category'] not in ['math', 'coding']:
-                    temperature = 0.6
                 output, num_tokens = chat_completion_openai(
                     model, conv, temperature, max_tokens, api_dict=api_dict
                 )
