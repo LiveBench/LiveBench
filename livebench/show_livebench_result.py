@@ -93,7 +93,7 @@ def display_result_single(args):
     for model in model_list_to_check:
         df_model = df[df["model"] == model]
         
-        if len(df_model) < len(questions_all):
+        if len(df_model) < len(questions_all) and not args.ignore_missing_judgments:
             print('removing model', model, "has missing", len(questions_all) - len(df_model), "judgments - has ", len(df_model))
             missing_tasks = set()
             for task in tasks_set:
@@ -102,6 +102,17 @@ def display_result_single(args):
             print('missing judgments in ', missing_tasks)
             df = df[df["model"] != model]
             #raise ValueError(f'Invalid result, missing judgments (and possibly completions) for {len(questions_all) - len(df_model)} questions for model {model}.')
+        elif len(df_model) < len(questions_all) and args.ignore_missing_judgments:
+            questions_all = [q for q in questions_all if q['question_id'] in df_model['question_id'].values]
+    
+    if args.ignore_missing_judgments and len(questions_all) == 0:
+        raise ValueError("No questions left after ignoring missing judgments.")
+    
+    if args.ignore_missing_judgments:
+        print(f"{len(questions_all)} questions after removing those with missing judgments.")
+
+    
+    df = df[df['question_id'].isin([q['question_id'] for q in questions_all])]
 
     df.to_csv('df_raw.csv')
 
@@ -170,6 +181,12 @@ if __name__ == "__main__":
         default=False,
         help="Show the average score for each task",
         action='store_true'
+    )
+    parser.add_argument(
+        "--ignore-missing-judgments",
+        default=False,
+        action='store_true',
+        help="Ignore missing judgments. Scores will be calculated for only questions that have judgments for all models."
     )
     args = parser.parse_args()
 
