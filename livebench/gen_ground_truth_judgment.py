@@ -203,13 +203,14 @@ def gen_judgments(
     """
     # Load answers
     model_answers = load_model_answers(answer_dir)
-    print('models:', model_answers.keys())
 
     if model_list is None:
         # evaluate answers for all models who have answers in answer_dir
         models = get_model_list(answer_dir)
     else:
         models = model_list
+
+    print('models:', models)
 
     play_a_match_func = play_a_match_gt
 
@@ -232,6 +233,7 @@ def gen_judgments(
     )
 
     if len(matches) == 0:
+        print('No question-answer pairs found')
         return
 
     match_stat = {}

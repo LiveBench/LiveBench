@@ -250,13 +250,11 @@ def get_model_adapter(model_path: str) -> BaseModelAdapter:
     # Try the basename of model_path at first
     for adapter in model_adapters:
         if adapter.match(model_path_basename) and type(adapter) != BaseModelAdapter:
-            print("Using adapter:", type(adapter))
             return adapter
 
     # Then try the full path
     for adapter in model_adapters:
         if adapter.match(model_path):
-            print("Using adapter:", type(adapter))
             return adapter
 
     raise ValueError(f"No valid model adapter for {model_path}")

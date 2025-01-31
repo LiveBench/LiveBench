@@ -404,7 +404,7 @@ def get_model(name: str) -> Model:
     if len(matches) > 1:
         raise ValueError(f"Multiple models found for {name}")
     elif len(matches) == 0:
-        warnings.warn(f"No model found for {name}")
+        # warnings.warn(f"No model found for {name}")
         return Model(
             api_name=name,
             display_name=name,
