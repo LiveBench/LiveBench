@@ -445,7 +445,7 @@ def chat_completion_mistral(model, conv, temperature, max_tokens, api_dict=None)
     if chat_response.choices[0].message.content is None:
         raise Exception("No message returned from Mistral")
         
-    return chat_response.choices[0].message.content.strip(), chat_response.usage.output_tokens
+    return chat_response.choices[0].message.content.strip(), chat_response.usage.completion_tokens
 
 
 @retry(

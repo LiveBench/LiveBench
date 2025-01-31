@@ -260,7 +260,6 @@ MISTRAL_MODELS = [
     MistralModel(
         api_name="mistral-large-2402", display_name="mistral-large-2402", aliases=[]
     ),
-    MistralModel(api_name="mistral-large", display_name="mistral-large", aliases=[]),
     MistralModel(
         api_name="mistral-medium-23-12", display_name="mistral-medium-23-12", aliases=[]
     ),
@@ -268,7 +267,6 @@ MISTRAL_MODELS = [
     MistralModel(
         api_name="mistral-small-2402", display_name="mistral-small-2402", aliases=[]
     ),
-    MistralModel(api_name="mistral-small", display_name="mistral-small", aliases=[]),
     MistralModel(
         api_name="open-mixtral-8x7b", display_name="open-mixtral-8x7b", aliases=[]
     ),
@@ -287,6 +285,9 @@ MISTRAL_MODELS = [
     MistralModel(
         api_name="mistral-small-2409", display_name="mistral-small-2409", aliases=[]
     ),
+    MistralModel(
+        api_name="mistral-small-2501", display_name="mistral-small-2501", aliases=['mistral-small']
+    )
 ]
 
 # Cohere Models
