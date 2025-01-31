@@ -30,7 +30,7 @@ ANTHROPIC_MODELS = [
     AnthropicModel(
         api_name="claude-3-opus-20240229",
         display_name="claude-3-opus-20240229",
-        aliases=[],
+        aliases=['claude-3-opus'],
     ),
     AnthropicModel(
         api_name="claude-3-sonnet-20240229",
