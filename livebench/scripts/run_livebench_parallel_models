@@ -20,16 +20,16 @@ MODELS=(
     # OpenAI:
     # "o1-2024-12-17"
     # "o1-mini-2024-09-12"
+    # "gpt-4o-2024-08-06"
     # "gpt-4o-2024-11-20"
     # "gpt-4o-mini-2024-07-18"
-    # "chatgpt-4o-latest"
+    # "chatgpt-4o-latest-2025-01-30"
 
     # Google:
     # "gemini-2.0-flash-thinking-exp-1219"
     # "gemini-2.0-flash-thinking-exp-01-21"
     # "gemini-exp-1206"
     # "gemini-2.0-flash-exp"
-    # "gemini-exp-1121"
     # "gemini-1.5-pro-002"
     # "gemini-1.5-flash-002"
     # "learnlm-1.5-pro-experimental"
