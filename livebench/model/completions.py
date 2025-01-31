@@ -265,8 +265,6 @@ def chat_completion_deepseek(model, conv, temperature, max_tokens, api_dict=None
     }
     kwargs.update(model.api_kwargs)
 
-    print(model.api_name, messages, kwargs)
-
     response = client.chat.completions.create(
         model=model.api_name,
         messages=messages,
