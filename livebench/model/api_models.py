@@ -132,6 +132,20 @@ INFERENCE_OPENAI_MODELS = [
         aliases=['o1-low'],
         inference_api=True,
         api_kwargs={'reasoning_effort': 'low'}
+    ),
+    OpenAIModel(
+        api_name='o3-mini-2025-01-31',
+        display_name='o3-mini-2025-01-31-high',
+        aliases=['o3-mini-high', 'o3-mini', 'o3-mini-2025-01-31'],
+        inference_api=True,
+        api_kwargs={'reasoning_effort': 'high'}
+    ),
+    OpenAIModel(
+        api_name='o3-mini-2025-01-31',
+        display_name='o3-mini-2025-01-31-low',
+        aliases=['o3-mini-low'],
+        inference_api=True,
+        api_kwargs={'reasoning_effort': 'low'}
     )
 ]
 
