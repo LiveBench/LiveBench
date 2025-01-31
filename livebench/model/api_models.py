@@ -102,7 +102,7 @@ OPENAI_MODELS = [
         api_name="gpt-4o-2024-08-06", display_name="gpt-4o-2024-08-06", aliases=[]
     ),
     OpenAIModel(
-        api_name="chatgpt-4o-latest", display_name="chatgpt-4o-latest", aliases=[]
+        api_name="chatgpt-4o-latest", display_name="chatgpt-4o-latest-2025-01-30", aliases=[]
     ),
 ]
 
