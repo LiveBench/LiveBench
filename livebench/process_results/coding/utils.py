@@ -96,8 +96,10 @@ def LCB_generation_process_results(question: dict, llm_answer: str, debug=False)
     else:
         if debug:
             print('INCORRECT', question['question_title'], question['question_id'])
-            print('extracted answer')
+            print('extracted full answer')
             print(extracted_answer)
+            print('original llm answer')
+            print(llm_answer)
             print('results', results)
             print('metadata', metadata)
         return 0
