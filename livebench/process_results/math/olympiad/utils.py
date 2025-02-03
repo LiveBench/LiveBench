@@ -26,14 +26,29 @@ def remove_nonnumeric_chars_at_ends(s):
 
 def extract_expression_completions_from_generation(generation):
     numbers = None
-    if numbers is None and generation.strip().split('\n')[-1].startswith('Answer:'):
-        numbers = []
-        for n in generation.strip().split('\n')[-1].split(':')[-1].split(','):
-            n = n.strip().replace('.', '')
+    if 'Answer:' in generation:
+        lines = generation.strip().split('\n')
+        answer_str = None
+        answer_line = None
+        answer_index = None
+        for i, line in enumerate(lines):
+            if 'Answer:' in line:
+                answer_line = line
+                answer_index = i
+        answer_str = answer_line.split('Answer:')[1].replace('Answer:', '').replace('**', '').replace('.', '').strip()
+        if answer_str == '' and answer_index < len(lines) - 1:
+            answer_str = lines[answer_index+1].replace('Answer:', '').replace('**', '').replace('.', '').strip()
+        if numbers is None:
+            numbers = []
+        for n in answer_str.split(','):
+            n = n.strip().split(' ')[-1].replace('$', '').replace('{', '').replace('}', '').replace('\\', '').replace('boxed', '').replace('<', '').replace('>', '')
             try:
                 numbers.append(int(n))
             except:
+                print('ERROR', n)
                 numbers.append('NO ANSWER')
+        if len(numbers) == 0 or set(numbers) == {'NO ANSWER'}:
+            numbers = None
 
     if numbers is None and '\\boxed' in generation:
         boxed = last_boxed_only_string(generation)
@@ -49,8 +64,6 @@ def extract_expression_completions_from_generation(generation):
                 numbers.append(int(n.strip()))
             except:
                 numbers.append('NO ANSWER')
-
-
     
     if numbers is None:
         # generation has Answer: comma separated list of numbers. I want to extract the last such comma separated list
@@ -86,7 +99,7 @@ def proof_rearrangement_process_results(ground_truth: str, llm_answer: str, edit
         print('INCORRECT', frac_matches)
         print('GROUND TRUTH', ground_truth)
         print('SOLUTION', completions)
-        print('END OF OUTPUT', llm_answer[-500:])
+        print('END OF OUTPUT', llm_answer[-1500:])
 
     return frac_matches
 

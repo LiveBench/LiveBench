@@ -123,7 +123,8 @@ def display_result_single(args):
     if args.show_average:
         df_1.loc['average'] = df_1.mean()
     df_1 = df_1.round(3)
-    print(df_1.sort_values(by="model")[:60])
+    with pd.option_context('display.max_rows', None):
+        print(df_1.sort_values(by="model"))
     df_1.to_csv('all_tasks.csv')
 
     print("\n########## All Groups ##########")
@@ -138,7 +139,8 @@ def display_result_single(args):
     df_1 = df_1.round(1)
     if args.show_average:
         df_1.loc['average'] = df_1.mean()
-    print(df_1[:60])
+    with pd.option_context('display.max_rows', None):
+        print(df_1)
     df_1.to_csv('all_groups.csv')
 
 

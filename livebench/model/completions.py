@@ -44,6 +44,7 @@ def chat_completion_openai(
         client = OpenAI(
             api_key=api_dict["api_key"], base_url=api_dict["api_base"], timeout=httpx.Timeout(timeout=2400.0, connect=10.0)
         )
+        
     else:
         client = OpenAI(timeout=1000)
     
@@ -52,6 +53,8 @@ def chat_completion_openai(
         for message in messages:
             if message["role"] == "system":
                 message["role"] = "developer"
+        if model.inference_api:
+            messages[0]['content'] = 'Formatting reenabled\n' + messages[0]['content']
     try:
 
         response = client.chat.completions.create(
