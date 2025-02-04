@@ -266,6 +266,10 @@ TOGETHER_MODELS = [
     ),
     QwenModel(
         api_name="qwen/qwq-32b-preview", display_name="Qwen-32B-Preview", aliases=[]
+    ),
+    DeepseekModel(
+        api_name="deepseek-ai/DeepSeek-R1", display_name='deepseek-r1', api_function=chat_completion_together,
+        aliases=[], api_kwargs={'temperature': 0.7, 'max_tokens': 20000}
     )
 ]
 
@@ -457,7 +461,7 @@ COHERE_MODELS = [
 # Deepseek Models
 DEEPSEEK_MODELS = [
     DeepseekModel(api_name="deepseek-chat", display_name="deepseek-v3", aliases=[]),
-    DeepseekModel(api_name="deepseek-reasoner", display_name="deepseek-r1", aliases=[], reasoner=True)
+    # DeepseekModel(api_name="deepseek-reasoner", display_name="deepseek-r1", aliases=[], reasoner=True)
 ]
 
 # Nvidia Models

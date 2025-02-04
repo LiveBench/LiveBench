@@ -485,7 +485,9 @@ def chat_completion_together(model, conv, temperature, max_tokens, api_dict=None
         api_key = os.environ["TOGETHER_API_KEY"]
     client = Together(api_key=api_key)
 
-    prompt = [text for role, text in conv.messages if "user" in role][0]
+    messages = conv.to_openai_api_messages()
+    
+    messages = [message for message in messages if message['role'] == 'user']
 
     kwargs = {'max_tokens': max_tokens, 'temperature': temperature}
     if model.api_kwargs is not None:
@@ -493,7 +495,7 @@ def chat_completion_together(model, conv, temperature, max_tokens, api_dict=None
 
     response = client.chat.completions.create(
         model=model.api_name,
-        messages=[{"role": "user", "content": prompt}],
+        messages=messages,
         **kwargs
     )
 
