@@ -6,7 +6,7 @@ from livebench.model.model_adapter import BaseModelAdapter, PaLM2Adapter, get_mo
 from livebench.model.models import (
     AnthropicModel, AWSModel, CohereModel, DeepseekModel, GeminiModel,
     GemmaModel, LlamaModel, MistralModel, Model, NvidiaModel, OpenAIModel,
-    QwenModel, XAIModel
+    QwenModel, QwenModelAlibabaAPI, XAIModel
 )
 
 
@@ -204,6 +204,14 @@ TOGETHER_MODELS = [
     ),
 ]
 
+QWEN_ALIBABA_MODELS = [
+    QwenModelAlibabaAPI(
+        api_name="qwen-max-2025-01-25",
+        display_name="qwen2.5-max",
+        aliases=[]
+    )
+]
+
 # Google GenerativeAI Models
 GOOGLE_GENERATIVEAI_MODELS = [
     GeminiModel(
@@ -396,6 +404,7 @@ ALL_MODELS = (
     + XAI_MODELS
     + AWS_MODELS
     + GOOGLE_GENERATIVEAI_MODELS
+    + QWEN_ALIBABA_MODELS
 )
 
 

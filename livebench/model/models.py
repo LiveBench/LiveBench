@@ -26,6 +26,7 @@ from livebench.model.completions import (
     chat_completion_nvidia,
     chat_completion_together,
 )
+import os
 
 model_api_function = Callable[["Model", Conversation, float, int, dict | None], tuple[str, int]]
 
@@ -64,6 +65,12 @@ class LlamaModel(Model):
         default=chat_completion_together
     )
 
+@dataclass(kw_only=True, frozen=True)
+class QwenModelAlibabaAPI(Model):
+    adapter: BaseModelAdapter = field(default=QwenChatAdapter())
+    api_function: model_api_function = field(
+        default=lambda model, conv, temperature, max_tokens, api_dict: chat_completion_openai(model, conv, temperature, max_tokens, {'api_base': 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1', 'api_key': os.environ.get('QWEN_API_KEY', None)})
+    )
 
 @dataclass(kw_only=True, frozen=True)
 class QwenModel(Model):
