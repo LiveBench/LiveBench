@@ -143,3 +143,4 @@ class AWSModel(Model):
     api_function: model_api_function = field(
         default=chat_completion_aws
     )
+

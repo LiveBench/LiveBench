@@ -3,7 +3,7 @@ from livebench.model.models import (
     GemmaModel, LlamaModel, MistralModel, Model, NvidiaModel, OpenAIModel,
     QwenModel, QwenModelAlibabaAPI, XAIModel
 )
-from livebench.model.completions import chat_completion_openai, chat_completion_palm
+from livebench.model.completions import chat_completion_openai, chat_completion_palm, chat_completion_together
 from livebench.model.model_adapter import BaseModelAdapter, PaLM2Adapter, get_model_adapter
 import warnings
 import sys
@@ -239,6 +239,10 @@ TOGETHER_MODELS = [
     ),
     QwenModel(
         api_name="qwen/qwq-32b-preview", display_name="Qwen-32B-Preview", aliases=[]
+    ),
+    DeepseekModel(
+        api_name="deepseek-ai/DeepSeek-R1", display_name='deepseek-r1', api_function=chat_completion_together,
+        aliases=[], api_kwargs={'temperature': 0.7, 'max_tokens': 20000}
     )
 ]
 
@@ -411,7 +415,7 @@ COHERE_MODELS = [
 # Deepseek Models
 DEEPSEEK_MODELS = [
     DeepseekModel(api_name="deepseek-chat", display_name="deepseek-v3", aliases=[]),
-    DeepseekModel(api_name="deepseek-reasoner", display_name="deepseek-r1", aliases=[], reasoner=True)
+    # DeepseekModel(api_name="deepseek-reasoner", display_name="deepseek-r1", aliases=[], reasoner=True)
 ]
 
 # Nvidia Models
