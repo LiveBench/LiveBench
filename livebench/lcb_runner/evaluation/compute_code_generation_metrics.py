@@ -2,10 +2,14 @@
 # https://github.com/Naman-ntc/codescratch/blob/main/evaluation/bigcode-evaluation-harness/lm_eval/tasks/custom_metrics/apps_custom_metrics/utils.py
 
 import os
+import sys
+
+sys.set_int_max_str_digits(50000)
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 import json
 import multiprocessing
+from collections import defaultdict
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 
@@ -80,10 +84,14 @@ def evaluate_generations_by_problem(args):
             if debug:
                 print(f"Compilation failed, test framework exception = {repr(e)}{e}\n")
             # break
-            curr_metadata = {}
+            curr_metadata = {
+                "error": repr(e),
+                "error_code": -5,
+                "error_message": "TestRunnerError",
+            }
         finally:
-            assert isinstance(curr_res, list)
-            assert isinstance(curr_metadata, dict)
+            assert isinstance(curr_res, list), curr_res
+            assert isinstance(curr_metadata, dict), curr_metadata
             res.append(curr_res)
             metadata.append(curr_metadata)
     if debug:
@@ -113,7 +121,6 @@ def evaluate_generations(
 
     Returns:
         results: dictionary of results, key is the problem index, value is a list of results for each generation
-        [-2] = compile error, [-1] = runtime error [False] = failed test case [True] = passed test case
     """
 
     # generations are code generations in the same order of the dataset
@@ -148,25 +155,50 @@ def evaluate_generations(
 
 
 def codegen_metrics(
-    samples,
-    generations,
-    k_list=[1, 5],
+    samples_list,
+    generations_list,
+    k_list=[1, 5, 10, 20, 40, 50, 75, 100, 125, 150, 200, 500, 1000],
     num_process_evaluate=16,
     timeout=6,
     debug=False,
 ):
-    results, metadata = evaluate_generations(
-        samples,
-        generations,
+
+    samples_linear = []
+    generations_linear = []
+    remap_index = []
+    results = defaultdict(list)
+    metadatas = defaultdict(list)
+    for idx, (sample, generation_list) in enumerate(
+        zip(samples_list, generations_list)
+    ):
+        assert isinstance(generation_list, list), generations_list[0]
+        for generation in generation_list:
+            assert isinstance(generation, str), generations_list[0]
+            samples_linear.append(sample)
+            generations_linear.append([generation])
+            remap_index.append(idx)
+
+    print(f"Evaluating {len(samples_linear)}...")
+
+    results_linear, metadatas_linear = evaluate_generations(
+        samples_linear,
+        generations_linear,
         debug=debug,
         num_process_evaluate=num_process_evaluate,
         timeout=timeout,
     )
+
+    for idx, sub_results in sorted(results_linear.items(), key=lambda x: x[0]):
+        results[remap_index[idx]].append(sub_results[0])
+
+    for idx, sub_metadatas in sorted(metadatas_linear.items(), key=lambda x: x[0]):
+        metadatas[remap_index[idx]].append(sub_metadatas[0])
+
     metrics = compute_metrics_from_results(results, k_list=k_list)
 
     final_metadata = []
-    for key in sorted(list(metadata.keys())):
-        final_metadata.append(metadata[key])
+    for key in sorted(list(metadatas.keys())):
+        final_metadata.append(metadatas[key])
     for i in range(len(final_metadata)):
         if type(final_metadata[i]) is not list:
             final_metadata[i] = [json.dumps(final_metadata[i])]
@@ -174,7 +206,46 @@ def codegen_metrics(
             final_metadata[i] = [json.dumps(x) for x in final_metadata[i]]
 
         assert len(final_metadata[i]) == len(
-            generations[0]
+            generations_list[0]
         ), f"{len(final_metadata[i])=}"
 
-    return metrics, results, final_metadata
+    return [metrics, results, final_metadata]
+
+
+if __name__ == "__main__":
+    # print(
+    #     check_correctness(
+    #         {
+    #             "input_output": json.dumps(
+    #                 {
+    #                     "inputs": [
+    #                         json.dumps([1] * 100000)
+    #                         + "\n"
+    #                         + json.dumps([100000, -100000] * (100000 // 2))
+    #                     ],
+    #                     "outputs": [json.dumps([100000, 0] * (100000 // 2))],
+    #                     "fn_name": "mostFrequentIDs",
+    #                 }
+    #             )
+    #         },
+    #         "class Solution:\n    def mostFrequentIDs(self, nums: List[int], freq: List[int]) -> List[int]:\n        from collections import defaultdict\n        \n        # Count of each ID\n        count = defaultdict(int)\n        # How many IDs exist for a given frequency\n        freq_of_count = defaultdict(int)\n        \n        max_freq = 0\n        ans = []\n        \n        for i in range(len(nums)):\n            x = nums[i]\n            change = freq[i]\n            \n            old_freq = count[x]\n            new_freq = old_freq + change\n            \n            # If there was an old frequency, decrease its usage\n            if old_freq > 0:\n                freq_of_count[old_freq] -= 1\n                if freq_of_count[old_freq] == 0:\n                    del freq_of_count[old_freq]\n            \n            # Update with the new frequency\n            count[x] = new_freq\n            freq_of_count[new_freq] += 1\n            \n            # Update max_freq if needed\n            if new_freq > max_freq:\n                max_freq = new_freq\n            \n            # If the collection at max_freq is empty, reduce max_freq until we find a non-empty bin\n            while max_freq > 0 and max_freq not in freq_of_count:\n                max_freq -= 1\n            \n            # If the collection is empty, max_freq will be 0\n            ans.append(max_freq)\n        \n        return ans",
+    #         6,
+    #         debug=True,
+    #     )
+    # )
+
+    print(
+        check_correctness(
+            {
+                "input_output": json.dumps(
+                    {
+                        "inputs": ")))))",
+                        "outputs": "0",
+                    },
+                )
+            },
+            "\nMOD = 998244353\n\nS = input().strip()\nn = len(S)\n\nif n % 2 != 0:\n    print(0)\n    exit()\n\n# Initialize DP table\ndp = [[0] * (n + 2) for _ in range(n + 1)]\ndp[0][0] = 1\n\nfor i in range(1, n + 1):\n    c = S[i-1]\n    for b in range(n + 1):\n        if dp[i-1][b] == 0:\n            continue\n        if c == '(':\n            new_b = b + 1\n            if new_b <= n:\n                dp[i][new_b] = (dp[i][new_b] + dp[i-1][b]) % MOD\n        elif c == ')':\n            if b > 0:\n                new_b = b - 1\n                dp[i][new_b] = (dp[i][new_b] + dp[i-1][b]) % MOD\n        else:  # '?'\n            # Replace with '('\n            new_b = b + 1\n            if new_b <= n:\n                dp[i][new_b] = (dp[i][new_b] + dp[i-1][b]) % MOD\n            # Replace with ')'\n            if b > 0:\n                new_b = b - 1\n                dp[i][new_b] = (dp[i][new_b] + dp[i-1][b]) % MOD\n\nprint(dp[n][0] % MOD)\n",
+            6,
+            debug=True,
+        )
+    )
