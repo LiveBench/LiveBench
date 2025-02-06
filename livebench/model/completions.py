@@ -51,12 +51,9 @@ def chat_completion_openai(
         client = OpenAI(timeout=1000)
     
     messages = conv.to_openai_api_messages()
-    if isinstance(model, OpenAIModel):
-        for message in messages:
-            if message["role"] == "system":
-                message["role"] = "developer"
-        if model.inference_api:
-            messages[0]['content'] = 'Formatting reenabled\n' + messages[0]['content']
+    messages = [m for m in messages if m['role'] != 'system']
+    if isinstance(model, OpenAIModel) and model.inference_api:
+        messages[0]['content'] = 'Formatting reenabled\n' + messages[0]['content']
     try:
 
         response = client.chat.completions.create(
