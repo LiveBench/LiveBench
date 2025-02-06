@@ -2,7 +2,7 @@ from livebench.lcb_runner.lm_styles import LMStyle
 
 
 def extract_code(model_output: str, lmstyle: LMStyle):
-    outputlines = model_output.strip().split("\n")
+    outputlines = model_output.split("\n")
     if lmstyle == LMStyle.CodeLLaMaInstruct:
         indexlines = [i for i, line in enumerate(outputlines) if "PYTHON]" in line]
         if len(indexlines) < 2:
@@ -11,23 +11,10 @@ def extract_code(model_output: str, lmstyle: LMStyle):
         return model_output.strip()
     else:
         indexlines = [i for i, line in enumerate(outputlines) if "```" in line]
-
-    # for index in indexlines:
-    #     if outputlines[index].strip().startswith('```') and outputlines[index].strip() != '```':
-    #         outputlines = outputlines[:index] + ['```'] + [outputlines[index][3:]] + outputlines[index+1:]
-    #     elif outputlines[index].strip().endswith('```') and outputlines[index].strip() != '```':
-    #         outputlines = outputlines[:index] + [outputlines[index][:-3]] + ['```'] + outputlines[index+1:]
-    
-    if len(indexlines) < 2:
-        if len(model_output) > 1 and model_output[0] == '`' and model_output[-1] == '`':
-            return model_output[1:-1]
-        elif len(indexlines) == 1 and indexlines[0] != 0:
-            # some models only include the ending ``` when their response is just the code block
-            # so we can try to complete it
-            indexlines = [0] + indexlines
-        else:
+        if len(indexlines) < 2:
             return ""
-    return "\n".join(outputlines[indexlines[0] + 1 : indexlines[1]])
+        # return "\n".join(outputlines[indexlines[0] + 1 : indexlines[1]])
+        return "\n".join(outputlines[indexlines[-2] + 1 : indexlines[-1]])
 
 
 def extract_test_output_code(model_output: str, lmstyle: LMStyle = None):
