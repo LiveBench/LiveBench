@@ -256,7 +256,7 @@ def load_test_cases_jsonl(question_file_path: str, questions: list[dict]):
     return questions
 
 
-def load_model_answers(answer_dir: str):
+def load_model_answers(answer_dir: str, models: list[str] | None = None):
     """Load model answers from answer_dir.
 
     The return value is a python dict of type:
@@ -272,6 +272,8 @@ def load_model_answers(answer_dir: str):
     for filename in filenames:
         model_name = os.path.basename(filename)[: -len(".jsonl")]
         model_name = get_model(model_name).display_name.lower()
+        if models is not None and model_name not in models:
+            continue
         answer = {}
         with open(filename) as fin:
             for i, line in enumerate(fin):

@@ -206,8 +206,7 @@ def gen_judgments(
         bench_name: The subset of LiveBench for which answers should be evaluated (e.g. 'live_bench' or 'live_bench/coding')
         parallel: The number of concurrent threads to use for evaluating answers
     """
-    # Load answers
-    model_answers = load_model_answers(answer_dir)
+
 
     if model_list is None:
         # evaluate answers for all models who have answers in answer_dir
@@ -216,7 +215,12 @@ def gen_judgments(
     else:
         models = model_list
 
+    models = [get_model(m).display_name for m in models]
+
     print('models:', models)
+
+    # Load answers
+    model_answers = load_model_answers(answer_dir, models)
 
     play_a_match_func = play_a_match_gt
 

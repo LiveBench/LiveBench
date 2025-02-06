@@ -267,10 +267,10 @@ TOGETHER_MODELS = [
     QwenModel(
         api_name="qwen/qwq-32b-preview", display_name="Qwen-32B-Preview", aliases=[]
     ),
-    # DeepseekModel(
-    #     api_name="deepseek-ai/DeepSeek-R1", display_name='deepseek-r1', api_function=chat_completion_together,
-    #     aliases=[], api_kwargs={'temperature': 0.7, 'max_tokens': 20000}
-    # )
+    DeepseekModel(
+        api_name="deepseek-ai/DeepSeek-R1", display_name='deepseek-r1', api_function=chat_completion_together,
+        aliases=[], api_kwargs={'temperature': 0.7, 'max_tokens': 20000}
+    )
 ]
 
 QWEN_ALIBABA_MODELS = [
@@ -342,11 +342,6 @@ GOOGLE_GENERATIVEAI_MODELS = [
         display_name="gemini-2.0-flash-thinking-exp-1219",
         aliases=[],
         api_kwargs={'max_output_tokens': 65536, 'temperature': 0.7, 'top_p': 0.95, 'top_k': 64}
-    ),
-    GeminiModel(
-        api_name='gemini-exp-1206',
-        display_name='gemini-exp-1206',
-        aliases=[]
     ),
     GeminiModel(
         api_name="gemini-2.0-flash-thinking-exp-01-21",
@@ -461,7 +456,7 @@ COHERE_MODELS = [
 # Deepseek Models
 DEEPSEEK_MODELS = [
     DeepseekModel(api_name="deepseek-chat", display_name="deepseek-v3", aliases=[]),
-    DeepseekModel(api_name="deepseek-reasoner", display_name="deepseek-r1", aliases=[], reasoner=True)
+    # DeepseekModel(api_name="deepseek-reasoner", display_name="deepseek-r1", aliases=[], reasoner=True)
 ]
 
 # Nvidia Models
@@ -521,6 +516,14 @@ PERPLEXITY_MODELS = [
 ]
 
 
+STEPFUN_MODELS = [
+    StepFunModel(
+        api_name='step-2-16k-202411',
+        display_name='step-2-16k-202411',
+        aliases=['step-2-16k']
+    )
+]
+
 ALL_MODELS = (
     ANTHROPIC_MODELS
     + OPENAI_MODELS
@@ -536,6 +539,7 @@ ALL_MODELS = (
     + GOOGLE_GENERATIVEAI_MODELS
     + QWEN_ALIBABA_MODELS
     + TOGETHER_MODELS
+    + STEPFUN_MODELS
 )
 
 
