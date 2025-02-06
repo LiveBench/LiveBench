@@ -96,19 +96,19 @@ def display_result_single(args):
         model_list_to_check = set(df["model"])
     for model in model_list_to_check:
         df_model = df[df["model"] == model]
+
+        missing_question_ids = set([q['question_id'] for q in questions_all]) - set(df_model['question_id'])
         
-        if len(df_model) < len(questions_all) and not args.ignore_missing_judgments:
+        if len(missing_question_ids) > 0 and not args.ignore_missing_judgments:
             if args.verbose:
                 print('removing model', model, "has missing", len(questions_all) - len(df_model), "judgments - has ", len(df_model))
-                missing_question_ids = set([q['question_id'] for q in questions_all]) - set(df_model['question_id'])
                 if len(missing_question_ids) < 10:
                     print('missing ids', missing_question_ids)
                 missing_questions = [q for q in questions_all if q['question_id'] in missing_question_ids]
                 missing_tasks = set([q['task'] for q in missing_questions])
                 print('missing tasks', missing_tasks)
             df = df[df["model"] != model]
-            #raise ValueError(f'Invalid result, missing judgments (and possibly completions) for {len(questions_all) - len(df_model)} questions for model {model}.')
-        elif len(df_model) < len(questions_all) and args.ignore_missing_judgments:
+        elif len(missing_question_ids) > 0 and args.ignore_missing_judgments:
             questions_all = [q for q in questions_all if q['question_id'] in df_model['question_id'].values]
     
     if args.ignore_missing_judgments and len(questions_all) == 0:
