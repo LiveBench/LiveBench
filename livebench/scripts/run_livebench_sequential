@@ -42,7 +42,7 @@ BENCHMARKS=(
     
 )
 
-gen_api_answer="python -u gen_api_answer.py --model $model --question-source $question_source"
+gen_api_answer="python -u gen_api_answer.py --model $model --question-source $question_source --resume --retry-failures"
 gen_ground_truth_judgment="python -u gen_ground_truth_judgment.py --model $model --question-source $question_source"
 
 if [ -n "$api_base" ]; then

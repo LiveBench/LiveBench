@@ -24,20 +24,20 @@ def remove_nonnumeric_chars_at_ends(s):
 
     return s[start_index:end_index], len(s) - (end_index - start_index)
 
-def extract_expression_completions_from_generation(generation):
+def extract_expression_completions_from_generation(generation, debug):
     numbers = None
-    if 'Answer:' in generation:
-        lines = generation.strip().split('\n')
+    if 'answer:' in generation.lower():
+        lines = generation.lower().strip().split('\n')
         answer_str = None
         answer_line = None
         answer_index = None
         for i, line in enumerate(lines):
-            if 'Answer:' in line:
+            if 'answer:' in line:
                 answer_line = line
                 answer_index = i
-        answer_str = answer_line.split('Answer:')[1].replace('Answer:', '').replace('**', '').replace('.', '').strip()
+        answer_str = answer_line.split('answer:')[1].replace('answer:', '').replace('**', '').replace('.', '').strip()
         if answer_str == '' and answer_index < len(lines) - 1:
-            answer_str = lines[answer_index+1].replace('Answer:', '').replace('**', '').replace('.', '').strip()
+            answer_str = lines[answer_index+1].replace('answer:', '').replace('**', '').replace('.', '').strip()
         if numbers is None:
             numbers = []
         for n in answer_str.split(','):
@@ -45,7 +45,8 @@ def extract_expression_completions_from_generation(generation):
             try:
                 numbers.append(int(n))
             except:
-                print('ERROR', n)
+                if debug:
+                    print('ERROR', n)
                 numbers.append('NO ANSWER')
         if len(numbers) == 0 or set(numbers) == {'NO ANSWER'}:
             numbers = None
@@ -64,10 +65,27 @@ def extract_expression_completions_from_generation(generation):
                 numbers.append(int(n.strip()))
             except:
                 numbers.append('NO ANSWER')
-    
+        if len(numbers) == 0 or set(numbers) == {'NO ANSWER'}:
+            numbers = None
+
+    if numbers is None:
+        # try just the very last line of the generation
+        last_line = generation.strip().lower().split('\n')[-1]
+        numbers = []
+        for n in last_line.strip().split(','):
+            n, _ = remove_nonnumeric_chars_at_ends(n)
+            if len(n.strip()) == 0:
+                continue
+            try:
+                numbers.append(int(n.strip()))
+            except:
+                numbers.append('NO ANSWER')
+        if len(numbers) == 0 or set(numbers) == {'NO ANSWER'}:
+            numbers = None
+
     if numbers is None:
         # generation has Answer: comma separated list of numbers. I want to extract the last such comma separated list
-        split_string = "answer"
+        split_string = "answer:"
         numbers = [k.strip() for k in generation.lower().split(split_string)[-1].split(',')]
 
         # the last number may have some extra non-numeric characters at the end. Those need to be removed
@@ -80,12 +98,13 @@ def extract_expression_completions_from_generation(generation):
                 break
 
         numbers = new_numbers
+    
     return numbers
 
 def proof_rearrangement_process_results(ground_truth: str, llm_answer: str, edit_distance=False, debug=False) -> int:
     ground_truth = [int(n) for n in ground_truth.split(',')]
 
-    completions = extract_expression_completions_from_generation(llm_answer)
+    completions = extract_expression_completions_from_generation(llm_answer, debug)
 
     if edit_distance:
         from Levenshtein import distance

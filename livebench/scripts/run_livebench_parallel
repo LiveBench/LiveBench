@@ -42,36 +42,36 @@ tmux new-session -d -s $SESSION
 
 # Array of benchmark names
 BENCHMARKS=(
-    "live_bench/coding"
-    # "live_bench/coding/coding_completion_1"
-    # "live_bench/coding/coding_completion_2"
-    # "live_bench/coding/LCB_generation_1"
-    # "live_bench/coding/LCB_generation_2"
-    # "live_bench/coding/LCB_generation_3"
-    "live_bench/data_analysis"
+    # "live_bench/coding"
+    "live_bench/coding/coding_completion_1"
+    "live_bench/coding/coding_completion_2"
+    "live_bench/coding/LCB_generation_1"
+    "live_bench/coding/LCB_generation_2"
+    "live_bench/coding/LCB_generation_3"
+    # "live_bench/data_analysis"
     # "live_bench/data_analysis/cta"
     # "live_bench/data_analysis/tablejoin"
     # "live_bench/data_analysis/tablereformat"
-    "live_bench/instruction_following"
+    # "live_bench/instruction_following"
     # "live_bench/instruction_following/summarize_2"
     # "live_bench/instruction_following/simplify_2"
     # "live_bench/instruction_following/paraphrase_2"
     # "live_bench/instruction_following/story_generation_2"
-    "live_bench/language"
-    "live_bench/math"
+    # "live_bench/language"
+    # "live_bench/math"
     # "live_bench/math/AMPS_Hard"
     # "live_bench/math/AMPS_Hard_2"
     # "live_bench/math/math_comp"
     # "live_bench/math/math_comp_2"
     # "live_bench/math/olympiad_2"
-    "live_bench/reasoning"
+    # "live_bench/reasoning"
     # "live_bench/reasoning/zebra_puzzle_2"
     # "live_bench/reasoning/spatial"
     # "live_bench/reasoning/web_of_lies_v2"
 
 )
 
-gen_api_answer="python -u gen_api_answer.py --model $model --question-source $question_source --resume --retry-failures"
+gen_api_answer="python -u gen_api_answer.py --model $model --question-source $question_source"
 gen_ground_truth_judgment="python -u gen_ground_truth_judgment.py --model $model --question-source $question_source"
 
 if [ -n "$api_base" ]; then

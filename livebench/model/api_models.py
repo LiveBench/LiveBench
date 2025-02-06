@@ -102,7 +102,7 @@ OPENAI_MODELS = [
         api_name="gpt-4o-2024-08-06", display_name="gpt-4o-2024-08-06", aliases=[]
     ),
     OpenAIModel(
-        api_name="chatgpt-4o-latest", display_name="chatgpt-4o-latest-2025-01-30", aliases=[]
+        api_name="chatgpt-4o-latest", display_name="chatgpt-4o-latest-2025-01-29", aliases=[]
     ),
 ]
 
@@ -265,10 +265,30 @@ GOOGLE_GENERATIVEAI_MODELS = [
         api_kwargs={'max_output_tokens': 65536, 'temperature': 0.7, 'top_p': 0.95, 'top_k': 64, 'thinking_config': {'include_thoughts': True}}
     ),
     GeminiModel(
+        api_name='gemini-exp-1206',
+        display_name='gemini-exp-1206',
+        aliases=[]
+    ),
+    GeminiModel(
         api_name="gemini-2.0-flash-thinking-exp-01-21",
         display_name="gemini-2.0-flash-thinking-exp-01-21",
         aliases=['gemini-2.0-flash-thinking-exp'],
         api_kwargs={'max_output_tokens': 65536, 'temperature': 0.7, 'top_p': 0.95, 'top_k': 64, 'thinking_config': {'include_thoughts': True}}
+    ),
+    GeminiModel(
+        api_name='gemini-2.0-pro-exp-02-05',
+        display_name='gemini-2.0-pro-exp-02-05',
+        aliases=['gemini-2.0-pro-exp'],
+    ),
+    GeminiModel(
+        api_name='gemini-2.0-flash',
+        display_name='gemini-2.0-flash',
+        aliases=[]
+    ),
+    GeminiModel(
+        api_name='gemini-2.0-flash-lite-preview-02-05',
+        display_name='gemini-2.0-flash-lite-preview-02-05',
+        aliases=[]
     )
 ]
 
