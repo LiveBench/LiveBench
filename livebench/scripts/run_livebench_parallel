@@ -43,25 +43,17 @@ tmux new-session -d -s $SESSION
 # Array of benchmark names
 BENCHMARKS=(
     # "live_bench/coding"
-<<<<<<< HEAD
-    "live_bench/coding/coding_completion_1"
-    "live_bench/coding/coding_completion_2"
-    "live_bench/coding/LCB_generation_1"
-    "live_bench/coding/LCB_generation_2"
-    "live_bench/coding/LCB_generation_3"
-=======
     # "live_bench/coding/coding_completion_1"
     # "live_bench/coding/coding_completion_2"
     # "live_bench/coding/LCB_generation_1"
     # "live_bench/coding/LCB_generation_2"
     # "live_bench/coding/LCB_generation_3"
->>>>>>> 8bc7fad (code updates for january update)
     # "live_bench/data_analysis"
     # "live_bench/data_analysis/cta"
     # "live_bench/data_analysis/tablejoin"
     # "live_bench/data_analysis/tablereformat"
     # "live_bench/instruction_following"
-    # "live_bench/instruction_following/summarize_2"
+    # "live_bench/instruction_following/summarize_2"tmux a
     # "live_bench/instruction_following/simplify_2"
     # "live_bench/instruction_following/paraphrase_2"
     # "live_bench/instruction_following/story_generation_2"
@@ -90,7 +82,7 @@ BENCHMARKS=(
 
 )
 
-gen_api_answer="python -u gen_api_answer.py --model $model --question-source $question_source"
+gen_api_answer="python -u gen_api_answer.py --model $model --question-source $question_source --resume --retry-failures"
 gen_ground_truth_judgment="python -u gen_ground_truth_judgment.py --model $model --question-source $question_source"
 
 if [ -n "$api_base" ]; then
