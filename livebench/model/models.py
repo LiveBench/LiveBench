@@ -150,3 +150,10 @@ class PerplexityModel(Model):
     api_function: model_api_function = field(
         default=chat_completion_perplexity
     )
+    
+@dataclass(kw_only=True, frozen=True)
+class StepFunModel(Model):
+    adapter: BaseModelAdapter = field(default=ChatGPTAdapter())
+    api_function: model_api_function = field(
+        default=lambda model, conv, temperature, max_tokens, api_dict: chat_completion_openai(model, conv, temperature, max_tokens, {'api_base': 'https://api.stepfun.com/v1', 'api_key': os.environ.get('STEP_API_KEY', None)})
+    )
