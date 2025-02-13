@@ -259,6 +259,10 @@ def gen_judgments(
         else:
             models = model_list
 
+        for m in model_answers:
+            for q in model_answers[m]:
+                model_answers[m][q]['choices'][0]['turns'][0] = re.sub(f"<think>.*?<\/think>", "", model_answers[m][q]['choices'][0]['turns'][0], flags=re.DOTALL).strip()
+
         for model_id in models:
             scores = instruction_following_process_results(questions, model_answers, task_name, model_id, debug)
             for item in scores:

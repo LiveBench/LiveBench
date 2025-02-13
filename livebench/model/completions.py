@@ -8,6 +8,8 @@ import logging
 import sys
 logging.basicConfig(stream=sys.stdout, level=logging.WARNING)
 
+import traceback
+
 import httpx
 
 logger = logging.getLogger(__name__)
@@ -26,6 +28,7 @@ def retry_fail(_):
 def retry_log(retry_state):
     exception = retry_state.outcome.exception()
     logger.warning(f"{retry_state.fn.__name__}: attempt {retry_state.attempt_number} failed with {exception.__class__.__name__}: {exception}; {retry_state.seconds_since_start} seconds elapsed total")
+    logger.warning("Exception stack trace:", exc_info=exception)
 
 @retry(
     stop=stop_after_attempt(API_MAX_RETRY),
@@ -57,7 +60,7 @@ def chat_completion_openai(
             messages[0]['content'] = 'Formatting reenabled\n' + messages[0]['content']
     try:
 
-        response = client.chat.completions.create(
+        stream = client.chat.completions.create(
             model=model.api_name,
             messages=messages,
             n=1,
@@ -67,25 +70,39 @@ def chat_completion_openai(
                 else NOT_GIVEN
             ),
             max_completion_tokens=(
-                max_tokens if not isinstance(model, OpenAIModel) or not model.inference_api else NOT_GIVEN
+                max_tokens if isinstance(model, OpenAIModel) and not model.inference_api else NOT_GIVEN
             ),
-            reasoning_effort=model.api_kwargs['reasoning_effort'] if model.api_kwargs is not None and 'reasoning_effort' in model.api_kwargs else NOT_GIVEN
-
+            max_tokens=(
+                max_tokens if not isinstance(model, OpenAIModel) else NOT_GIVEN
+            ),
+            reasoning_effort=model.api_kwargs['reasoning_effort'] if model.api_kwargs is not None and 'reasoning_effort' in model.api_kwargs else NOT_GIVEN,
+            stream=True,
+            stream_options={'include_usage': True}
         )
-        
-        message = response.choices[0].message.content
-        if message is None:
+
+        message = ''
+        num_tokens = None
+        try:
+            for chunk in stream:
+                if chunk.choices and len(chunk.choices) > 0 and chunk.choices[0].delta.content is not None:
+                    message += chunk.choices[0].delta.content
+                if chunk.usage is not None:
+                    num_tokens = chunk.usage.completion_tokens
+        except Exception as e:
+            if message != '':
+                print(message)
+            raise
+
+        if message == '':
             raise Exception("No message returned from OpenAI")
+        if num_tokens is None:
+            raise Exception("Incomplete response from OpenAI")
         output = message
-        num_tokens = response.usage.completion_tokens
 
         return output, num_tokens
     except Exception as e:
         if "invalid_prompt" in str(e).lower():
             print("invalid prompt, giving up")
-            return API_ERROR_OUTPUT, 0
-        elif "timeout" in str(e).lower():
-            print("timeout, giving up")
             return API_ERROR_OUTPUT, 0
         raise e
 
@@ -136,7 +153,6 @@ def chat_completion_deepseek(model, conv, temperature, max_tokens, api_dict=None
     print("sleeping for 3 sec")
     time.sleep(3)
     from openai import OpenAI, NOT_GIVEN
-
     client = OpenAI(api_key=api_key, base_url="https://api.deepseek.com")
     messages = conv.to_openai_api_messages()
     response = client.chat.completions.create(
