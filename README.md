@@ -5,10 +5,12 @@
 <p align="center">
     <a href="https://livebench.ai/">🏆 Leaderboard</a> •
     <a href="https://huggingface.co/livebench">💻 Data </a> •
-    <a href="https://livebench.ai/livebench.pdf">📝 Paper</a> 
+    <a href="https://arxiv.org/abs/2406.19314">📝 Paper</a> 
 </p>
 
-Top models as of 30th September 2024 (see the full leaderboard [here](https://livebench.ai/)):
+LiveBench will appear as a [Spotlight Paper](https://openreview.net/forum?id=sKYHBTAxVa) in ICLR 2025.
+
+Top models as of 30th September 2024 (for a full up-to-date leaderboard, see [here](https://livebench.ai/)):
 
 ![image](assets/livebench-2024-09-30.png)
 
@@ -259,10 +261,10 @@ Here, we describe our dataset documentation. This information is also available 
 ## Citation
 
 ```bibtex
-@article{livebench,
-  author    = {White, Colin and Dooley, Samuel and Roberts, Manley and Pal, Arka and Feuer, Ben and Jain, Siddhartha and Shwartz-Ziv, Ravid and Jain, Neel and Saifullah, Khalid and Naidu, Siddartha and Hegde, Chinmay and LeCun, Yann and Goldstein, Tom and Neiswanger, Willie and Goldblum, Micah},
-  title     = {LiveBench: A Challenging, Contamination-Free LLM Benchmark},
-  url       = {arXiv preprint arXiv:2406.19314},
-  year      = {2024},
+@inproceedings{livebench,
+  title={LiveBench: A Challenging, Contamination-Free {LLM} Benchmark},
+  author={Colin White and Samuel Dooley and Manley Roberts and Arka Pal and Benjamin Feuer and Siddhartha Jain and Ravid Shwartz-Ziv and Neel Jain and Khalid Saifullah and Sreemanti Dey and Shubh-Agrawal and Sandeep Singh Sandha and Siddartha Venkat Naidu and Chinmay Hegde and Yann LeCun and Tom Goldstein and Willie Neiswanger and Micah Goldblum},
+  booktitle={The Thirteenth International Conference on Learning Representations},
+  year={2025},
 }
 ```
