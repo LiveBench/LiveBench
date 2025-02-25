@@ -72,113 +72,62 @@ Our repo is adapted from FastChat's excellent [llm_judge](https://github.com/lm-
 cd livebench
 ```
 
-### Bash Scripts
+### Running Evaluations
 
-The simplest way to run LiveBench inference and scoring is by using our provided Bash scripts. These scripts automate the process of generating and scoring model responses, and can automatically parallelize runs of different tasks or categories to speed up execution for models with higher rate limits.
+The simplest way to run LiveBench inference and scoring is using the `run_livebench.py` script, which handles the entire evaluation pipeline including generating answers, scoring them, and showing results.
 
-#### Basic
-To evaluate a single subset of LiveBench for a single model, do:
-```
-./scripts/run_livebench <bench-name> <model> <question-source> 
-```
-e.g. `./scripts/run_livebench live_bench/coding gpt-4o-mini` will evaluate gpt-4o-mini on all the coding tasks. `<question-source>` is optional and defaults to `huggingface`.
-
-If you'd like to run multiple LiveBench subsets in sequence, use
-```
-./scripts/run_livebench_sequential <model> <venv-path> <question-source>
-```
-where `<venv-path>` is a relative path to your `venv/bin/activate` script. The list of benchmarks to be evaluated can be viewed inside the script.
-
-For a local-weight model, use
-```
-./scripts/run_livebench_sequential_local_model <model-path> <model-id> <venv-path> <question-source>
-```
-
-#### Parallel
-For API-based models with high rate limits, evaluation of LiveBench can be sped up by evaluating different tasks in parallel. To do this automatically, run
-```
-./scripts/run_livebench_parallel <model> <venv-path> <question-source>
-```
-The set of categories or tasks to be evaluated is editable in `./scripts/run_livebench_parallel`. This script will spawn a tmux session, with each LiveBench process in a separate pane, so progress on all can be viewed at once. This setup will also persist on a remote server (i.e. through SSH) so that connection interrupts will not cancel the processes.
-
-If you'd like to start evaluation of multiple models at once, run
-```
-./scripts/run_livebench_parallel_models <venv-path> <question-source>
-```
-You can edit the list of models to be evaluated in the script file. This script runs `run_livebench_parallel` once for each model.
-
-Note: After the evaluation has completed, you will need to run `show_livebench_result.py` manually to view the leaderboard.
-
-### Python Scripts
-
-If you'd like, you can manually execute the Python scripts used to evaluate LiveBench.
-
-In all scripts, the `--bench-name` argument is used to specify the subset of questions to use.
-Setting `--bench-name` to `live_bench` will use all questions.
-Setting `--bench-name` to `live_bench/category` will use all questions in that category.
-Setting `--bench-name` to `live_bench/category/task` will use all questions in that task.
-
-The `--question-source` argument is used to specify the source of questions; by default, it is set to `huggingface`, which uses the questions available on [Huggingface](https://huggingface.co/livebench). See [below](#adding-new-questions) for instructions on how to use your own questions.
-
-The `--livebench-release-option` argument is used to specify the version of livebench to use. By default, it is set to the latest version. Available options are `2024-07-26`, `2024-06-24`, `2024-08-31`, and `2024-11-25`.
-
-#### Performing Inference
-
-##### API-Based Models
-Make sure you have the appropriate API keys set as environment variables (e.g. `export OPENAI_API_KEY=<your_key>`). If using a virtual environment, you can add the environment variable export to the `.venv/bin/activate` file.
-
-The `gen_api_answer.py` script is used to generate answers for API-based models. It can be run using the following command:
+Basic usage:
 ```bash
-python gen_api_answer.py --bench-name <bench-name> --model <model-name> --question-source <question-source> --livebench-release-option <livebench-release-option>
-```
-Only the `--model` argument is required. For example, to run coding tasks for gpt-4o-mini, run:
-```bash
-python gen_api_answer.py --bench-name live_bench/coding --model gpt-4o-mini
+python run_livebench.py --model gpt-4 --bench-name live_bench/coding
 ```
 
-If your model uses an OpenAI API endpoint, you can specify the endpoint using the `--api-base` argument. For example, to evaluate gpt-4o-mini using a VLLM endpoint, run:
-```bash
-python gen_api_answer.py --model gpt-4o-mini --api-base http://localhost:8000/v1
-```
-In this case, if an API key is needed, you should set the `LIVEBENCH_API_KEY` environment variable.
+Some common options:
+- `--bench-name`: Specify which subset of questions to use (e.g. `live_bench` for all questions, `live_bench/coding` for coding tasks only)
+- `--model`: The model to evaluate
+- `--max-tokens`: Maximum number of tokens in model responses
+- `--api-base`: Custom API endpoint for OpenAI-compatible servers
+- `--api-key-name`: Environment variable name containing the API key (defaults to OPENAI_API_KEY for OpenAI models)
+- `--parallel-requests`: Number of concurrent API requests (for models with high rate limits)
+- `--resume`: Continue from a previous interrupted run
+- `--retry-failures`: Retry questions that failed in previous runs
 
-##### Local Models
+Run `python run_livebench.py --help` to see all available options.
 
-To generate answers with local GPU inference on open source models, use the `gen_model_answer.py` script:
+The results will be displayed in the terminal and saved to CSV files (`all_groups.csv` for category breakdown and `all_tasks.csv` for task breakdown).
+
+### Local Model Evaluation
+
+For running evaluations with local models, you'll need to use the `gen_model_answer.py` script:
 ```bash
 python gen_model_answer.py --model-path <path-to-model> --model-id <model-id> --bench-name <bench-name>
 ```
-`<path-to-model>` should be either a path to a local model weight folder or a HuggingFace repo ID. `<model-id>` will be the name of the model on the leaderboard and the identifier used for other scripts.
+`<path-to-model>` should be either a path to a local model weight folder or a HuggingFace repo ID. `<model-id>` will be the name of the model on the leaderboard.
 
-Other arguments are optional, but you may want to set `--num-gpus-per-model` and `--num-gpus-total` to match the number of GPUs you have available. You may also want to set `--dtype` to match the dtype of your model weights.
+Note: The `gen_model_answer.py` script is currently unmaintained. For local model evaluation, we recommend using a service like vLLM to create an OpenAI-compatible server endpoint, which can then be used with `run_livebench.py` by specifying the `--api-base` parameter.
 
- Run `python gen_model_answer.py --help` for more details.
+Other arguments for local evaluation are optional, but you may want to set `--num-gpus-per-model` and `--num-gpus-total` to match your available GPUs, and `--dtype` to match your model weights.
 
-#### Scoring Outputs
+Run `python gen_model_answer.py --help` for more details.
 
-To score the outputs of your model, run the `gen_ground_truth_judgment.py` script:
+### Viewing Results
+
+You can view the results of your evaluations using the `show_livebench_result.py` script:
+
 ```bash
-python gen_ground_truth_judgment.py --bench-name <bench-name> --model-list <model-list>
+python show_livebench_result.py --bench-name <bench-name> --model-list <model-list> --question-source <question-source>
 ```
-`<model-list>` is a space-separated list of model IDs to score. For example, to score gpt-4o-mini and claude-3-5-sonnet, run:
-```bash
-python gen_ground_truth_judgment.py --bench-name live_bench --model-list gpt-4o-mini claude-3-5-sonnet
-```
-If no `--model-list` argument is provided, all models will be scored.
 
-Setting `--debug` will print debug information for individual questions. This can be useful for debugging new tasks.
-
-### Showing Results
-
-To show the results of your model, run the `show_livebench_result.py` script:
+`<model-list>` is a space-separated list of model IDs to show. For example, to show the results of gpt-4-turbo and claude-3-opus on coding tasks, run:
 ```bash
-python show_livebench_result.py --bench-name <bench-name> --model-list <model-list>
+python show_livebench_result.py --bench-name live_bench/coding --model-list gpt-4-turbo claude-3-opus
 ```
-`<model-list>` is a space-separated list of model IDs to show. For example, to show the results of gpt-4o-mini and claude-3-5-sonnet, run:
+
+Multiple `--bench-name` values can be provided to see scores on specific subsets of benchmarks:
 ```bash
-python show_livebench_result.py --bench-name live_bench --model-list gpt-4o-mini claude-3-5-sonnet
+python show_livebench_result.py --bench-name live_bench/coding live_bench/math --model-list gpt-4-turbo
 ```
-If no `--model-list` argument is provided, all models will be shown.
+
+If no `--model-list` argument is provided, all models will be shown. The `--question-source` argument defaults to `huggingface` but should match what was used during evaluation.
 
 The leaderboard will be displayed in the terminal. You can also find the breakdown by category in `all_groups.csv` and by task in `all_tasks.csv`.
 
@@ -246,7 +195,7 @@ For other models:
 
 1. Implement a new completion function in `model/completions.py`. This function should take a `Model`, `Conversation`, `temperature`, `max_tokens`, and `kwargs` as arguments, and return a tuple of `(response, tokens_consumed)` after calling the model's API.
 2. If necessary, implement a new `ModelAdapter` in `model/model_adapter.py`. This class should implement the `BaseModelAdapter` interface. For many models, existing adapters (such as `ChatGPTAdapter`) will work.
-3. Add a new `Model` entry in `model/api_models.py`. This will have the form `Model(api_name=<api_name>, display_name=<display_name>, aliases=[], adapter=<model_adapter>, api_function=<api_function>)`. Make sure to add the new model to the `ALL_MODELS` list.
+3. Add a new `Model` entry in `model/api_models.py`. This will have the form `Model(api_name=<api_name>, display_name=<display_name>, aliases=[], adapter=<model_adapter>, api_function=<api_function>)`. Make sure to add the new model to the `ALL_MODELS` list. Note: if your new model uses an OpenAI-compatible API, you can use a lambda function for api_function that just called `chat_completion_openai` with the api_dict bound to your desired API base URL and API key.
 
 You should now be able to evaluate the model with `gen_api_answer.py` or other scripts as normal.
 
