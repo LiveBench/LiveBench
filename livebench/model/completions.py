@@ -121,12 +121,15 @@ def chat_completion_openai(
                 message = response.choices[0]
             else:
                 message = response.choices[0].message.content
-            num_tokens = response.usage.completion_tokens
+            if response.usage is not None:
+                num_tokens = response.usage.completion_tokens
+            else:
+                num_tokens = None
 
         if message is None or message == '':
             raise Exception("No message returned from OpenAI")
         if num_tokens is None:
-            raise Exception("Incomplete response from OpenAI")
+            num_tokens = -1
         output = message
 
         return output, num_tokens

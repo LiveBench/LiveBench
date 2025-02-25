@@ -6,7 +6,6 @@ This script consolidates the functionality of the bash scripts into a single Pyt
 
 import argparse
 import os
-import sys
 import time
 import libtmux
 import subprocess
@@ -107,8 +106,6 @@ def setup_tmux_session(session_name: str, benchmarks: List[str], commands: List[
 
 def build_run_command(
     model: str,
-    mode: str,
-    venv: Optional[str] = None,
     bench_name: Optional[Union[str, List[str]]] = None,
     question_source: str = "huggingface",
     api_base: Optional[str] = None,
@@ -119,7 +116,15 @@ def build_run_command(
     resume: bool = False,
     retry_failures: bool = False,
     skip_inference: bool = False,
-    skip_grading: bool = False
+    skip_grading: bool = False,
+    force_temperature: Optional[float] = None,
+    num_choices: Optional[int] = None,
+    question_begin: Optional[int] = None,
+    question_end: Optional[int] = None,
+    question_id: Optional[List[str]] = None,
+    livebench_release_option: Optional[str] = None,
+    stream: bool = False,
+    remove_existing_judgment_file: bool = False
 ) -> str:
     """Build the command to run gen_api_answer and gen_ground_truth_judgment in sequence"""
     
@@ -155,6 +160,25 @@ def build_run_command(
     if retry_failures:
         gen_api_cmd += " --retry-failures"
     
+    # Add new optional arguments
+    if force_temperature is not None:
+        gen_api_cmd += f" --force-temperature {force_temperature}"
+    if num_choices:
+        gen_api_cmd += f" --num-choices {num_choices}"
+    if question_begin is not None:
+        gen_api_cmd += f" --question-begin {question_begin}"
+    if question_end is not None:
+        gen_api_cmd += f" --question-end {question_end}"
+    if question_id:
+        question_id_str = ' '.join(question_id)
+        gen_api_cmd += f" --question-id {question_id_str}"
+    if livebench_release_option:
+        gen_api_cmd += f" --livebench-release-option {livebench_release_option}"
+    if stream:
+        gen_api_cmd += " --stream"
+    if remove_existing_judgment_file:
+        gen_judge_cmd += " --remove-existing-file"
+    
     # Chain the commands together with && to ensure they run in sequence
     # Only run gen_ground_truth_judgment if gen_api_answer succeeds
     if skip_inference and not skip_grading:
@@ -180,7 +204,15 @@ def run_model(
     skip_inference: bool = False,
     skip_grading: bool = False,
     resume: bool = False,
-    retry_failures: bool = False
+    retry_failures: bool = False,
+    force_temperature: Optional[float] = None,
+    num_choices: Optional[int] = None,
+    question_begin: Optional[int] = None,
+    question_end: Optional[int] = None,
+    question_id: Optional[List[str]] = None,
+    livebench_release_option: Optional[str] = None,
+    stream: bool = False,
+    remove_existing_judgment_file: bool = False
 ) -> None:
     """Run livebench for a single model"""
     if mode == "parallel":
@@ -192,7 +224,15 @@ def run_model(
             api_base=api_base,
             api_key_name=api_key_name,
             model_display_name=model_display_name,
-            parallel_requests=parallel_requests
+            parallel_requests=parallel_requests,
+            force_temperature=force_temperature,
+            num_choices=num_choices,
+            question_begin=question_begin,
+            question_end=question_end,
+            question_id=question_id,
+            livebench_release_option=livebench_release_option,
+            stream=stream,
+            remove_existing_judgment_file=remove_existing_judgment_file
         )
     elif mode == "sequential":
         run_sequential(
@@ -203,7 +243,16 @@ def run_model(
             api_base=api_base,
             api_key_name=api_key_name,
             model_display_name=model_display_name,
-            max_tokens=max_tokens
+            max_tokens=max_tokens,
+            parallel_requests=parallel_requests,
+            force_temperature=force_temperature,
+            num_choices=num_choices,
+            question_begin=question_begin,
+            question_end=question_end,
+            question_id=question_id,
+            livebench_release_option=livebench_release_option,
+            stream=stream,
+            remove_existing_judgment_file=remove_existing_judgment_file
         )
     else:  # single mode
         if not bench_names:
@@ -222,7 +271,15 @@ def run_model(
                 resume=resume,
                 retry_failures=retry_failures,
                 skip_inference=skip_inference,
-                skip_grading=skip_grading
+                skip_grading=skip_grading,
+                force_temperature=force_temperature,
+                num_choices=num_choices,
+                question_begin=question_begin,
+                question_end=question_end,
+                question_id=question_id,
+                livebench_release_option=livebench_release_option,
+                stream=stream,
+                remove_existing_judgment_file=remove_existing_judgment_file
             )
 
 def run_sequential(
@@ -233,7 +290,16 @@ def run_sequential(
     api_base: Optional[str] = None,
     api_key_name: Optional[str] = None,
     model_display_name: Optional[str] = None,
-    max_tokens: Optional[int] = None
+    max_tokens: Optional[int] = None,
+    parallel_requests: Optional[int] = None,
+    force_temperature: Optional[float] = None,
+    num_choices: Optional[int] = None,
+    question_begin: Optional[int] = None,
+    question_end: Optional[int] = None,
+    question_id: Optional[List[str]] = None,
+    livebench_release_option: Optional[str] = None,
+    stream: bool = False,
+    remove_existing_judgment_file: bool = False
 ) -> None:
     """Run benchmarks sequentially in a single tmux session"""
     print(f"\nRunning sequential benchmarks for model: {model}")
@@ -244,16 +310,23 @@ def run_sequential(
         print("No specific benchmarks provided, running all benchmarks in sequence")
         cmd = build_run_command(
             model=model,
-            mode="single",
-            venv=venv,
             bench_name="live_bench",
             question_source=question_source,
             api_base=api_base,
             api_key_name=api_key_name,
             model_display_name=model_display_name,
             max_tokens=max_tokens,
+            parallel_requests=parallel_requests,
             resume=True,
-            retry_failures=True
+            retry_failures=True,
+            force_temperature=force_temperature,
+            num_choices=num_choices,
+            question_begin=question_begin,
+            question_end=question_end,
+            question_id=question_id,
+            livebench_release_option=livebench_release_option,
+            stream=stream,
+            remove_existing_judgment_file=remove_existing_judgment_file
         )
         setup_tmux_session(session_name, ["live_bench"], [cmd], venv)
         return
@@ -265,16 +338,23 @@ def run_sequential(
     for bench in bench_names:
         cmd = build_run_command(
             model=model,
-            mode="single",
-            venv=venv,
             bench_name=bench,
             question_source=question_source,
             api_base=api_base,
             api_key_name=api_key_name,
             model_display_name=model_display_name,
             max_tokens=max_tokens,
+            parallel_requests=parallel_requests,
             resume=True,
-            retry_failures=True
+            retry_failures=True,
+            force_temperature=force_temperature,
+            num_choices=num_choices,
+            question_begin=question_begin,
+            question_end=question_end,
+            question_id=question_id,
+            livebench_release_option=livebench_release_option,
+            stream=stream,
+            remove_existing_judgment_file=remove_existing_judgment_file
         )
         commands.append(cmd)
     
@@ -292,7 +372,15 @@ def run_parallel(
     api_base: Optional[str] = None,
     api_key_name: Optional[str] = None,
     model_display_name: Optional[str] = None,
-    parallel_requests: Optional[int] = None
+    parallel_requests: Optional[int] = None,
+    force_temperature: Optional[float] = None,
+    num_choices: Optional[int] = None,
+    question_begin: Optional[int] = None,
+    question_end: Optional[int] = None,
+    question_id: Optional[List[str]] = None,
+    livebench_release_option: Optional[str] = None,
+    stream: bool = False,
+    remove_existing_judgment_file: bool = False
 ) -> None:
     """Run benchmarks in parallel in separate tmux panes"""
     print(f"\nRunning parallel benchmarks for model: {model}")
@@ -308,14 +396,21 @@ def run_parallel(
     for bench in benchmarks:
         cmd = build_run_command(
             model=model,
-            mode="single",
-            venv=venv,
             bench_name=bench,
             question_source=question_source,
             api_base=api_base,
             api_key_name=api_key_name,
             model_display_name=model_display_name,
-            parallel_requests=parallel_requests
+            max_tokens=max_tokens,
+            parallel_requests=parallel_requests,
+            force_temperature=force_temperature,
+            num_choices=num_choices,
+            question_begin=question_begin,
+            question_end=question_end,
+            question_id=question_id,
+            livebench_release_option=livebench_release_option,
+            stream=stream,
+            remove_existing_judgment_file=remove_existing_judgment_file
         )
         commands.append(cmd)
     
@@ -335,7 +430,15 @@ def run_single(
     resume: bool = False,
     retry_failures: bool = False,
     skip_inference: bool = False,
-    skip_grading: bool = False
+    skip_grading: bool = False,
+    force_temperature: Optional[float] = None,
+    num_choices: Optional[int] = None,
+    question_begin: Optional[int] = None,
+    question_end: Optional[int] = None,
+    question_id: Optional[List[str]] = None,
+    livebench_release_option: Optional[str] = None,
+    stream: bool = False,
+    remove_existing_judgment_file: bool = False
 ) -> int:
     """
     Run a single benchmark.
@@ -354,6 +457,14 @@ def run_single(
         retry_failures: Whether to retry failed generations
         skip_inference: Whether to skip running gen_api_answer.py
         skip_grading: Whether to skip running gen_ground_truth_judgment.py
+        force_temperature: Force a specific temperature for model sampling
+        num_choices: Number of choices to generate
+        question_begin: Starting question index
+        question_end: Ending question index
+        question_id: Specific question IDs to process
+        livebench_release_option: LiveBench release option
+        stream: Enable streaming mode
+        remove_existing_judgment_file: Remove existing judgment file before running
     
     Returns:
         Exit code from the last command executed
@@ -363,8 +474,6 @@ def run_single(
     # Build the chained command using build_run_command
     cmd = build_run_command(
         model=model,
-        mode="single",
-        venv=venv,
         bench_name=bench_name,
         question_source=question_source,
         api_base=api_base,
@@ -375,7 +484,15 @@ def run_single(
         resume=resume,
         retry_failures=retry_failures,
         skip_inference=skip_inference,
-        skip_grading=skip_grading
+        skip_grading=skip_grading,
+        force_temperature=force_temperature,
+        num_choices=num_choices,
+        question_begin=question_begin,
+        question_end=question_end,
+        question_id=question_id,
+        livebench_release_option=livebench_release_option,
+        stream=stream,
+        remove_existing_judgment_file=remove_existing_judgment_file
     )
     
     # Run the command
@@ -419,6 +536,15 @@ def main():
     parser.add_argument("--retry-failures", action="store_true", help="Retry failed generations")
     parser.add_argument("--skip-inference", action="store_true", help="Skip running gen_api_answer.py")
     parser.add_argument("--skip-grading", action="store_true", help="Skip running gen_ground_truth_judgment.py")
+    parser.add_argument("--force-temperature", type=float, help="Force a specific temperature for model sampling")
+    parser.add_argument("--num-choices", type=int, help="Number of choices to generate")
+    parser.add_argument("--question-begin", type=int, help="Starting question index")
+    parser.add_argument("--question-end", type=int, help="Ending question index")
+    parser.add_argument("--question-id", nargs="+", help="Specific question IDs to process")
+    parser.add_argument("--livebench-release-option", help="LiveBench release option")
+    parser.add_argument("--stream", action="store_true", help="Enable streaming mode")
+    parser.add_argument("--remove-existing-judgment-file", action="store_true", 
+                      help="Remove existing judgment file before running")
     
     args = parser.parse_args()
     
@@ -445,7 +571,15 @@ def main():
             resume=args.resume,
             retry_failures=args.retry_failures,
             skip_inference=args.skip_inference,
-            skip_grading=args.skip_grading
+            skip_grading=args.skip_grading,
+            force_temperature=args.force_temperature,
+            num_choices=args.num_choices,
+            question_begin=args.question_begin,
+            question_end=args.question_end,
+            question_id=args.question_id,
+            livebench_release_option=args.livebench_release_option,
+            stream=args.stream,
+            remove_existing_judgment_file=args.remove_existing_judgment_file
         )
 
 if __name__ == "__main__":
