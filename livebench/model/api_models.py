@@ -58,6 +58,37 @@ ANTHROPIC_MODELS = [
         display_name="claude-3-5-haiku-20241022",
         aliases=['claude-3-5-haiku'],
     ),
+    AnthropicModel(
+        api_name="claude-3-7-sonnet-20250219",
+        display_name="claude-3-7-sonnet-20250219-thinking-25k",
+        aliases=['claude-3-7-sonnet-thinking-25k'],
+        api_kwargs={
+            'thinking': {
+                'type': 'enabled',
+                'budget_tokens': 25000
+            },
+            'max_tokens': 32000,
+            'temperature': None
+        }
+    ),
+    AnthropicModel(
+        api_name="claude-3-7-sonnet-20250219",
+        display_name="claude-3-7-sonnet-20250219-thinking-64k",
+        aliases=['claude-3-7-sonnet-thinking-64k'],
+        api_kwargs={
+            'thinking': {
+                'type': 'enabled',
+                'budget_tokens': 63000
+            },
+            'max_tokens': 64000,
+            'temperature': None
+        }
+    ),
+    AnthropicModel(
+        api_name="claude-3-7-sonnet-20250219",
+        display_name="claude-3-7-sonnet-20250219-base",
+        aliases=['claude-3-7-sonnet-base'],
+    ),
 ]
 
 # OpenAI Models

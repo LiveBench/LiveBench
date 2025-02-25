@@ -37,8 +37,9 @@ def retry_log(retry_state):
     after=retry_log,
     retry_error_callback=retry_fail
 )
+
 def chat_completion_openai(
-    model: "Model", conv, temperature, max_tokens, api_dict=None
+    model: "Model", conv, temperature, max_tokens, api_dict=None, stream=False
 ) -> tuple[str, int]:
     from livebench.model.models import OpenAIModel
     from openai import OpenAI, NOT_GIVEN
@@ -59,41 +60,70 @@ def chat_completion_openai(
         if model.inference_api:
             messages[0]['content'] = 'Formatting reenabled\n' + messages[0]['content']
     try:
+        if stream:
+            stream = client.chat.completions.create(
+                model=model.api_name,
+                messages=messages,
+                n=1,
+                temperature=(
+                    temperature
+                    if not isinstance(model, OpenAIModel) or not model.inference_api
+                    else NOT_GIVEN
+                ),
+                max_completion_tokens=(
+                    max_tokens if isinstance(model, OpenAIModel) and not model.inference_api else NOT_GIVEN
+                ),
+                max_tokens=(
+                    max_tokens if not isinstance(model, OpenAIModel) else NOT_GIVEN
+                ),
+                reasoning_effort=model.api_kwargs['reasoning_effort'] if model.api_kwargs is not None and 'reasoning_effort' in model.api_kwargs else NOT_GIVEN,
+                stream=True,
+                stream_options={'include_usage': True}
+            )
 
-        stream = client.chat.completions.create(
-            model=model.api_name,
-            messages=messages,
-            n=1,
-            temperature=(
-                temperature
-                if not isinstance(model, OpenAIModel) or not model.inference_api
-                else NOT_GIVEN
-            ),
-            max_completion_tokens=(
-                max_tokens if isinstance(model, OpenAIModel) and not model.inference_api else NOT_GIVEN
-            ),
-            max_tokens=(
-                max_tokens if not isinstance(model, OpenAIModel) else NOT_GIVEN
-            ),
-            reasoning_effort=model.api_kwargs['reasoning_effort'] if model.api_kwargs is not None and 'reasoning_effort' in model.api_kwargs else NOT_GIVEN,
-            stream=True,
-            stream_options={'include_usage': True}
-        )
+            message = ''
+            num_tokens = None
+            try:
+                for chunk in stream:
+                    if chunk.choices and len(chunk.choices) > 0 and chunk.choices[0].delta.content is not None:
+                        message += chunk.choices[0].delta.content
+                    if chunk.usage is not None:
+                        num_tokens = chunk.usage.completion_tokens
+            except Exception as e:
+                if message != '':
+                    print(message)
+                raise
+        else:
+            response = client.chat.completions.create(
+                model=model.api_name,
+                messages=messages,
+                n=1,
+                temperature=(
+                    temperature
+                    if not isinstance(model, OpenAIModel) or not model.inference_api
+                    else NOT_GIVEN
+                ),
+                max_completion_tokens=(
+                    max_tokens if isinstance(model, OpenAIModel) and not model.inference_api else NOT_GIVEN
+                ),
+                max_tokens=(
+                    max_tokens if not isinstance(model, OpenAIModel) else NOT_GIVEN
+                ),
+                reasoning_effort=model.api_kwargs['reasoning_effort'] if model.api_kwargs is not None and 'reasoning_effort' in model.api_kwargs else NOT_GIVEN,
+                stream=False,
+            )
+            if response is None:
+                raise Exception("No response returned from OpenAI")
+            elif response.choices is None:
+                print(response)
+                raise Exception("API request failed")
+            if isinstance(response.choices[0], str):
+                message = response.choices[0]
+            else:
+                message = response.choices[0].message.content
+            num_tokens = response.usage.completion_tokens
 
-        message = ''
-        num_tokens = None
-        try:
-            for chunk in stream:
-                if chunk.choices and len(chunk.choices) > 0 and chunk.choices[0].delta.content is not None:
-                    message += chunk.choices[0].delta.content
-                if chunk.usage is not None:
-                    num_tokens = chunk.usage.completion_tokens
-        except Exception as e:
-            if message != '':
-                print(message)
-            raise
-
-        if message == '':
+        if message is None or message == '':
             raise Exception("No message returned from OpenAI")
         if num_tokens is None:
             raise Exception("Incomplete response from OpenAI")
@@ -420,21 +450,83 @@ def chat_completion_anthropic(model, conv, temperature, max_tokens, api_dict=Non
     else:
         api_key = os.environ["ANTHROPIC_API_KEY"]
 
-    from anthropic import Anthropic
+    from anthropic import Anthropic, NOT_GIVEN
     c = Anthropic(api_key=api_key)
     prompt = [text for role, text in conv.messages if role == "Human"][0]
-    response = c.messages.create(
+
+    kwargs = {
+        'max_tokens': max_tokens,
+        'temperature': temperature
+    }
+
+    if model.api_kwargs is not None:
+        kwargs.update(model.api_kwargs)
+
+    for k in kwargs:
+        if kwargs[k] == None:
+            kwargs[k] = NOT_GIVEN
+
+    message = []
+
+    with c.messages.stream(
         model=model.api_name,
-        max_tokens=max_tokens,
-        temperature=temperature,
         messages=[
-            {"role": "user", "content": [{"type": "text", "text": prompt}]}
+            {"role": "user", "content": prompt}
         ],
-    )
-    if response.content[0].text is None:
-        raise Exception("No message returned from Anthropic")
+        **kwargs
+    ) as stream:
+        new_block = {}
+        for event in stream:
+            if event.type == 'content_block_start':
+                new_block = {}
+                if event.content_block.type == 'redacted_thinking':
+                    new_block['type'] = 'redacted_thinking'
+                    new_block['data'] = event.content_block.data
+                elif event.content_block.type == 'thinking':
+                    new_block['type'] = 'thinking'
+                elif event.content_block.type == 'text':
+                    new_block['type'] = 'text'
+            elif event.type == 'content_block_delta':
+                assert new_block['type'] is not None
+                if event.delta.type == 'text_delta':
+                    if not 'text' in new_block:
+                        new_block['text'] = ''
+                    new_block['text'] += event.delta.text
+                elif event.delta.type == 'thinking_delta':
+                    if not 'thinking' in new_block:
+                        new_block['thinking'] = ''
+                    new_block['thinking'] += event.delta.thinking
+                elif event.delta.type == 'signature_delta':
+                    new_block['signature'] = event.delta.signature
+            elif event.type == 'content_block_stop':
+                assert new_block != {}
+                for content in new_block:
+                    new_block[content] = new_block[content].strip()
+                message.append(new_block)
+                new_block = {}
+
+    del kwargs['max_tokens']
+    del kwargs['temperature']
+
+    try:
+        tokens = c.messages.count_tokens(
+            model=model.api_name,
+            messages = [
+                {"role": "assistant", "content": message}
+            ],
+            **kwargs
+        ).input_tokens
+    except Exception as e:
+        print('Failed to count tokens:', e)
+        traceback.print_exc()
+        tokens = -1
+
+    text_messages = [c for c in message if c['type'] == 'text']
+    if len(text_messages) == 0:
+        raise Exception("No response from Anthropic")
+    message_text = text_messages[0]['text']
         
-    return response.content[0].text.strip(), response.usage.output_tokens
+    return message_text, tokens
 
 
 @retry(

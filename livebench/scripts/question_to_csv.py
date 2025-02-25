@@ -3,7 +3,7 @@ import csv
 import sys
 
 
-def jsonl_to_csv(input_filename, output_filename, task):
+def jsonl_to_csv(input_filename, output_filename):
     """
     Converts a JSONL file to a CSV file with specific fields.
 
@@ -18,7 +18,7 @@ def jsonl_to_csv(input_filename, output_filename, task):
 
         # Define the CSV writer and write the header
         csv_writer = csv.writer(csv_file)
-        header = ["question_id", "prompt"]
+        header = ["question_id", "prompt", "output"]
         csv_writer.writerow(header)
 
         # Process each line in the JSONL file
@@ -34,20 +34,19 @@ def jsonl_to_csv(input_filename, output_filename, task):
             prompt = turns[0] if turns else ""
 
             # Write the row to the CSV file
-            row = [question_id, prompt]
+            row = [question_id, prompt, '']
             csv_writer.writerow(row)
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 4:
+    if len(sys.argv) != 3:
         print(
-            "Usage: python question_to_csv.py <input_filename> <output_filename> <task>"
+            "Usage: python question_to_csv.py <input_filename> <output_filename>"
         )
         sys.exit(1)
 
     input_filename = sys.argv[1]
     output_filename = sys.argv[2]
-    task = sys.argv[3]
 
-    jsonl_to_csv(input_filename, output_filename, task)
+    jsonl_to_csv(input_filename, output_filename)
 

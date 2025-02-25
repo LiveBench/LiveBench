@@ -34,6 +34,7 @@ def get_answer(
     max_tokens: int,
     answer_file: str,
     api_dict: dict | None = None,
+    stream: bool = False
 ):
     """
     Perform inference for a single question.
@@ -68,7 +69,7 @@ def get_answer(
 
             if api_dict is not None:
                 output, num_tokens = chat_completion_openai(
-                    model, conv, temperature, max_tokens, api_dict=api_dict
+                    model, conv, temperature, max_tokens, api_dict=api_dict, stream=stream
                 )
             else:
                 assert model.api_function is not None
@@ -105,6 +106,7 @@ def run_questions(
     max_tokens: int,
     answer_file: str,
     api_dict: dict | None,
+    stream: bool
 ):
     """
     Perform inference on a list of questions. Output answers to answer_file.
@@ -127,6 +129,7 @@ def run_questions(
                 max_tokens,
                 answer_file,
                 api_dict=api_dict,
+                stream=stream
             )
         if len(questions) > 0:
             reorg_answer_file(answer_file)
@@ -143,6 +146,7 @@ def run_questions(
                     max_tokens,
                     answer_file,
                     api_dict=api_dict,
+                    stream=stream
                 )
                 futures.append(future)
 
@@ -235,6 +239,12 @@ if __name__ == "__main__":
         default=False,
         help="Retry generating answers for questions that have failed in the past.",
     )
+    parser.add_argument(
+        "--stream",
+        action="store_true",
+        default=False,
+        help="Stream responses, for models that support streaming"
+    )
     args = parser.parse_args()
 
     model = get_model(args.model)
@@ -298,6 +308,7 @@ if __name__ == "__main__":
                     max_tokens=args.max_tokens,
                     answer_file=answer_file,
                     api_dict=api_dict,
+                    stream=args.stream
                 )
 
     elif args.question_source == "jsonl":
@@ -338,6 +349,7 @@ if __name__ == "__main__":
                 max_tokens=args.max_tokens,
                 answer_file=answer_file,
                 api_dict=api_dict,
+                stream=args.stream
             )
 
     else:
