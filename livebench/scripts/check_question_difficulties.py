@@ -25,8 +25,9 @@ def analyze_difficulties_and_scores(question_files, score_files, model, score_th
     print(len(scores))
 
     # Create question_id to difficulty mapping
-    question_difficulty = {q['question_id']: q['original_json']['difficulty'] for q in questions}
+    # question_difficulty = {q['question_id']: q['original_json']['difficulty'] for q in questions}
     # question_difficulty = {q['question_id']: q['release_date'][:-3] for q in questions}
+    question_difficulty = {q['question_id']: q['question_type'] for q in questions}
     release_dates = {q['livebench_release_date'] for q in questions}
 
     # Initialize counters for right/wrong per difficulty
