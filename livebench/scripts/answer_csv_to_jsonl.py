@@ -27,7 +27,7 @@ def csv_to_jsonl(input_csv, output_jsonl, model_id, task):
                             {
                                 "index": 0,
                                 "turns": [
-                                    "```python\n" + output + "\n```" if task == 'coding_completion' or task == 'LCB_generation' else output
+                                    "```python\n" + output + "\n```" if (task == 'coding_completion' or task == 'LCB_generation') and '```' not in output else output
                                 ],
                             }
                         ],
