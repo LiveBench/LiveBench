@@ -47,6 +47,7 @@ class LiveBenchParams:
     livebench_release_option: Optional[str] = None
     stream: bool = False
     remove_existing_judgment_file: bool = False
+    debug: bool = False
 
     @classmethod
     def from_args(cls, args, model: Optional[str] = None):
@@ -79,7 +80,8 @@ class LiveBenchParams:
             question_id=args.question_id,
             livebench_release_option=args.livebench_release_option,
             stream=args.stream,
-            remove_existing_judgment_file=args.remove_existing_judgment_file
+            remove_existing_judgment_file=args.remove_existing_judgment_file,
+            debug=args.debug
         )
 
 def run_command(cmd: str, env: Optional[dict] = None) -> int:
@@ -185,7 +187,8 @@ def build_run_command(
     question_id: Optional[List[str]] = None,
     livebench_release_option: Optional[str] = None,
     stream: bool = False,
-    remove_existing_judgment_file: bool = False
+    remove_existing_judgment_file: bool = False,
+    debug: bool = False
 ) -> str:
     """Build the command to run gen_api_answer and gen_ground_truth_judgment in sequence"""
     
@@ -240,6 +243,10 @@ def build_run_command(
     if remove_existing_judgment_file:
         gen_judge_cmd += " --remove-existing-file"
     
+    # Add debug flag only to judgment command
+    if debug:
+        gen_judge_cmd += " --debug"
+    
     # Chain the commands together with && to ensure they run in sequence
     # Only run gen_ground_truth_judgment if gen_api_answer succeeds
     if skip_inference and not skip_grading:
@@ -273,7 +280,8 @@ def build_run_command_from_params(params: LiveBenchParams, bench_name: Optional[
         question_id=params.question_id,
         livebench_release_option=params.livebench_release_option,
         stream=params.stream,
-        remove_existing_judgment_file=params.remove_existing_judgment_file
+        remove_existing_judgment_file=params.remove_existing_judgment_file,
+        debug=params.debug
     )
 
 def run_model(params: LiveBenchParams) -> None:
@@ -287,30 +295,9 @@ def run_model(params: LiveBenchParams) -> None:
             params.bench_names = ["live_bench"]
         for bench in params.bench_names:
             # Create a copy of params with just this benchmark
-            bench_params = LiveBenchParams(
-                model=params.model,
-                mode=params.mode,
-                venv=params.venv,
-                bench_names=[bench],  # Single benchmark
-                question_source=params.question_source,
-                api_base=params.api_base,
-                api_key_name=params.api_key_name,
-                model_display_name=params.model_display_name,
-                max_tokens=params.max_tokens,
-                parallel_requests=params.parallel_requests,
-                resume=params.resume,
-                retry_failures=params.retry_failures,
-                skip_inference=params.skip_inference,
-                skip_grading=params.skip_grading,
-                force_temperature=params.force_temperature,
-                num_choices=params.num_choices,
-                question_begin=params.question_begin,
-                question_end=params.question_end,
-                question_id=params.question_id,
-                livebench_release_option=params.livebench_release_option,
-                stream=params.stream,
-                remove_existing_judgment_file=params.remove_existing_judgment_file
-            )
+            params_dict = vars(params)
+            params_dict['bench_names'] = [bench]
+            bench_params = LiveBenchParams(**params_dict)
             run_single(bench_params)
 
 def run_sequential(params: LiveBenchParams) -> None:
@@ -424,6 +411,8 @@ def main():
     parser.add_argument("--stream", action="store_true", help="Enable streaming mode")
     parser.add_argument("--remove-existing-judgment-file", action="store_true", 
                       help="Remove existing judgment file before running")
+    parser.add_argument("--debug", action="store_true", 
+                      help="Enable debug mode for gen_ground_truth_judgment.py (not passed to gen_api_answer.py)")
     
     args = parser.parse_args()
     
