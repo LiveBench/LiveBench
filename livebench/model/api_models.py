@@ -133,8 +133,18 @@ OPENAI_MODELS = [
         api_name="gpt-4o-2024-08-06", display_name="gpt-4o-2024-08-06", aliases=[]
     ),
     OpenAIModel(
+        api_name='gpt-4o-2024-11-20',
+        display_name='gpt-4o-2024-11-20',
+        aliases=['gpt-4o']
+    ),
+    OpenAIModel(
         api_name="chatgpt-4o-latest", display_name="chatgpt-4o-latest-2025-01-29", aliases=[]
     ),
+    OpenAIModel(
+        api_name='gpt-4.5-preview-2025-02-27',
+        display_name='gpt-4.5-preview-2025-02-27',
+        aliases=['gpt-4.5-preview']
+    )
 ]
 
 INFERENCE_OPENAI_MODELS = [
