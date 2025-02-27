@@ -312,14 +312,19 @@ GOOGLE_GENERATIVEAI_MODELS = [
         aliases=['gemini-2.0-pro-exp'],
     ),
     GeminiModel(
-        api_name='gemini-2.0-flash',
-        display_name='gemini-2.0-flash',
-        aliases=[]
+        api_name='gemini-2.0-flash-001',
+        display_name='gemini-2.0-flash-001',
+        aliases=['gemini-2.0-flash'],
     ),
     GeminiModel(
         api_name='gemini-2.0-flash-lite-preview-02-05',
         display_name='gemini-2.0-flash-lite-preview-02-05',
         aliases=[]
+    ),
+    GeminiModel(
+        api_name='gemini-2.0-flash-lite-001',
+        display_name='gemini-2.0-flash-lite-001',
+        aliases=['gemini-2.0-flash-lite'],
     )
 ]
 
