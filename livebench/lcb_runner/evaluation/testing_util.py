@@ -18,8 +18,6 @@ from io import StringIO
 # used for testing the code that reads from input
 from unittest.mock import patch, mock_open
 
-from pyext import RuntimeModule
-
 from enum import Enum
 
 
@@ -78,6 +76,32 @@ def string_int_check(val):
 
 def combined_int_check(val):
     return only_int_check(val) or string_int_check(val)
+
+
+class RuntimeModule:
+    @staticmethod
+    def from_string(name, docstring, code_string):
+        """
+        Create a module from a string of code.
+        
+        Args:
+            name: The name of the module
+            docstring: The docstring for the module
+            code_string: The Python code as a string
+            
+        Returns:
+            A module object with the executed code
+        """
+        import types
+        module = types.ModuleType(name, docstring)
+        
+        # Add the module to sys.modules to handle potential circular imports
+        sys.modules[name] = module
+        
+        # Execute the code string in the module's namespace
+        exec(code_string, module.__dict__)
+        
+        return module
 
 
 def run_test(sample, test=None, debug=False, timeout=6):
