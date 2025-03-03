@@ -72,7 +72,7 @@ ANTHROPIC_MODELS = [
     AnthropicModel(
         api_name="claude-3-7-sonnet-20250219",
         display_name="claude-3-7-sonnet-20250219-thinking-64k",
-        aliases=['claude-3-7-sonnet-thinking-64k'],
+        aliases=['claude-3-7-sonnet-thinking-64k', 'claude-3-7-sonnet-thinking'],
         api_kwargs={
             'thinking': {
                 'type': 'enabled',
@@ -85,7 +85,7 @@ ANTHROPIC_MODELS = [
     AnthropicModel(
         api_name="claude-3-7-sonnet-20250219",
         display_name="claude-3-7-sonnet-20250219-base",
-        aliases=['claude-3-7-sonnet-base'],
+        aliases=['claude-3-7-sonnet-base', 'claude-3-7-sonnet'],
     ),
 ]
 
