@@ -32,6 +32,7 @@ class LiveBenchParams:
     question_source: str = "huggingface"
     api_base: Optional[str] = None
     api_key_name: Optional[str] = None
+    api_key: Optional[str] = None
     model_display_name: Optional[str] = None
     max_tokens: Optional[int] = None
     parallel_requests: Optional[int] = None
@@ -66,6 +67,7 @@ class LiveBenchParams:
             question_source=args.question_source,
             api_base=args.api_base,
             api_key_name=args.api_key_name,
+            api_key=args.api_key,
             model_display_name=args.model_display_name,
             max_tokens=args.max_tokens,
             parallel_requests=args.parallel_requests,
@@ -173,6 +175,7 @@ def build_run_command(
     question_source: str = "huggingface",
     api_base: Optional[str] = None,
     api_key_name: Optional[str] = None,
+    api_key: Optional[str] = None,
     model_display_name: Optional[str] = None,
     max_tokens: Optional[int] = None,
     parallel_requests: Optional[int] = None,
@@ -212,6 +215,8 @@ def build_run_command(
         gen_api_cmd += f" --api-base {api_base}"
     if api_key_name:
         gen_api_cmd = f"export LIVEBENCH_API_KEY=${api_key_name} && {gen_api_cmd}"
+    elif api_key:
+        gen_api_cmd = f"export LIVEBENCH_API_KEY='{api_key}' && {gen_api_cmd}"
     if model_display_name:
         gen_api_cmd += f" --model-display-name {model_display_name}"
         gen_judge_cmd += f" --model-display-name {model_display_name}"
@@ -266,6 +271,7 @@ def build_run_command_from_params(params: LiveBenchParams, bench_name: Optional[
         question_source=params.question_source,
         api_base=params.api_base,
         api_key_name=params.api_key_name,
+        api_key=params.api_key,
         model_display_name=params.model_display_name,
         max_tokens=params.max_tokens,
         parallel_requests=params.parallel_requests,
@@ -395,6 +401,7 @@ def main():
                       help="Source of benchmark questions")
     parser.add_argument("--api-base", help="Base URL for API requests")
     parser.add_argument("--api-key-name", help="Environment variable name containing the API key")
+    parser.add_argument("--api-key", help="Direct API key to use for authentication")
     parser.add_argument("--model-display-name", help="Display name for the model in results")
     parser.add_argument("--max-tokens", type=int, help="Maximum tokens for model responses")
     parser.add_argument("--parallel-requests", type=int, help="Number of parallel requests for API calls")

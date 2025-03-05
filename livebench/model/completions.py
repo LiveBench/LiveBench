@@ -51,6 +51,7 @@ def chat_completion_openai(
         
     else:
         client = OpenAI(timeout=1000)
+
     
     messages = conv.to_openai_api_messages()
     if isinstance(model, OpenAIModel):
