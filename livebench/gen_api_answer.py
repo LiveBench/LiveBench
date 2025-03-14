@@ -55,7 +55,7 @@ def get_answer(
     elif "required_temperature" in question.keys():
         temperature = question["required_temperature"]
     else:
-        temperature = 0.0
+        temperature = 0
 
     choices = []
     total_num_tokens = 0

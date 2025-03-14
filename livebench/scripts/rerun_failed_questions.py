@@ -22,9 +22,9 @@ def find_error_questions(root_dir, target_model_id=None, include_max_tokens=None
                     choices = entry.get('choices', [])
                     if choices and isinstance(choices, list) and len(choices) > 0:
                         turns = choices[0].get('turns', [])
-                        if turns and isinstance(turns, list) and '$ERROR$' in turns or len(turns) == 0 or turns[0] == '':
+                        if turns and isinstance(turns, list) and '$ERROR$' in turns or len(turns) == 0 or turns[0] == '' or turns[0] == '<think>':
                             model_errors[model_id].append(entry['question_id'])
-                        elif include_max_tokens and entry.get('total_output_tokens') == include_max_tokens:
+                        elif include_max_tokens and entry.get('total_output_tokens') >= include_max_tokens:
                             model_errors[model_id].append(entry['question_id'])
                 except json.JSONDecodeError:
                     print(f"Warning: Skipping malformed JSON line in {jsonl_file}")
@@ -120,12 +120,11 @@ def main():
     # Print results and run commands for each model
     for model_id, error_ids in model_errors.items():
         print(f"\nModel: {model_id}")
-        print("Question IDs with $ERROR$:")
-        for qid in error_ids:
-            print(qid)
+        print("Question IDs with $ERROR$ or max tokens exceeded:")
+        print(' '.join(error_ids))
 
         # Run both commands in sequence for this model
-        run_commands_for_model(model_id, error_ids, max_tokens, api_base, api_key_name)
+        # run_commands_for_model(model_id, error_ids, max_tokens, api_base, api_key_name)
 
 if __name__ == "__main__":
     main()

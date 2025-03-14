@@ -44,7 +44,7 @@ def find_max_attribute(file_prefix, attribute_name):
                             max_value_question = obj
                         elif current_value == max_value:
                             count += 1
-                        print(f"Found value: {current_value} (current max: {max_value})")
+                        print(f"Found value: {current_value} ({obj['question_id']}) (current max: {max_value})")
 
                     except json.JSONDecodeError:
                         print(f"Warning: Invalid JSON at line {line_num} in {filepath}")

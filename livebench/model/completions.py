@@ -90,6 +90,8 @@ def chat_completion_openai(
                         message += chunk.choices[0].delta.content
                     if chunk.usage is not None:
                         num_tokens = chunk.usage.completion_tokens
+                        if hasattr(chunk.usage, 'reasoning_tokens'):
+                            num_tokens += chunk.usage.reasoning_tokens
             except Exception as e:
                 if message != '':
                     print(message)
@@ -124,6 +126,8 @@ def chat_completion_openai(
                 message = response.choices[0].message.content
             if response.usage is not None:
                 num_tokens = response.usage.completion_tokens
+                if hasattr(response.usage, 'reasoning_tokens'):
+                    num_tokens += response.usage.reasoning_tokens
             else:
                 num_tokens = None
 
@@ -202,6 +206,8 @@ def chat_completion_deepseek(model, conv, temperature, max_tokens, api_dict=None
         raise Exception("No message returned from DeepSeek")
     output = message
     num_tokens = response.usage.completion_tokens
+    if hasattr(response.usage, 'reasoning_tokens'):
+        num_tokens += response.usage.reasoning_tokens
 
     return output, num_tokens
 
@@ -272,8 +278,14 @@ def chat_completion_xai(model, conv, temperature, max_tokens, api_dict=None) -> 
     message = response.choices[0].message.content
     if message is None:
         raise Exception("No message returned from X.AI")
+    if response.usage is not None:
+        num_tokens = response.usage.completion_tokens
+        if hasattr(response.usage, 'reasoning_tokens'):
+            num_tokens += response.usage.reasoning_tokens
+    else:
+        num_tokens = None
         
-    return message, response.usage.completion_tokens
+    return message, num_tokens
 
 
 @retry(
