@@ -342,6 +342,11 @@ GOOGLE_GENERATIVEAI_MODELS = [
         api_name='gemini-2.0-flash-lite-001',
         display_name='gemini-2.0-flash-lite-001',
         aliases=['gemini-2.0-flash-lite'],
+    ),
+    GeminiModel(
+        api_name='gemma-3-27b-it',
+        display_name='gemma-3-27b-it',
+        aliases=['gemma-3-27b']
     )
 ]
 
