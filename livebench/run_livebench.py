@@ -150,8 +150,11 @@ def setup_tmux_session(session_name: str, benchmarks: List[str], commands: List[
         
         # Activate virtualenv if provided
         if venv_path:
-            pane.send_keys(f"source {venv_path}")
-            time.sleep(0.5)
+            if not os.path.exists(venv_path):
+                print(f"Virtual environment not found at {venv_path}, skipping activation")
+            else:
+                pane.send_keys(f"source {venv_path}")
+                time.sleep(0.5)
         
         # Run the command
         pane.send_keys(cmd)
@@ -390,7 +393,7 @@ def main():
     parser.add_argument("--model", required=True, nargs="+", help="One or more model identifiers (e.g., gpt-4)")
     
     # Optional arguments
-    parser.add_argument("--venv", help="Path to virtual environment to activate")
+    parser.add_argument("--venv", help="Path to virtual environment to activate", default="../.venv/bin/activate")
     parser.add_argument("--mode", choices=["single", "parallel", "sequential"], default="single",
                       help="Execution mode: single benchmark, parallel benchmarks, or sequential benchmarks")
     parser.add_argument("--bench-name", nargs="+",
