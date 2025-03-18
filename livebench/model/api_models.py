@@ -393,7 +393,10 @@ MISTRAL_MODELS = [
         api_name="mistral-small-2409", display_name="mistral-small-2409", aliases=[]
     ),
     MistralModel(
-        api_name="mistral-small-2501", display_name="mistral-small-2501", aliases=['mistral-small']
+        api_name="mistral-small-2501", display_name="mistral-small-2501", aliases=[]
+    ),
+    MistralModel(
+        api_name="mistral-small-2503", display_name="mistral-small-2503", aliases=['mistral-small']
     )
 ]
 
