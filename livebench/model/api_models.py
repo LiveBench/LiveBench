@@ -1,14 +1,12 @@
 import sys
-import warnings
 
-from livebench.model.completions import chat_completion_openai, chat_completion_palm
-from livebench.model.model_adapter import BaseModelAdapter, PaLM2Adapter, get_model_adapter
-from livebench.model.models import (
-    AnthropicModel, AWSModel, CohereModel, DeepseekModel, GeminiModel,
-    GemmaModel, LlamaModel, MistralModel, Model, NvidiaModel, OpenAIModel,
-    QwenModel, QwenModelAlibabaAPI, XAIModel
-)
-
+from livebench.model.completions import chat_completion_openai
+from livebench.model.model_adapter import get_model_adapter
+from livebench.model.models import (AnthropicModel, AWSModel, CohereModel,
+                                    DeepseekModel, GeminiModel, GemmaModel,
+                                    LlamaModel, MistralModel, Model,
+                                    NvidiaModel, OpenAIModel, PerplexityModel,
+                                    QwenModel, QwenModelAlibabaAPI, XAIModel)
 
 if sys.version_info >= (3, 9):
     from functools import cache
@@ -474,6 +472,15 @@ AWS_MODELS = [
     ),
 ]
 
+
+# Perplexity Models
+PERPLEXITY_MODELS = [
+    PerplexityModel(api_name="sonar-pro", display_name="perplexity-sonar", aliases=[]),
+    PerplexityModel(api_name="sonar-reasoning", display_name="perplexity-sonar-reasoning", aliases=[]),
+    PerplexityModel(api_name="sonar-reasoning-pro", display_name="perplexity-sonar-reasoning-pro", aliases=[]),
+]
+
+
 ALL_MODELS = (
     ANTHROPIC_MODELS
     + OPENAI_MODELS
@@ -484,6 +491,7 @@ ALL_MODELS = (
     + NVIDIA_MODELS
     + XAI_MODELS
     + AWS_MODELS
+    + PERPLEXITY_MODELS
     + GOOGLE_GENERATIVEAI_MODELS
     + QWEN_ALIBABA_MODELS
 )

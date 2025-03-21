@@ -8,7 +8,6 @@ import sys
 import warnings
 from typing import Dict, List, Optional
 
-
 if sys.version_info >= (3, 9):
     from functools import cache
 else:
@@ -18,26 +17,25 @@ import psutil
 import torch
 from fastchat.constants import CPU_ISA
 from fastchat.model.compression import load_compress_model
-from fastchat.model.llama_condense_monkey_patch import replace_llama_with_condense
+from fastchat.model.llama_condense_monkey_patch import \
+    replace_llama_with_condense
 from fastchat.model.model_chatglm import generate_stream_chatglm
 from fastchat.model.model_codet5p import generate_stream_codet5p
 from fastchat.model.model_exllama import generate_stream_exllama
 from fastchat.model.model_falcon import generate_stream_falcon
 from fastchat.model.model_xfastertransformer import generate_stream_xft
 from fastchat.model.model_yuan2 import generate_stream_yuan2
-from fastchat.model.monkey_patch_non_inplace import replace_llama_attn_with_non_inplace_operations
+from fastchat.model.monkey_patch_non_inplace import \
+    replace_llama_attn_with_non_inplace_operations
 from fastchat.modules.awq import AWQConfig, load_awq_quantized
 from fastchat.modules.exllama import ExllamaConfig, load_exllama_model
 from fastchat.modules.gptq import GptqConfig, load_gptq_quantized
 from fastchat.modules.xfastertransformer import XftConfig, load_xft_model
 from fastchat.utils import get_gpu_memory
-from transformers import (
-    AutoConfig, AutoModel, AutoModelForCausalLM, AutoModelForSeq2SeqLM,
-    AutoTokenizer, LlamaForCausalLM, LlamaTokenizer, T5Tokenizer
-)
-
 from livebench.conversation import Conversation, get_conv_template
-
+from transformers import (AutoConfig, AutoModel, AutoModelForCausalLM,
+                          AutoModelForSeq2SeqLM, AutoTokenizer,
+                          LlamaForCausalLM, LlamaTokenizer, T5Tokenizer)
 
 #from fastchat.model.model_cllm import generate_stream_cllm
 
@@ -1206,7 +1204,13 @@ class ChatGPTAdapter(BaseModelAdapter):
     """The model adapter for ChatGPT"""
 
     def match(self, model_path: str):
-        return model_path in OPENAI_MODEL_LIST or model_path in INFERENCE_OPENAI_MODEL_LIST or model_path in XAI_MODEL_LIST or model_path in AWS_MODEL_LIST
+        return (
+            model_path in OPENAI_MODEL_LIST or
+            model_path in INFERENCE_OPENAI_MODEL_LIST or
+            model_path.startswith('perplexity-') or
+            model_path.startswith('grok-') or
+            model_path.startswith('amazon.')
+        )
 
     def load_model(self, model_path: str, from_pretrained_kwargs: dict):
         raise NotImplementedError()
@@ -2486,7 +2490,6 @@ class CohereAdapter(BaseModelAdapter):
 
     def get_default_conv_template(self, model_path: str) -> Conversation:
         return get_conv_template("api_based_default")
-
 
 
 # Note: the registration order matters.

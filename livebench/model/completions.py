@@ -1,16 +1,16 @@
+import logging
 import os
+import sys
 import time
+import traceback
 from typing import TYPE_CHECKING, cast
 
-from tenacity import retry, stop_after_attempt, retry_if_exception_type, wait_fixed
+import httpx
+from tenacity import (retry, retry_if_exception_type, stop_after_attempt,
+                      wait_fixed)
 
-import logging
-import sys
 logging.basicConfig(stream=sys.stdout, level=logging.WARNING)
 
-import traceback
-
-import httpx
 
 logger = logging.getLogger(__name__)
 if TYPE_CHECKING:
@@ -21,14 +21,17 @@ API_MAX_RETRY = 3
 API_RETRY_SLEEP = 10
 API_ERROR_OUTPUT = "$ERROR$"
 
+
 def retry_fail(_):
     print("all retries failed")
     return API_ERROR_OUTPUT, 0
+
 
 def retry_log(retry_state):
     exception = retry_state.outcome.exception()
     logger.warning(f"{retry_state.fn.__name__}: attempt {retry_state.attempt_number} failed with {exception.__class__.__name__}: {exception}; {retry_state.seconds_since_start} seconds elapsed total")
     logger.warning("Exception stack trace:", exc_info=exception)
+
 
 @retry(
     stop=stop_after_attempt(API_MAX_RETRY),
@@ -37,22 +40,20 @@ def retry_log(retry_state):
     after=retry_log,
     retry_error_callback=retry_fail
 )
-
 def chat_completion_openai(
     model: "Model", conv, temperature, max_tokens, api_dict=None, stream=False
 ) -> tuple[str, int]:
     from livebench.model.models import OpenAIModel
-    from openai import OpenAI, NOT_GIVEN
+    from openai import NOT_GIVEN, OpenAI
 
     if api_dict is not None:
         client = OpenAI(
             api_key=api_dict["api_key"], base_url=api_dict["api_base"], timeout=httpx.Timeout(timeout=2400.0, connect=10.0)
         )
-        
+
     else:
         client = OpenAI(timeout=1000)
 
-    
     messages = conv.to_openai_api_messages()
     if isinstance(model, OpenAIModel):
         for message in messages:
@@ -92,7 +93,7 @@ def chat_completion_openai(
                         num_tokens = chunk.usage.completion_tokens
                         if hasattr(chunk.usage, 'reasoning_tokens'):
                             num_tokens += chunk.usage.reasoning_tokens
-            except Exception as e:
+            except Exception:
                 if message != '':
                     print(message)
                 raise
@@ -190,7 +191,7 @@ def chat_completion_deepseek(model, conv, temperature, max_tokens, api_dict=None
 
     print("sleeping for 3 sec")
     time.sleep(3)
-    from openai import OpenAI, NOT_GIVEN
+    from openai import NOT_GIVEN, OpenAI
     client = OpenAI(api_key=api_key, base_url="https://api.deepseek.com")
     messages = conv.to_openai_api_messages()
     response = client.chat.completions.create(
@@ -245,7 +246,7 @@ def chat_completion_nvidia(model, conv, temperature, max_tokens, api_dict=None) 
     message = response.choices[0].message.content
     if message is None:
         raise Exception("No message returned from NVIDIA")
-    
+
     return message, response.usage.completion_tokens
 
 
@@ -284,7 +285,7 @@ def chat_completion_xai(model, conv, temperature, max_tokens, api_dict=None) -> 
             num_tokens += response.usage.reasoning_tokens
     else:
         num_tokens = None
-        
+
     return message, num_tokens
 
 
@@ -299,7 +300,7 @@ def chat_completion_vertex(
     model, conv, temperature, max_tokens, api_dict=None, project_name="DEFAULT"
 ) -> tuple[str, int]:
     import vertexai
-    from vertexai.preview.generative_models import GenerativeModel, Image
+    from vertexai.preview.generative_models import GenerativeModel
 
     print("sleeping for 5 sec")
     time.sleep(5)
@@ -326,8 +327,6 @@ def chat_completion_google_generativeai(
 ) -> tuple[str, int]:
     from google import genai
     from google.genai import types
-
-    
 
     if api_dict is not None and "api_key" in api_dict:
         api_key = api_dict["api_key"]
@@ -402,7 +401,7 @@ def chat_completion_together(model, conv, temperature, max_tokens, api_dict=None
     else:
         api_key = os.environ["TOGETHER_API_KEY"]
     client = Together(api_key=api_key)
-    
+
     prompt = [text for role, text in conv.messages if "user" in role][0]
 
     response = client.chat.completions.create(
@@ -411,7 +410,35 @@ def chat_completion_together(model, conv, temperature, max_tokens, api_dict=None
         temperature=temperature,
         max_tokens=max_tokens,
     )
-    
+
+    return response.choices[0].message.content, response.usage.completion_tokens
+
+
+@retry(
+    stop=stop_after_attempt(API_MAX_RETRY),
+    wait=wait_fixed(API_RETRY_SLEEP),
+    retry=retry_if_exception_type(Exception),
+    after=retry_log,
+    retry_error_callback=retry_fail
+)
+def chat_completion_perplexity(model, conv, temperature, max_tokens, api_dict=None) -> tuple[str, int]:
+    if api_dict is not None and "api_key" in api_dict:
+        api_key = api_dict["api_key"]
+    else:
+        api_key = os.environ["PERPLEXITY_API_KEY"]
+
+    from openai import OpenAI
+
+    client = OpenAI(base_url="https://api.perplexity.ai", api_key=api_key)
+    messages = conv.to_openai_api_messages()
+
+    response = client.chat.completions.create(
+        model=model.api_name,
+        messages=messages,
+        temperature=temperature,
+        max_tokens=max_tokens,
+    )
+
     return response.choices[0].message.content, response.usage.completion_tokens
 
 
@@ -423,6 +450,7 @@ def chat_completion_together(model, conv, temperature, max_tokens, api_dict=None
     retry_error_callback=retry_fail
 )
 def chat_completion_openai_azure(model, conv, temperature, max_tokens, api_dict=None) -> tuple[str, int]:
+    import openai
     openai.api_type = "azure"
     openai.api_version = "2023-07-01-preview"
     if api_dict is not None:
@@ -449,7 +477,7 @@ def chat_completion_openai_azure(model, conv, temperature, max_tokens, api_dict=
     output = response.choices[0].message.content
     if output is None:
         raise Exception("No message returned from Azure OpenAI")
-    
+
     return output, response.usage.completion_tokens
 
 
@@ -466,7 +494,7 @@ def chat_completion_anthropic(model, conv, temperature, max_tokens, api_dict=Non
     else:
         api_key = os.environ["ANTHROPIC_API_KEY"]
 
-    from anthropic import Anthropic, NOT_GIVEN
+    from anthropic import NOT_GIVEN, Anthropic
     c = Anthropic(api_key=api_key)
     prompt = [text for role, text in conv.messages if role == "Human"][0]
 
@@ -505,11 +533,11 @@ def chat_completion_anthropic(model, conv, temperature, max_tokens, api_dict=Non
             elif event.type == 'content_block_delta':
                 assert new_block['type'] is not None
                 if event.delta.type == 'text_delta':
-                    if not 'text' in new_block:
+                    if 'text' not in new_block:
                         new_block['text'] = ''
                     new_block['text'] += event.delta.text
                 elif event.delta.type == 'thinking_delta':
-                    if not 'thinking' in new_block:
+                    if 'thinking' not in new_block:
                         new_block['thinking'] = ''
                     new_block['thinking'] += event.delta.thinking
                 elif event.delta.type == 'signature_delta':
@@ -527,7 +555,7 @@ def chat_completion_anthropic(model, conv, temperature, max_tokens, api_dict=Non
     try:
         tokens = c.messages.count_tokens(
             model=model.api_name,
-            messages = [
+            messages=[
                 {"role": "assistant", "content": message}
             ],
             **kwargs
@@ -541,7 +569,7 @@ def chat_completion_anthropic(model, conv, temperature, max_tokens, api_dict=Non
     if len(text_messages) == 0:
         raise Exception("No response from Anthropic")
     message_text = text_messages[0]['text']
-        
+
     return message_text, tokens
 
 
@@ -571,7 +599,7 @@ def chat_completion_mistral(model, conv, temperature, max_tokens, api_dict=None)
 
     if chat_response.choices[0].message.content is None:
         raise Exception("No message returned from Mistral")
-        
+
     return chat_response.choices[0].message.content.strip(), chat_response.usage.completion_tokens
 
 
@@ -600,7 +628,7 @@ def chat_completion_cohere(model, conv, temperature, max_tokens, api_dict=None) 
     )
     if response.text is None:
         raise Exception("No message returned from Cohere")
-        
+
     return response.text.strip(), response.usage.output_tokens
 
 
@@ -625,9 +653,9 @@ def chat_completion_palm(chat_state, model, conv, temperature, max_tokens) -> tu
         "top_k": 40,
         "max_output_tokens": max_tokens,
     }
-    
+
     response = chat_state.send_message(conv.messages[-2][1], **parameters)
     if response.text is None:
         raise Exception("No message returned from PaLM")
-        
+
     return chat_state, response.text, response.usage.output_tokens
