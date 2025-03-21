@@ -171,6 +171,9 @@ def setup_tmux_session(session_name: str, benchmarks: List[str], commands: List[
         for bench in remaining:
             print(f"  - {bench}")
         print("\nSuggestion: Consider running these benchmarks in sequential mode instead.")
+    else:
+        print("Successfully created all panes!")
+        print("Run 'tmux a' to attach to the session")
 
 def build_run_command(
     model: str,
@@ -246,6 +249,7 @@ def build_run_command(
         gen_api_cmd += f" --question-id {question_id_str}"
     if livebench_release_option:
         gen_api_cmd += f" --livebench-release-option {livebench_release_option}"
+        gen_judge_cmd += f" --livebench-release-option {livebench_release_option}"
     if stream:
         gen_api_cmd += " --stream"
     if remove_existing_judgment_file:

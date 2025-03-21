@@ -34,7 +34,8 @@ def get_answer(
     max_tokens: int,
     answer_file: str,
     api_dict: dict | None = None,
-    stream: bool = False
+    stream: bool = False,
+    force_temperature: float | None = None
 ):
     """
     Perform inference for a single question.
@@ -48,9 +49,10 @@ def get_answer(
         api_dict: A dictionary specifying the base API URL and key for model requests
     """
     assert (
-        args.force_temperature is not None and "required_temperature" in question.keys()
+        force_temperature is not None and "required_temperature" in question.keys()
     ) is False
-    if args.force_temperature is not None:
+    
+    if force_temperature is not None:
         temperature = args.force_temperature
     elif "required_temperature" in question.keys():
         temperature = question["required_temperature"]
@@ -106,7 +108,8 @@ def run_questions(
     max_tokens: int,
     answer_file: str,
     api_dict: dict | None,
-    stream: bool
+    stream: bool,
+    force_temperature: float | None
 ):
     """
     Perform inference on a list of questions. Output answers to answer_file.
@@ -129,7 +132,8 @@ def run_questions(
                 max_tokens,
                 answer_file,
                 api_dict=api_dict,
-                stream=stream
+                stream=stream,
+                force_temperature=force_temperature
             )
         if len(questions) > 0:
             reorg_answer_file(answer_file)
@@ -146,7 +150,8 @@ def run_questions(
                     max_tokens,
                     answer_file,
                     api_dict=api_dict,
-                    stream=stream
+                    stream=stream,
+                    force_temperature=force_temperature
                 )
                 futures.append(future)
 
@@ -308,7 +313,8 @@ if __name__ == "__main__":
                     max_tokens=args.max_tokens,
                     answer_file=answer_file,
                     api_dict=api_dict,
-                    stream=args.stream
+                    stream=args.stream,
+                    force_temperature=args.force_temperature
                 )
 
     elif args.question_source == "jsonl":
@@ -349,7 +355,8 @@ if __name__ == "__main__":
                 max_tokens=args.max_tokens,
                 answer_file=answer_file,
                 api_dict=api_dict,
-                stream=args.stream
+                stream=args.stream,
+                force_temperature=args.force_temperature
             )
 
     else:
