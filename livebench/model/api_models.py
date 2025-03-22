@@ -475,9 +475,10 @@ AWS_MODELS = [
 
 # Perplexity Models
 PERPLEXITY_MODELS = [
-    PerplexityModel(api_name="sonar-pro", display_name="perplexity-sonar", aliases=[]),
-    PerplexityModel(api_name="sonar-reasoning", display_name="perplexity-sonar-reasoning", aliases=[]),
-    PerplexityModel(api_name="sonar-reasoning-pro", display_name="perplexity-sonar-reasoning-pro", aliases=[]),
+    PerplexityModel(api_name="sonar", display_name="sonar", aliases=[]),
+    PerplexityModel(api_name="sonar-pro", display_name="sonar-pro", aliases=[]),
+    PerplexityModel(api_name="sonar-reasoning", display_name="sonar-reasoning", aliases=[]),
+    PerplexityModel(api_name="sonar-reasoning-pro", display_name="sonar-reasoning-pro", aliases=[]),
 ]
 
 
