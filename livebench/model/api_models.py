@@ -5,7 +5,7 @@ from livebench.model.model_adapter import get_model_adapter
 from livebench.model.models import (AnthropicModel, AWSModel, CohereModel,
                                     DeepseekModel, GeminiModel, GemmaModel,
                                     LlamaModel, MistralModel, Model,
-                                    NvidiaModel, OpenAIModel, PerplexityModel,
+                                    NvidiaModel, OpenAIModel, OpenAIResponsesModel, PerplexityModel,
                                     QwenModel, QwenModelAlibabaAPI, XAIModel)
 
 if sys.version_info >= (3, 9):
@@ -136,7 +136,7 @@ OPENAI_MODELS = [
         aliases=['gpt-4o']
     ),
     OpenAIModel(
-        api_name="chatgpt-4o-latest", display_name="chatgpt-4o-latest-2025-01-29", aliases=[]
+        api_name="chatgpt-4o-latest", display_name="chatgpt-4o-latest-2025-03-27", aliases=['chatgpt-4o-latest']
     ),
     OpenAIModel(
         api_name='gpt-4.5-preview-2025-02-27',
@@ -199,6 +199,13 @@ INFERENCE_OPENAI_MODELS = [
         aliases=['o3-mini-medium'],
         inference_api=True,
         api_kwargs={'reasoning_effort': 'medium'}
+    ),
+    OpenAIResponsesModel(
+        api_name='o1-pro-2025-03-19',
+        display_name='o1-pro-2025-03-19',
+        aliases=['o1-pro'],
+        inference_api=True,
+        api_kwargs={'reasoning_effort': 'high'}
     )
 ]
 
@@ -345,6 +352,12 @@ GOOGLE_GENERATIVEAI_MODELS = [
         api_name='gemma-3-27b-it',
         display_name='gemma-3-27b-it',
         aliases=['gemma-3-27b']
+    ),
+    GeminiModel(
+        api_name='gemini-2.5-pro-exp-03-25',
+        display_name='gemini-2.5-pro-exp-03-25',
+        aliases=['gemini-2.5-pro-exp'],
+        api_kwargs={'max_output_tokens': 65536, 'temperature': 1, 'top_p': 0.95}
     )
 ]
 

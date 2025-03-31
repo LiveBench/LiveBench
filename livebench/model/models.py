@@ -10,7 +10,7 @@ from livebench.model.completions import (chat_completion_anthropic,
                                          chat_completion_google_generativeai,
                                          chat_completion_mistral,
                                          chat_completion_nvidia,
-                                         chat_completion_openai,
+                                         chat_completion_openai, chat_completion_openai_responses,
                                          chat_completion_perplexity,
                                          chat_completion_together,
                                          chat_completion_xai)
@@ -48,6 +48,12 @@ class OpenAIModel(Model):
     inference_api: bool = False
     api_function: model_api_function = field(
         default=chat_completion_openai
+    )
+
+@dataclass(kw_only=True, frozen=True)
+class OpenAIResponsesModel(OpenAIModel):
+    api_function: model_api_function = field(
+        default=chat_completion_openai_responses
     )
 
 

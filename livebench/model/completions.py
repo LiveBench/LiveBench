@@ -145,6 +145,70 @@ def chat_completion_openai(
             return API_ERROR_OUTPUT, 0
         raise e
 
+@retry(
+    stop=stop_after_attempt(1),
+    wait=wait_fixed(API_RETRY_SLEEP),
+    retry=retry_if_exception_type(Exception),
+    after=retry_log,
+    retry_error_callback=retry_fail
+)
+def chat_completion_openai_responses(model, conv, temperature, max_tokens, api_dict=None) -> tuple[str, int]:
+    from livebench.model.models import OpenAIResponsesModel
+    from openai import NOT_GIVEN, OpenAI
+
+    if api_dict is not None:
+        client = OpenAI(
+            api_key=api_dict["api_key"], base_url=api_dict["api_base"], timeout=httpx.Timeout(timeout=2400.0, connect=10.0)
+        )
+    else:
+        client = OpenAI(timeout=2400)
+
+    model = cast(OpenAIResponsesModel, model)
+
+    messages = conv.to_openai_api_messages()
+    developer_message_index = None
+    for i, message in enumerate(messages):
+        if message["role"] == "system" or message["role"] == "developer":
+            developer_message_index = i
+            break
+    developer_message = messages[developer_message_index]['content']
+    messages = messages[0:developer_message_index] + messages[developer_message_index+1:]
+    developer_message = 'Formatting reenabled\n' + developer_message
+
+    reasoning_effort = model.api_kwargs['reasoning_effort'] if model.api_kwargs is not None and 'reasoning_effort' in model.api_kwargs else NOT_GIVEN
+    max_output_tokens = max_tokens if not model.inference_api else NOT_GIVEN
+    temperature = temperature if not model.inference_api else NOT_GIVEN
+
+    input = '\n'.join([message['content'] for message in messages])
+
+    output_text = ""
+    output_tokens = None
+
+    stream = client.responses.create(
+        model=model.api_name,
+        instructions=developer_message,
+        input=input,
+        reasoning={"effort": reasoning_effort} if reasoning_effort is not NOT_GIVEN else NOT_GIVEN,
+        max_output_tokens=max_output_tokens,
+        temperature=temperature,
+        stream = True
+    )
+
+    for event in stream:
+        print(event)
+        if event.type == "response.completed":
+            output_tokens = event.response.usage.output_tokens
+        elif event.type == "response.output_text.delta":
+            output_text += event.delta
+        elif event.type == "response.failed":
+            raise Exception(f"Failed to generate response ({event.error.code}): {event.error.message}")
+        elif event.type == "response.incomplete":
+            raise Exception("Response was cut short: " + event.incomplete_details.reason)
+
+    print(output_text)
+    print(output_tokens)
+
+    return output_text, output_tokens
 
 @retry(
     stop=stop_after_attempt(API_MAX_RETRY),
@@ -317,7 +381,7 @@ def chat_completion_vertex(
 
 @retry(
     stop=stop_after_attempt(API_MAX_RETRY),
-    wait=wait_fixed(API_RETRY_SLEEP),
+    wait=wait_fixed(30),
     retry=retry_if_exception_type(Exception),
     after=retry_log,
     retry_error_callback=retry_fail
