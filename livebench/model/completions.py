@@ -143,7 +143,7 @@ def chat_completion_openai(
 
 @retry(
     stop=stop_after_attempt(1),
-    wait=wait_fixed(API_RETRY_SLEEP),
+    wait=wait_fixed(API_RETRY_SLEEP_MIN),
     retry=retry_if_exception_type(Exception),
     after=retry_log,
     retry_error_callback=retry_fail
@@ -501,7 +501,7 @@ def chat_completion_together(model, conv, temperature, max_tokens, api_dict=None
 
 @retry(
     stop=stop_after_attempt(API_MAX_RETRY),
-    wait=wait_fixed(API_RETRY_SLEEP),
+    wait=wait_fixed(API_RETRY_SLEEP_MIN),
     retry=retry_if_exception_type(Exception),
     after=retry_log,
     retry_error_callback=retry_fail
