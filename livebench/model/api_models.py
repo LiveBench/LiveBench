@@ -1,6 +1,6 @@
 import sys
 
-from livebench.model.completions import chat_completion_openai
+from livebench.model.completions import chat_completion_openai, chat_completion_together
 from livebench.model.model_adapter import get_model_adapter
 from livebench.model.models import (AnthropicModel, AWSModel, CohereModel,
                                     DeepseekModel, GeminiModel, GemmaModel,
