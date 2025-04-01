@@ -118,7 +118,7 @@ def play_a_match_gt(match: MatchSingle, output_file: str, debug=False):
         elif "amps_hard" in task_or_subtask:
             score = amps_hard_process_results(ground_truth, llm_answer, debug)
             category = "math"
-        elif task_or_subtask == "web_of_lies_v2":
+        elif task_or_subtask == "web_of_lies_v2" or task_or_subtask == "web_of_lies_v3":
             score = web_of_lies_process_results(ground_truth, llm_answer, debug)
             category = "reasoning"
         elif task_or_subtask == "house_traversal":
