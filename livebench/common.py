@@ -32,7 +32,7 @@ LIVE_BENCH_CATEGORIES = [
     "reasoning",
     "language",
 ]
-LIVE_BENCH_RELEASES = {"2024-07-26", "2024-06-24", "2024-08-31", "2024-11-25", "2025-01-25"}
+LIVE_BENCH_RELEASES = {"2024-07-26", "2024-06-24", "2024-08-31", "2024-11-25", ""}
 
 
 @dataclasses.dataclass
