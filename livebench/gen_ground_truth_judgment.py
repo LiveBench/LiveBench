@@ -32,7 +32,7 @@ from livebench.process_results.writing.connections.utils import get_connections_
 from livebench.process_results.coding.utils import LCB_generation_process_results
 from livebench.process_results.instruction_following.utils import instruction_following_process_results
 from livebench.process_results.reasoning.temporal.utils import temporal_process_results
-
+from livebench.process_results.reasoning.web_of_lies_v3.utils import web_of_lies_v3_process_results
 from livebench.common import (
     LIVE_BENCH_RELEASES,
     load_questions,
@@ -119,7 +119,10 @@ def play_a_match_gt(match: MatchSingle, output_file: str, debug=False):
             score = amps_hard_process_results(ground_truth, llm_answer, debug)
             category = "math"
         elif task_or_subtask == "web_of_lies_v2" or task_or_subtask == "web_of_lies_v3":
-            score = web_of_lies_process_results(ground_truth, llm_answer, debug)
+            if task_or_subtask == "web_of_lies_v2":
+                score = web_of_lies_process_results(ground_truth, llm_answer, debug)
+            else:
+                score = web_of_lies_v3_process_results(ground_truth, llm_answer, debug)
             category = "reasoning"
         elif task_or_subtask == "house_traversal":
             score = house_traversal_process_results(ground_truth, llm_answer, debug)
@@ -166,6 +169,10 @@ def play_a_match_gt(match: MatchSingle, output_file: str, debug=False):
         "tstamp": time.time(),
         "category": category,
     }
+    # Add answer_id if available
+    if "answer_id" in answer:
+        result["answer_id"] = answer["answer_id"]
+    
     if "subtask" in question.keys():
         result["subtask"] = question["subtask"]
     print(
@@ -192,7 +199,8 @@ def gen_judgments(
     remove_existing_file: bool,
     bench_name: str,
     debug=False,
-    ignore_missing_answers=False
+    ignore_missing_answers=False,
+    resume=False
 ):
     """
     Evaluate answers to questions for all the given models, compared to the expected ground truth answer for each question.
@@ -205,6 +213,7 @@ def gen_judgments(
         remove_existing_file: Whether to remove an existing judgment output file or append
         bench_name: The subset of LiveBench for which answers should be evaluated (e.g. 'live_bench' or 'live_bench/coding')
         parallel: The number of concurrent threads to use for evaluating answers
+        resume: When true, skip question-model pairs that already have judgments in the output file
     """
 
 
@@ -229,6 +238,18 @@ def gen_judgments(
     if output_file and os.path.exists(output_file) and remove_existing_file:
         os.remove(output_file)
 
+    # Load existing judgments if in resume mode
+    existing_answer_ids = set()
+    if resume and os.path.exists(output_file):
+        print(f"Resume mode: Reading existing judgments from {output_file}")
+        with open(output_file, "r") as fin:
+            for line in fin:
+                judgment = json.loads(line)
+                # Only track answer_ids - that's all we use for resuming
+                if "answer_id" in judgment:
+                    existing_answer_ids.add(judgment["answer_id"])
+        print(f"Found {len(existing_answer_ids)} existing answer IDs")
+
     make_match_func = make_match_single
     if not ignore_missing_answers:
         check_data(questions, model_answers, models)
@@ -245,6 +266,26 @@ def gen_judgments(
     if len(matches) == 0:
         print('No question-answer pairs found')
         return
+
+    # Filter out matches that already have judgments if in resume mode
+    if resume:
+        original_match_count = len(matches)
+        filtered_matches = []
+        
+        for match in matches:
+            # Check if this answer has already been evaluated
+            answer = match.answer
+            answer_id = answer.get("answer_id", None)
+            
+            # Only skip evaluation if answer has an ID and that ID was already processed
+            if answer_id is not None and answer_id in existing_answer_ids:
+                continue
+            
+            # Always include answers without answer_id or with new answer_id
+            filtered_matches.append(match)
+        
+        matches = filtered_matches
+        print(f"Resume mode: Filtered out {original_match_count - len(matches)} already judged matches")
 
     match_stat = {}
     match_stat["bench_name"] = bench_name
@@ -288,6 +329,11 @@ def gen_judgments(
                     "tstamp": time.time(),
                     "category": "instruction_following",
                 }
+                # Add answer_id if available
+                answer = model_answers.get(model_id, {}).get(question_id, {})
+                if answer and "answer_id" in answer:
+                    result["answer_id"] = answer["answer_id"]
+                    
                 print(
                     f"question: {question_id}, turn: {turn}, model: {model_id}, "
                     f"score: {score}, ")
@@ -385,6 +431,10 @@ if __name__ == "__main__":
     parser.add_argument(
         "--output-file", type=str, default=None
     )
+    parser.add_argument(
+        "--resume", action="store_true", default=False,
+        help="Resume evaluation, skipping question-model pairs already in the output file."
+    )
     args = parser.parse_args()
 
     if args.livebench_release_option not in LIVE_BENCH_RELEASES:
@@ -416,21 +466,22 @@ if __name__ == "__main__":
                         questions = questions[: args.first_n]
                     questions = questions[args.question_begin:args.question_end]
 
-                task_full_name = f"{LIVE_BENCH_DATA_SUPER_PATH}/{category_name}/{task_name}"
-                output_file = f"data/{task_full_name}/model_judgment/ground_truth_judgment.jsonl" if args.output_file is None else args.output_file
-                answer_dir = f"data/{task_full_name}/model_answer/" if args.answer_file is None else args.answer_file # expected location of model answers
+                    task_full_name = f"{LIVE_BENCH_DATA_SUPER_PATH}/{category_name}/{task_name}"
+                    output_file = f"data/{task_full_name}/model_judgment/ground_truth_judgment.jsonl" if args.output_file is None else args.output_file
+                    answer_dir = f"data/{task_full_name}/model_answer/" if args.answer_file is None else args.answer_file # expected location of model answers
 
-                gen_judgments(
-                    parallel=args.parallel,
-                    questions=questions,
-                    output_file=output_file,
-                    answer_dir=answer_dir,
-                    model_list=model_list,
-                    remove_existing_file=args.remove_existing_file,
-                    bench_name=task_full_name,
-                    debug=args.debug,
-                    ignore_missing_answers=args.ignore_missing_answers
-                )
+                    gen_judgments(
+                        parallel=args.parallel,
+                        questions=questions,
+                        output_file=output_file,
+                        answer_dir=answer_dir,
+                        model_list=model_list,
+                        remove_existing_file=args.remove_existing_file,
+                        bench_name=task_full_name,
+                        debug=args.debug,
+                        ignore_missing_answers=args.ignore_missing_answers,
+                        resume=args.resume
+                    )
 
 
     elif args.question_source == "jsonl":
@@ -452,20 +503,21 @@ if __name__ == "__main__":
 
                 bench_name = os.path.dirname(question_file).replace("data/","")
 
-            output_file = f"data/{bench_name}/model_judgment/ground_truth_judgment.jsonl" if args.output_file is None else args.output_file
-            answer_dir = f"data/{bench_name}/model_answer/" if args.answer_file is None else args.answer_file # expected location of model answers
-            if len(questions) > 0:
-                gen_judgments(
-                    parallel=args.parallel,
-                    questions=questions,
-                    output_file=output_file,
-                    answer_dir=answer_dir,
-                    model_list=model_list,
-                    remove_existing_file=args.remove_existing_file,
-                    bench_name=bench_name,
-                    debug=args.debug,
-                    ignore_missing_answers=args.ignore_missing_answers
-                )
+                output_file = f"data/{bench_name}/model_judgment/ground_truth_judgment.jsonl" if args.output_file is None else args.output_file
+                answer_dir = f"data/{bench_name}/model_answer/" if args.answer_file is None else args.answer_file # expected location of model answers
+                if len(questions) > 0:
+                    gen_judgments(
+                        parallel=args.parallel,
+                        questions=questions,
+                        output_file=output_file,
+                        answer_dir=answer_dir,
+                        model_list=model_list,
+                        remove_existing_file=args.remove_existing_file,
+                        bench_name=bench_name,
+                        debug=args.debug,
+                        ignore_missing_answers=args.ignore_missing_answers,
+                        resume=args.resume
+                    )
 
     else:
         raise ValueError(f"Bad question source {args.question_source}.")
