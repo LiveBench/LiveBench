@@ -274,7 +274,14 @@ TOGETHER_MODELS = [
         api_name="deepseek-ai/DeepSeek-R1", display_name='deepseek-r1', api_function=chat_completion_together,
         aliases=[], api_kwargs={'temperature': 0.7, 'max_tokens': 20000}
     ),
-    DeepseekModel(api_name="deepseek-ai/deepseek-v3", display_name="deepseek-v3-0324", aliases=[], api_function=chat_completion_together)
+    DeepseekModel(api_name="deepseek-ai/deepseek-v3", display_name="deepseek-v3-0324", aliases=[], api_function=chat_completion_together),
+    DeepseekModel(
+        api_name="deepseek-ai/DeepSeek-R1-Distill-Llama-70B", 
+        display_name="deepseek-r1-distill-llama-70b", 
+        aliases=[],
+        api_function=chat_completion_together,
+        api_kwargs={'temperature': 0.7, 'max_tokens': 64000}
+    )
 ]
 
 QWEN_ALIBABA_MODELS = [
@@ -423,7 +430,7 @@ MISTRAL_MODELS = [
         api_name="open-mistral-nemo", display_name="open-mistral-nemo", aliases=[]
     ),
     MistralModel(
-        api_name="mistral-large-2411", display_name="mistral-large-2411", aliases=[]
+        api_name="mistral-large-2411", display_name="mistral-large-2411", aliases=['mistral-large']
     ),
     MistralModel(
         api_name="mistral-small-2409", display_name="mistral-small-2409", aliases=[]
