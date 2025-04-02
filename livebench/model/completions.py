@@ -4,6 +4,7 @@ import sys
 import time
 import traceback
 from typing import TYPE_CHECKING, cast
+import httpx
 
 from tenacity import retry, stop_after_attempt, retry_if_exception_type, wait_fixed, wait_incrementing
 
