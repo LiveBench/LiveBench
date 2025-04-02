@@ -248,6 +248,11 @@ TOGETHER_MODELS = [
         aliases=['qwen2.5-72b-instruct'],
     ),
     QwenModel(
+        api_name="Qwen/Qwen2.5-Coder-32B-Instruct",
+        display_name="qwen2.5-coder-32b-instruct",
+        aliases=['qwen2.5-coder-32b-instruct'],
+    ),
+    QwenModel(
         api_name="Qwen/QwQ-32B-Preview",
         display_name="qwq-32b-preview",
         aliases=[],
