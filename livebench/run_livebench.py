@@ -237,6 +237,7 @@ def build_run_command(
         gen_api_cmd += f" --parallel {parallel_requests}"
     if resume:
         gen_api_cmd += " --resume"
+        gen_judge_cmd += " --resume"
     if retry_failures:
         gen_api_cmd += " --retry-failures"
     
