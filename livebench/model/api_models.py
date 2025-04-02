@@ -251,7 +251,13 @@ TOGETHER_MODELS = [
         api_name="Qwen/QwQ-32B-Preview",
         display_name="qwq-32b-preview",
         aliases=[],
-        api_kwargs={'max_tokens': 16000}
+        api_kwargs={'max_tokens': 16000, 'temperature': 0.7, 'top_p': 0.95}
+    ),
+    QwenModel(
+        api_name="Qwen/QwQ-32B",
+        display_name="qwq-32b",
+        aliases=[],
+        api_kwargs={'max_tokens': 31000, 'temperature': 0.7, 'top_p': 0.95}
     ),
     LlamaModel(
         api_name="Llama-3.1-Nemotron-70B-Instruct-HF",
@@ -264,13 +270,11 @@ TOGETHER_MODELS = [
     GemmaModel(
         api_name="google/gemma-2-9b-it", display_name="gemma-2-9b-it", aliases=[]
     ),
-    QwenModel(
-        api_name="qwen/qwq-32b-preview", display_name="Qwen-32B-Preview", aliases=[]
-    ),
     DeepseekModel(
         api_name="deepseek-ai/DeepSeek-R1", display_name='deepseek-r1', api_function=chat_completion_together,
         aliases=[], api_kwargs={'temperature': 0.7, 'max_tokens': 20000}
-    )
+    ),
+    DeepseekModel(api_name="deepseek-ai/deepseek-v3", display_name="deepseek-v3-0324", aliases=[], api_function=chat_completion_together)
 ]
 
 QWEN_ALIBABA_MODELS = [
@@ -455,7 +459,7 @@ COHERE_MODELS = [
 
 # Deepseek Models
 DEEPSEEK_MODELS = [
-    DeepseekModel(api_name="deepseek-chat", display_name="deepseek-v3", aliases=[]),
+    #DeepseekModel(api_name="deepseek-chat", display_name="deepseek-v3-0324", aliases=[]),
     # DeepseekModel(api_name="deepseek-reasoner", display_name="deepseek-r1", aliases=[], reasoner=True)
 ]
 
