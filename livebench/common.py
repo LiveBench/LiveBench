@@ -32,7 +32,7 @@ LIVE_BENCH_CATEGORIES = [
     "reasoning",
     "language",
 ]
-LIVE_BENCH_RELEASES = {"2024-07-26", "2024-06-24", "2024-08-31", "2024-11-25", ""}
+LIVE_BENCH_RELEASES = {"2024-07-26", "2024-06-24", "2024-08-31", "2024-11-25", "2025-04-02"}
 
 
 @dataclasses.dataclass
@@ -417,6 +417,6 @@ def filter_questions(questions, answer_file, resume=False, retry_failures=False)
             error = ans["choices"][0]["turns"][0] == API_ERROR_OUTPUT
             if qid in new_questions_ids and (resume or retry_failures) and not error:
                 new_questions_ids.remove(qid)
-            elif qid in new_questions_ids and error and not retry_failures:
+            elif qid in new_questions_ids and error and resume and not retry_failures:
                 new_questions_ids.remove(qid)
     return sorted([q for q in questions if q["question_id"] in new_questions_ids], key=lambda x: x["question_id"])
