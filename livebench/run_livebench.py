@@ -25,7 +25,7 @@ DEFAULT_BENCHMARKS = [
 @dataclass
 class LiveBenchParams:
     """Parameters for LiveBench execution"""
-    model: str
+    model: str | None = None
     mode: str = "single"
     venv: Optional[str] = None
     bench_names: Optional[List[str]] = None
@@ -48,6 +48,7 @@ class LiveBenchParams:
     livebench_release_option: Optional[str] = None
     stream: bool = False
     remove_existing_judgment_file: bool = False
+    ignore_missing_answers: bool = False
     debug: bool = False
 
     @classmethod
@@ -83,6 +84,7 @@ class LiveBenchParams:
             livebench_release_option=args.livebench_release_option,
             stream=args.stream,
             remove_existing_judgment_file=args.remove_existing_judgment_file,
+            ignore_missing_answers=args.ignore_missing_answers,
             debug=args.debug
         )
 
@@ -197,6 +199,7 @@ def build_run_command(
     livebench_release_option: Optional[str] = None,
     stream: bool = False,
     remove_existing_judgment_file: bool = False,
+    ignore_missing_answers: bool = False,
     debug: bool = False
 ) -> str:
     """Build the command to run gen_api_answer and gen_ground_truth_judgment in sequence"""
@@ -205,7 +208,9 @@ def build_run_command(
     gen_api_cmd = f"python -u gen_api_answer.py --model {model} --question-source {question_source}"
     
     # Build gen_ground_truth_judgment command
-    gen_judge_cmd = f"python -u gen_ground_truth_judgment.py --model {model} --question-source {question_source}"
+    gen_judge_cmd = f"python -u gen_ground_truth_judgment.py --question-source {question_source}"
+    if model:
+        gen_judge_cmd += f" --model {model}"
     
     # Add bench_name to both commands
     if isinstance(bench_name, list):
@@ -247,6 +252,7 @@ def build_run_command(
     if question_id:
         question_id_str = ' '.join(question_id)
         gen_api_cmd += f" --question-id {question_id_str}"
+        gen_judge_cmd += f" --question-id {question_id_str}"
     if livebench_release_option:
         gen_api_cmd += f" --livebench-release-option {livebench_release_option}"
         gen_judge_cmd += f" --livebench-release-option {livebench_release_option}"
@@ -254,6 +260,8 @@ def build_run_command(
         gen_api_cmd += " --stream"
     if remove_existing_judgment_file:
         gen_judge_cmd += " --remove-existing-file"
+    if ignore_missing_answers:
+        gen_judge_cmd += " --ignore-missing-answers"
     
     # Add debug flag only to judgment command
     if debug:
@@ -294,6 +302,7 @@ def build_run_command_from_params(params: LiveBenchParams, bench_name: Optional[
         livebench_release_option=params.livebench_release_option,
         stream=params.stream,
         remove_existing_judgment_file=params.remove_existing_judgment_file,
+        ignore_missing_answers=params.ignore_missing_answers,
         debug=params.debug
     )
 
@@ -394,7 +403,7 @@ def main():
     parser = argparse.ArgumentParser(description="Run LiveBench benchmarks with various execution modes")
     
     # Required arguments
-    parser.add_argument("--model", required=True, nargs="+", help="One or more model identifiers (e.g., gpt-4)")
+    parser.add_argument("--model", required=False, default=None, nargs="+", help="One or more model identifiers (e.g., gpt-4)")
     
     # Optional arguments
     parser.add_argument("--venv", help="Path to virtual environment to activate", default="../.venv/bin/activate")
@@ -425,22 +434,32 @@ def main():
     parser.add_argument("--stream", action="store_true", help="Enable streaming mode")
     parser.add_argument("--remove-existing-judgment-file", action="store_true", 
                       help="Remove existing judgment file before running")
+    parser.add_argument("--ignore-missing-answers", action="store_true",
+                      help="Ignore missing answers when running gen_ground_truth_judgment.py")
     parser.add_argument("--debug", action="store_true", 
                       help="Enable debug mode for gen_ground_truth_judgment.py (not passed to gen_api_answer.py)")
     
     args = parser.parse_args()
+
+    if args.model is None and not args.skip_inference:
+        raise ValueError("Model is required when performing inference")
     
     print("\nStarting LiveBench evaluation")
     print(f"Mode: {args.mode}")
-    print(f"Models: {', '.join(args.model)}")
+    if args.model:
+        print(f"Models: {', '.join(args.model)}")
     if args.bench_name:
         print(f"Benchmarks: {', '.join(args.bench_name)}")
     print(f"Question source: {args.question_source}")
     
     # Run each model in its own tmux session
-    for model in args.model:
-        # Create params for this model run
-        params = LiveBenchParams.from_args(args, model=model)
+    if args.model:
+        for model in args.model:
+            # Create params for this model run
+            params = LiveBenchParams.from_args(args, model=model)
+            run_model(params)
+    else:
+        params = LiveBenchParams.from_args(args)
         run_model(params)
 
 if __name__ == "__main__":
