@@ -32,7 +32,7 @@ LIVE_BENCH_CATEGORIES = [
     "reasoning",
     "language",
 ]
-LIVE_BENCH_RELEASES = {"2024-07-26", "2024-06-24", "2024-08-31", "2024-11-25"}
+LIVE_BENCH_RELEASES = {"2024-07-26", "2024-06-24", "2024-08-31", "2024-11-25", "2025-04-02"}
 
 
 @dataclasses.dataclass
@@ -80,7 +80,7 @@ def get_categories_tasks(bench_name: str):
 
     else:
         # specify a category or task
-        category_name = split_bench_name[1]
+        category_name = split_bench_name[1].split('_')[0]
 
         categories = {category_name: get_hf_dataset(category_name)}
 
@@ -221,12 +221,42 @@ def load_questions_jsonl(
         questions = [
             q for q in questions if q['livebench_removal_date'] == "" or q['livebench_removal_date'] > livebench_release
         ]
+        
     if question_ids is not None:
-        questions = [q for q in questions if q['question_id'] in question_ids]
+        questions = [q for q in questions if str(q['question_id']) in question_ids]
+    return questions
+
+def load_test_cases_jsonl(question_file_path: str, questions: list[dict]):
+    """
+    Load test cases from a jsonl file in the same directory as the question file.
+    """
+    question_folder = os.path.dirname(question_file_path)
+
+    # find all files of the form test_cases_<index>.jsonl and load them in order
+    test_cases = {}
+    test_cases_files = glob.glob(os.path.join(question_folder, "test_cases_*.jsonl"))
+    test_cases_files.sort()
+    for test_cases_file in test_cases_files:
+        print('loading test cases from', test_cases_file)
+        with open(test_cases_file, "r") as test_cases_file:
+            for line in test_cases_file:
+                test_case = json.loads(line)
+                question_id = test_case["question_id"]
+                test_cases[question_id] = test_case
+
+    if len(test_cases.keys()) > 0:
+        for question in questions:
+            if question['question_id'] in test_cases:
+                if any(key in question for key in test_cases[question['question_id']].keys() if key != "question_id"):
+                    print(f"Warning: Question {question['question_id']} already has keys {', '.join(key for key in test_cases[question['question_id']].keys() if key in question and key != 'question_id')}")
+                else:
+                    question.update(test_cases[question['question_id']])
+            else:
+                print(f"Warning: Question {question['question_id']} has no test cases")
     return questions
 
 
-def load_model_answers(answer_dir: str):
+def load_model_answers(answer_dir: str, models: list[str] | None = None):
     """Load model answers from answer_dir.
 
     The return value is a python dict of type:
@@ -242,11 +272,16 @@ def load_model_answers(answer_dir: str):
     for filename in filenames:
         model_name = os.path.basename(filename)[: -len(".jsonl")]
         model_name = get_model(model_name).display_name.lower()
+        if models is not None and model_name not in models:
+            continue
         answer = {}
         with open(filename) as fin:
-            for line in fin:
-                line = json.loads(line)
-                answer[line["question_id"]] = line
+            for i, line in enumerate(fin):
+                try:
+                    line = json.loads(line)
+                    answer[line["question_id"]] = line
+                except Exception as e:
+                    raise ValueError(f"Error loading line {i + 1} ({line}) from {filename}: {e}") from e
         model_answers[model_name] = answer
 
     return model_answers
@@ -365,6 +400,11 @@ def get_model_list(answer_dir):
     
 
 def filter_questions(questions, answer_file, resume=False, retry_failures=False):
+    """
+    Filter questions based on the ones for which there are already answers in the answer_file.
+    If resume is true, include only unanswered questions.
+    If retry_failures is true, include questions for which the existing answer is an error.
+    """
     from livebench.model.completions import API_ERROR_OUTPUT
     reorg_answer_file(answer_file)
     new_questions_ids = set([q["question_id"] for q in questions])
@@ -377,6 +417,6 @@ def filter_questions(questions, answer_file, resume=False, retry_failures=False)
             error = ans["choices"][0]["turns"][0] == API_ERROR_OUTPUT
             if qid in new_questions_ids and (resume or retry_failures) and not error:
                 new_questions_ids.remove(qid)
-            elif qid in new_questions_ids and error and not retry_failures:
+            elif qid in new_questions_ids and error and resume and not retry_failures:
                 new_questions_ids.remove(qid)
     return sorted([q for q in questions if q["question_id"] in new_questions_ids], key=lambda x: x["question_id"])

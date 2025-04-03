@@ -6,6 +6,7 @@ import argparse
 import pandas as pd
 import glob
 import os
+import re
 
 from livebench.common import (
     LIVE_BENCH_RELEASES,
@@ -41,7 +42,12 @@ def display_result_single(args):
     categories = {}
     tasks = {}
     for bench in args.bench_name:
-        bench_cats, bench_tasks = get_categories_tasks(bench)
+        hf_bench = bench
+        # check if bench ends with _{i} for some number i
+        number_match = re.match(r'(.*)_\d+$', hf_bench)
+        if number_match:
+            hf_bench = number_match.group(1)
+        bench_cats, bench_tasks = get_categories_tasks(hf_bench)
         categories.update(bench_cats)
         for k, v in bench_tasks.items():
             if k in tasks and isinstance(tasks[k], list):
@@ -82,8 +88,6 @@ def display_result_single(args):
     df['model'] = df['model'].str.lower()
     df["score"] *= 100
 
-
-
     if args.model_list is not None:
         model_list = [get_model(x).display_name for x in args.model_list]
         df = df[df["model"].isin([x.lower() for x in model_list])]
@@ -92,17 +96,19 @@ def display_result_single(args):
         model_list_to_check = set(df["model"])
     for model in model_list_to_check:
         df_model = df[df["model"] == model]
+
+        missing_question_ids = set([q['question_id'] for q in questions_all]) - set(df_model['question_id'])
         
-        if len(df_model) < len(questions_all) and not args.ignore_missing_judgments:
-            print('removing model', model, "has missing", len(questions_all) - len(df_model), "judgments - has ", len(df_model))
-            missing_tasks = set()
-            for task in tasks_set:
-                if len(df_model[df_model['task'] == task]) != len([q for q in questions_all if q['task'] == task]):
-                    missing_tasks.add(task)
-            print('missing judgments in ', missing_tasks)
+        if len(missing_question_ids) > 0 and not args.ignore_missing_judgments:
+            if args.verbose:
+                print('removing model', model, "has missing", len(questions_all) - len(df_model), "judgments - has ", len(df_model))
+                if len(missing_question_ids) < 10:
+                    print('missing ids', missing_question_ids)
+                missing_questions = [q for q in questions_all if q['question_id'] in missing_question_ids]
+                missing_tasks = set([q['task'] for q in missing_questions])
+                print('missing tasks', missing_tasks)
             df = df[df["model"] != model]
-            #raise ValueError(f'Invalid result, missing judgments (and possibly completions) for {len(questions_all) - len(df_model)} questions for model {model}.')
-        elif len(df_model) < len(questions_all) and args.ignore_missing_judgments:
+        elif len(missing_question_ids) > 0 and args.ignore_missing_judgments:
             questions_all = [q for q in questions_all if q['question_id'] in df_model['question_id'].values]
     
     if args.ignore_missing_judgments and len(questions_all) == 0:
@@ -123,6 +129,7 @@ def display_result_single(args):
     if args.show_average:
         df_1.loc['average'] = df_1.mean()
     df_1 = df_1.round(3)
+    df_1 = df_1.dropna(inplace=False)
     with pd.option_context('display.max_rows', None):
         print(df_1.sort_values(by="model"))
     df_1.to_csv('all_tasks.csv')
@@ -131,6 +138,8 @@ def display_result_single(args):
     df_1 = df[["model", "score", "category", "task"]]
     df_1 = df_1.groupby(["model", "task", "category"]).mean().groupby(["model","category"]).mean()
     df_1 = pd.pivot_table(df_1, index=['model'], values = "score", columns=["category"], aggfunc="sum")
+
+    df_1 = df_1.dropna(inplace=False)
 
     df_1['average'] = df_1.mean(axis=1)
     first_col = df_1.pop('average')
@@ -189,6 +198,12 @@ if __name__ == "__main__":
         default=False,
         action='store_true',
         help="Ignore missing judgments. Scores will be calculated for only questions that have judgments for all models."
+    )
+    parser.add_argument(
+        "--verbose",
+        default=False,
+        help="Display debug information",
+        action='store_true'
     )
     args = parser.parse_args()
 

@@ -1,5 +1,12 @@
 ## Changelog
 
+### 2025-04-0
+ - Refreshed coding questions (coding_completion and LCB_generation) with *much* newer questions from LiveCodeBench. The previous questions were likely heavily contaminated for newer models. LiveCodeBench also increases question difficulty over time.
+ - Refreshed typos and plot_unscrambling questions with newer ArXiv papers and movie plots from Wikipedia, respectively. Issues in the typos question generation script were also fixed, so that all questions can be fairly evaluated
+ - Replaced 2023 AMC questions with 2024 AMC questions in math_comp
+ - Updated web_of_lies with a mix of harder questions of the previous web_of_lies_v2 format and the new format from [BIG-Bench Extra Hard](https://github.com/google-deepmind/bbeh)
+ - All new questions ask for answers in the `<solution></solution>` format.
+
 ### 2024-11-25
 This update focused on refreshing questions to check for contamination and increasing the difficulty of tasks for which o1 (and other reasoning models) achieved very high scores.
  - Refreshed the instruction following tasks with new articles from The Guardian
@@ -7,7 +14,7 @@ This update focused on refreshing questions to check for contamination and incre
  - Refreshed Connections task with new puzzles from NYT
  - Updated Connections generation to more frequently ask for more groups
  - Regenerated Zebra Puzzles, skewing towards larger board sizes and more complex constraints
- - Updated Connections and Zebra Puzzles questions to require answers to be in `<solution><\solution>` tags rather than bolded
+ - Updated Connections and Zebra Puzzles questions to require answers to be in `<solution></solution>` tags rather than bolded
 
 ### 2024-08-31
 

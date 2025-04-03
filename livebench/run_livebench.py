@@ -9,12 +9,12 @@ import os
 import time
 import libtmux
 import subprocess
-from typing import List, Optional, Union
 from dataclasses import dataclass
 
 # Default benchmarks used when none specified
 DEFAULT_BENCHMARKS = [
     "live_bench/coding",
+    "live_bench/coding_2",
     "live_bench/data_analysis", 
     "live_bench/instruction_following",
     "live_bench/language",
@@ -25,33 +25,34 @@ DEFAULT_BENCHMARKS = [
 @dataclass
 class LiveBenchParams:
     """Parameters for LiveBench execution"""
-    model: str
+    model: str | None = None
     mode: str = "single"
-    venv: Optional[str] = None
-    bench_names: Optional[List[str]] = None
+    venv: str | None = None
+    bench_names: list[str] | None = None
     question_source: str = "huggingface"
-    api_base: Optional[str] = None
-    api_key_name: Optional[str] = None
-    api_key: Optional[str] = None
-    model_display_name: Optional[str] = None
-    max_tokens: Optional[int] = None
-    parallel_requests: Optional[int] = None
+    api_base: str | None = None
+    api_key_name: str | None = None
+    api_key: str | None = None
+    model_display_name: str | None = None
+    max_tokens: int | None = None
+    parallel_requests: int | None = None
     resume: bool = False
     retry_failures: bool = False
     skip_inference: bool = False
     skip_grading: bool = False
-    force_temperature: Optional[float] = None
-    num_choices: Optional[int] = None
-    question_begin: Optional[int] = None
-    question_end: Optional[int] = None
-    question_id: Optional[List[str]] = None
-    livebench_release_option: Optional[str] = None
+    force_temperature: float | None = None
+    num_choices: int | None = None
+    question_begin: int | None = None
+    question_end: int | None = None
+    question_id: list[str] | None = None
+    livebench_release_option: str | None = None
     stream: bool = False
     remove_existing_judgment_file: bool = False
+    ignore_missing_answers: bool = False
     debug: bool = False
 
     @classmethod
-    def from_args(cls, args, model: Optional[str] = None):
+    def from_args(cls, args, model: str | None = None):
         """
         Create a LiveBenchParams instance from parsed command-line arguments
         
@@ -83,10 +84,11 @@ class LiveBenchParams:
             livebench_release_option=args.livebench_release_option,
             stream=args.stream,
             remove_existing_judgment_file=args.remove_existing_judgment_file,
+            ignore_missing_answers=args.ignore_missing_answers,
             debug=args.debug
         )
 
-def run_command(cmd: str, env: Optional[dict] = None) -> int:
+def run_command(cmd: str, env: dict[str, str] | None = None) -> int:
     """Run a shell command and return its exit code"""
     try:
         print(f"Running: {cmd}")
@@ -97,7 +99,7 @@ def run_command(cmd: str, env: Optional[dict] = None) -> int:
         print(f"Exit code: {e.returncode}")
         return e.returncode
 
-def setup_tmux_session(session_name: str, benchmarks: List[str], commands: List[str], venv_path: Optional[str] = None) -> None:
+def setup_tmux_session(session_name: str, benchmarks: list[str], commands: list[str], venv_path: str | None = None) -> None:
     """
     Set up a tmux session with panes for each benchmark.
     
@@ -177,26 +179,27 @@ def setup_tmux_session(session_name: str, benchmarks: List[str], commands: List[
 
 def build_run_command(
     model: str,
-    bench_name: Optional[Union[str, List[str]]] = None,
+    bench_name: str | list[str] | None = None,
     question_source: str = "huggingface",
-    api_base: Optional[str] = None,
-    api_key_name: Optional[str] = None,
-    api_key: Optional[str] = None,
-    model_display_name: Optional[str] = None,
-    max_tokens: Optional[int] = None,
-    parallel_requests: Optional[int] = None,
+    api_base: str | None = None,
+    api_key_name: str | None = None,
+    api_key: str | None = None,
+    model_display_name: str | None = None,
+    max_tokens: int | None = None,
+    parallel_requests: int | None = None,
     resume: bool = False,
     retry_failures: bool = False,
     skip_inference: bool = False,
     skip_grading: bool = False,
-    force_temperature: Optional[float] = None,
-    num_choices: Optional[int] = None,
-    question_begin: Optional[int] = None,
-    question_end: Optional[int] = None,
-    question_id: Optional[List[str]] = None,
-    livebench_release_option: Optional[str] = None,
+    force_temperature: float | None = None,
+    num_choices: int | None = None,
+    question_begin: int | None = None,
+    question_end: int | None = None,
+    question_id: list[str] | None = None,
+    livebench_release_option: str | None = None,
     stream: bool = False,
     remove_existing_judgment_file: bool = False,
+    ignore_missing_answers: bool = False,
     debug: bool = False
 ) -> str:
     """Build the command to run gen_api_answer and gen_ground_truth_judgment in sequence"""
@@ -205,7 +208,9 @@ def build_run_command(
     gen_api_cmd = f"python -u gen_api_answer.py --model {model} --question-source {question_source}"
     
     # Build gen_ground_truth_judgment command
-    gen_judge_cmd = f"python -u gen_ground_truth_judgment.py --model {model} --question-source {question_source}"
+    gen_judge_cmd = f"python -u gen_ground_truth_judgment.py --question-source {question_source}"
+    if model:
+        gen_judge_cmd += f" --model {model}"
     
     # Add bench_name to both commands
     if isinstance(bench_name, list):
@@ -232,6 +237,7 @@ def build_run_command(
         gen_api_cmd += f" --parallel {parallel_requests}"
     if resume:
         gen_api_cmd += " --resume"
+        gen_judge_cmd += " --resume"
     if retry_failures:
         gen_api_cmd += " --retry-failures"
     
@@ -247,6 +253,7 @@ def build_run_command(
     if question_id:
         question_id_str = ' '.join(question_id)
         gen_api_cmd += f" --question-id {question_id_str}"
+        gen_judge_cmd += f" --question-id {question_id_str}"
     if livebench_release_option:
         gen_api_cmd += f" --livebench-release-option {livebench_release_option}"
         gen_judge_cmd += f" --livebench-release-option {livebench_release_option}"
@@ -254,6 +261,8 @@ def build_run_command(
         gen_api_cmd += " --stream"
     if remove_existing_judgment_file:
         gen_judge_cmd += " --remove-existing-file"
+    if ignore_missing_answers:
+        gen_judge_cmd += " --ignore-missing-answers"
     
     # Add debug flag only to judgment command
     if debug:
@@ -270,10 +279,10 @@ def build_run_command(
     else:
         return f"{gen_api_cmd} && {gen_judge_cmd}"
 
-def build_run_command_from_params(params: LiveBenchParams, bench_name: Optional[str] = None) -> str:
+def build_run_command_from_params(params: LiveBenchParams, bench_name: str | None = None) -> str:
     """Build the command to run gen_api_answer and gen_ground_truth_judgment using LiveBenchParams"""
     return build_run_command(
-        model=params.model,
+        model=params.model if params.model is not None else "",
         bench_name=bench_name if bench_name else params.bench_names,
         question_source=params.question_source,
         api_base=params.api_base,
@@ -294,6 +303,7 @@ def build_run_command_from_params(params: LiveBenchParams, bench_name: Optional[
         livebench_release_option=params.livebench_release_option,
         stream=params.stream,
         remove_existing_judgment_file=params.remove_existing_judgment_file,
+        ignore_missing_answers=params.ignore_missing_answers,
         debug=params.debug
     )
 
@@ -394,7 +404,7 @@ def main():
     parser = argparse.ArgumentParser(description="Run LiveBench benchmarks with various execution modes")
     
     # Required arguments
-    parser.add_argument("--model", required=True, nargs="+", help="One or more model identifiers (e.g., gpt-4)")
+    parser.add_argument("--model", required=False, default=None, nargs="+", help="One or more model identifiers (e.g., gpt-4)")
     
     # Optional arguments
     parser.add_argument("--venv", help="Path to virtual environment to activate", default="../.venv/bin/activate")
@@ -425,22 +435,32 @@ def main():
     parser.add_argument("--stream", action="store_true", help="Enable streaming mode")
     parser.add_argument("--remove-existing-judgment-file", action="store_true", 
                       help="Remove existing judgment file before running")
+    parser.add_argument("--ignore-missing-answers", action="store_true",
+                      help="Ignore missing answers when running gen_ground_truth_judgment.py")
     parser.add_argument("--debug", action="store_true", 
                       help="Enable debug mode for gen_ground_truth_judgment.py (not passed to gen_api_answer.py)")
     
     args = parser.parse_args()
+
+    if args.model is None and not args.skip_inference:
+        raise ValueError("Model is required when performing inference")
     
     print("\nStarting LiveBench evaluation")
     print(f"Mode: {args.mode}")
-    print(f"Models: {', '.join(args.model)}")
+    if args.model:
+        print(f"Models: {', '.join(args.model)}")
     if args.bench_name:
         print(f"Benchmarks: {', '.join(args.bench_name)}")
     print(f"Question source: {args.question_source}")
     
     # Run each model in its own tmux session
-    for model in args.model:
-        # Create params for this model run
-        params = LiveBenchParams.from_args(args, model=model)
+    if args.model:
+        for model in args.model:
+            # Create params for this model run
+            params = LiveBenchParams.from_args(args, model=model)
+            run_model(params)
+    else:
+        params = LiveBenchParams.from_args(args)
         run_model(params)
 
 if __name__ == "__main__":
