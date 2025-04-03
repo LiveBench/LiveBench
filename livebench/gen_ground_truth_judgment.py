@@ -287,6 +287,11 @@ def gen_judgments(
         matches = filtered_matches
         print(f"Resume mode: Filtered out {original_match_count - len(matches)} already judged matches")
 
+    if len(matches) == 0:
+        print('No question-answer pairs found to be judged')
+        reorg_output_file(output_file)
+        return
+
     match_stat = {}
     match_stat["bench_name"] = bench_name
     match_stat["model_list"] = models
