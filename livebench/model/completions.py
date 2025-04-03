@@ -525,7 +525,21 @@ def chat_completion_perplexity(model, conv, temperature, max_tokens, api_dict=No
         max_tokens=max_tokens,
     )
 
-    return response.choices[0].message.content, response.usage.completion_tokens
+    if response is None:
+        raise Exception("No response returned from Perplexity")
+    elif response.choices is None:
+        print(response)
+        raise Exception("API request failed")
+    if isinstance(response.choices[0], str):
+        message = response.choices[0]
+    else:
+        message = response.choices[0].message.content
+    if response.usage is not None:
+        num_tokens = response.usage.completion_tokens
+    else:
+        num_tokens = None
+
+    return message, num_tokens
 
 
 @retry(
@@ -715,7 +729,7 @@ def chat_completion_cohere(model, conv, temperature, max_tokens, api_dict=None) 
     if response.text is None:
         raise Exception("No message returned from Cohere")
 
-    return response.text.strip(), response.usage.output_tokens
+    return response.text.strip(), response.meta.tokens.output_tokens
 
 
 @retry(
