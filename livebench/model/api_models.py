@@ -351,13 +351,13 @@ GOOGLE_GENERATIVEAI_MODELS = [
         api_name="gemini-2.0-flash-thinking-exp-1219",
         display_name="gemini-2.0-flash-thinking-exp-1219",
         aliases=[],
-        api_kwargs={'max_output_tokens': 65536, 'temperature': 0.7, 'top_p': 0.95, 'top_k': 64}
+        api_kwargs={'max_output_tokens': 65536, 'temperature': 0.7, 'top_p': 0.95, 'thinking_config': {'include_thoughts': True}}
     ),
     GeminiModel(
         api_name="gemini-2.0-flash-thinking-exp-01-21",
         display_name="gemini-2.0-flash-thinking-exp-01-21",
         aliases=['gemini-2.0-flash-thinking-exp'],
-        api_kwargs={'max_output_tokens': 65536, 'temperature': 0.7, 'top_p': 0.95, 'top_k': 64, 'thinking_config': {'include_thoughts': True}}
+        api_kwargs={'max_output_tokens': 65536, 'temperature': 0.7, 'top_p': 0.95, 'thinking_config': {'include_thoughts': True}}
     ),
     GeminiModel(
         api_name='gemini-2.0-pro-exp-02-05',
@@ -398,7 +398,7 @@ GOOGLE_GENERATIVEAI_MODELS = [
         api_name='gemini-2.5-pro-exp-03-25',
         display_name='gemini-2.5-pro-exp-03-25',
         aliases=['gemini-2.5-pro-exp'],
-        api_kwargs={'max_output_tokens': 65536, 'temperature': 1, 'top_p': 0.95}
+        api_kwargs={'max_output_tokens': 65536, 'temperature': 1, 'top_p': 0.95, 'thinking_config': {'include_thoughts': True}}
     )
 ]
 
