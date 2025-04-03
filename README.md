@@ -8,162 +8,156 @@
     <a href="https://arxiv.org/abs/2406.19314">📝 Paper</a> 
 </p>
 
-LiveBench will appear as a [Spotlight Paper](https://openreview.net/forum?id=sKYHBTAxVa) in ICLR 2025.
+LiveBench is a cutting-edge benchmark suite designed to evaluate Large Language Models (LLMs) with a focus on preventing test set contamination while ensuring objective and accurate evaluation. By releasing new questions monthly and incorporating recently-released datasets, LiveBench provides a dynamic and challenging environment for assessing LLM capabilities across diverse tasks.
 
-Top models as of 30th September 2024 (for a full up-to-date leaderboard, see [here](https://livebench.ai/)):
+**[Spotlight Paper at ICLR 2025](https://openreview.net/forum?id=sKYHBTAxVa)**
+
+## Latest Results
+
+Top models as of 30th September 2024 (for a full up-to-date leaderboard, see [livebench.ai](https://livebench.ai/)):
 
 ![image](assets/livebench-2024-09-30.png)
 
 Please see the [changelog](changelog.md) for details about each LiveBench release.
 
-## Table of Contents
+## Key Features
 
-- [Introduction](#introduction)
-- [Installation Quickstart](#installation-quickstart)
-- [Usage](#usage)
-- [Data](#data)
-- [Adding New Questions](#adding-new-questions)
-- [Adding New Models](#adding-new-models)
-- [Documentation](#documentation)
-- [Citation](#citation)
+- **Contamination-Free Design**: Monthly release of new questions based on recent datasets, papers, news, and media
+- **Objective Evaluation**: Verifiable ground-truth answers enable accurate scoring without LLM judges
+- **Diverse Task Categories**: 18 tasks across 6 categories:
+  - Reasoning
+  - Math
+  - Coding
+  - Language
+  - Data Analysis
+  - Instruction Following
+- **Continuous Evolution**: Regular addition of new, challenging tasks
+- **Open Participation**: We welcome and evaluate new models! [Open an issue](https://github.com/LiveBench/LiveBench/issues) or email [livebench.ai@gmail.com](mailto:livebench.ai@gmail.com)
 
-## Introduction
+## Quick Start
 
-Introducing LiveBench: a benchmark for LLMs designed with test set contamination and objective evaluation in mind.
-
-LiveBench has the following properties:
-
-* LiveBench is designed to limit potential contamination by releasing new questions monthly, as well as having questions based on recently-released datasets, arXiv papers, news articles, and IMDb movie synopses.
-* Each question has verifiable, objective ground-truth answers, allowing hard questions to be scored accurately and automatically, without the use of an LLM judge.
-* LiveBench currently contains a set of 18 diverse tasks across 6 categories, and we will release new, harder tasks over time.
-
-**We will evaluate your model!** Open an [issue](https://github.com/LiveBench/LiveBench/issues) or email us at [livebench.ai@gmail.com](mailto:livebench.ai@gmail.com)!
-
-## Installation Quickstart
-
-Tested on Python 3.10.
-
-We recommend using a virtual environment to install LiveBench.
+1. **Setup Environment**
 ```bash
 python -m venv .venv
 source .venv/bin/activate
+cd LiveBench
 ```
 
-To generate answers with API models (i.e. with `gen_api_answer.py`), conduct judgments, and show results:
-
+2. **Install LiveBench**
 ```bash
-cd LiveBench
+# For API models and basic usage:
 pip install -e .
-```
 
-To do all of the above and also generate answers with local GPU inference on open source models (i.e. with gen_model_answer.py):
-```bash
-cd LiveBench
+# For local GPU inference support:
 pip install -e .[flash_attn]
 ```
 
-**Note about fschat**: The fschat package version on pip (i.e., [lmsys/fastchat](https://github.com/lm-sys/FastChat)) is currently out of date, so we strongly recommend `pip uninstall fschat` before running the above, since it will then automatically install a more recent commit of fastchat.
-
-Our repo is adapted from FastChat's excellent [llm_judge](https://github.com/lm-sys/FastChat/tree/main/fastchat/llm_judge) module, and it also contains code from [LiveCodeBench](https://github.com/LiveCodeBench/LiveCodeBench) and [IFEval](https://github.com/Rohan2002/IFEval?tab=readme-ov-file).
-
-## Usage
-
+3. **Run Evaluation**
 ```bash
-cd livebench
+# Basic usage with API model
+python run_livebench.py --model gpt-4o --bench-name live_bench/coding
+
+# View results
+python show_livebench_result.py --bench-name live_bench/coding --model-list gpt-4o
 ```
+
+## Detailed Installation Guide
+
+### Prerequisites
+- Python 3.10
+- Virtual environment (recommended)
+- For local GPU inference: CUDA-compatible GPU
+
+### Important Notes
+- **FastChat Package**: The pip version of `fschat` may be outdated. Run `pip uninstall fschat` before installation to ensure the correct version is installed.
+- **Dependencies**: The installation includes all necessary dependencies for your chosen setup (API-only or full GPU support).
+- **GPU Support**: The `flash_attn` extra is only needed if you plan to run models locally on GPU.
+
+## Usage Guide
 
 ### Running Evaluations
 
-The simplest way to run LiveBench inference and scoring is using the `run_livebench.py` script, which handles the entire evaluation pipeline including generating answers, scoring them, and showing results.
-
-Basic usage:
+#### Basic Usage
 ```bash
-python run_livebench.py --model gpt-4o --bench-name live_bench/coding
+python run_livebench.py --model <model-name> --bench-name <benchmark>
 ```
 
-Some common options:
-- `--bench-name`: Specify which subset of questions to use (e.g. `live_bench` for all questions, `live_bench/coding` for coding tasks only)
-- `--model`: The model to evaluate
-- `--max-tokens`: Maximum number of tokens in model responses
-- `--api-base`: Custom API endpoint for OpenAI-compatible servers
-- `--api-key-name`: Environment variable name containing the API key (defaults to OPENAI_API_KEY for OpenAI models)
-- `--parallel-requests`: Number of concurrent API requests (for models with high rate limits)
-- `--resume`: Continue from a previous interrupted run
-- `--retry-failures`: Retry questions that failed in previous runs
+#### Common Options
+- `--bench-name`: Select benchmark subset (e.g., `live_bench/coding`)
+- `--model`: Model to evaluate
+- `--max-tokens`: Response token limit
+- `--api-base`: Custom API endpoint
+- `--api-key-name`: API key environment variable
+- `--parallel-requests`: Concurrent API request limit
+- `--resume`: Continue interrupted runs
+- `--retry-failures`: Retry failed questions
 
-Run `python run_livebench.py --help` to see all available options.
+### Parallel Evaluation Strategies
 
-When this is finished, follow along with [Viewing Results](#viewing-results) to view results.
-
-#### Parallel Evaluation Options
-
-LiveBench provides two different arguments for parallelizing evaluations, which can be used independently or together:
-
-- `--mode parallel`: Runs separate tasks/categories in parallel by creating multiple tmux sessions. Each category or task runs in its own terminal session, allowing simultaneous evaluation across different benchmark subsets. This also parallelizes the ground truth evaluation phase.
-
-- `--parallel-requests`: Sets the number of concurrent questions to be answered within a single task evaluation instance. This controls how many API requests are made simultaneously for a specific task.
-
-**When to use which option:**
-
-- **For high rate limits (e.g., commercial APIs with high throughput):**
-  - Use both options together for maximum throughput when evaluating the full benchmark.
-  - For example: `python run_livebench.py --model gpt-4o --bench-name live_bench --mode parallel --parallel-requests 10`
-
-- **For lower rate limits:**
-  - When running the entire LiveBench suite, `--mode parallel` is recommended to parallelize across categories, even if `--parallel-requests` must be kept low.
-  - For small subsets of tasks, `--parallel-requests` may be more efficient as the overhead of creating multiple tmux sessions provides less benefit.
-  - Example for lower rate limits on full benchmark: `python run_livebench.py --model claude-3-5-sonnet --bench-name live_bench --mode parallel --parallel-requests 2`
-
-- **For single task evaluation:**
-  - When running just one or two tasks, use only `--parallel-requests`: `python run_livebench.py --model gpt-4o --bench-name live_bench/coding --parallel-requests 10`
-
-Note that `--mode parallel` requires tmux to be installed on your system. The number of tmux sessions created will depend on the number of categories or tasks being evaluated.
-
-### Local Model Evaluation
-
-For running evaluations with local models, you'll need to use the `gen_model_answer.py` script:
+#### High Throughput Setup
+For APIs with high rate limits:
 ```bash
-python gen_model_answer.py --model-path <path-to-model> --model-id <model-id> --bench-name <bench-name>
+python run_livebench.py --model gpt-4o --bench-name live_bench --mode parallel --parallel-requests 10
 ```
-`<path-to-model>` should be either a path to a local model weight folder or a HuggingFace repo ID. `<model-id>` will be the name of the model on the leaderboard.
 
-Note: The `gen_model_answer.py` script is currently unmaintained. For local model evaluation, we recommend using a service like vLLM to create an OpenAI-compatible server endpoint, which can then be used with `run_livebench.py` by specifying the `--api-base` parameter.
-
-Other arguments for local evaluation are optional, but you may want to set `--num-gpus-per-model` and `--num-gpus-total` to match your available GPUs, and `--dtype` to match your model weights.
-
-Run `python gen_model_answer.py --help` for more details.
+#### Limited Rate Setup
+For APIs with lower limits:
+```bash
+python run_livebench.py --model claude-3-5-sonnet --bench-name live_bench --mode parallel --parallel-requests 2
+```
 
 ### Viewing Results
 
-You can view the results of your evaluations using the `show_livebench_result.py` script:
-
+Display evaluation results with detailed breakdowns:
 ```bash
-python show_livebench_result.py --bench-name <bench-name> --model-list <model-list> --question-source <question-source>
-```
-
-`<model-list>` is a space-separated list of model IDs to show. For example, to show the results of gpt-4o and claude-3-5-sonnet on coding tasks, run:
-```bash
+# Show specific models
 python show_livebench_result.py --bench-name live_bench/coding --model-list gpt-4o claude-3-5-sonnet
-```
 
-Multiple `--bench-name` values can be provided to see scores on specific subsets of benchmarks:
-```bash
+# Compare across categories
 python show_livebench_result.py --bench-name live_bench/coding live_bench/math --model-list gpt-4o
 ```
 
-If no `--model-list` argument is provided, all models will be shown. The `--question-source` argument defaults to `huggingface` but should match what was used during evaluation.
+Results are saved in:
+- `all_groups.csv`: Category-wise breakdown
+- `all_tasks.csv`: Task-wise breakdown
 
-The leaderboard will be displayed in the terminal. You can also find the breakdown by category in `all_groups.csv` and by task in `all_tasks.csv`.
+## Troubleshooting
 
-### Error Checking
+### Common Issues
 
-The `scripts/error_check` script will print out questions for which a model's output is `$ERROR$`, which indicates repeated API call failures.
-You can use the `scripts/rerun_failed_questions.py` script to rerun the failed questions, or run `run_livebench.py` as normal with the `--resume` and `--retry-failures` arguments.
+1. **API Errors**
+   - Check rate limits and adjust `--parallel-requests`
+   - Verify API key and endpoint configuration
+   - Use `--mode single` for more stable execution
 
-By default, LiveBench will retry API calls three times and will include a delay in between attempts to account for rate limits. If the errors seen during evaluation are due to rate limits, nonetheless, you may need to switch to `--mode single` or `--mode sequential` and decrease the value of `--parallel-requests`. If after multiple attempts, the model's output is still `$ERROR$`, it's likely that the question is triggering some content filter from the model's provider (Gemini models are particularly prone to this, with an error of `RECITATION`). In this case, there is not much that can be done. We consider such failures to be incorrect responses.
+2. **Content Filter Blocks**
+   - Some models (especially Gemini) may block certain questions
+   - Failed responses are marked as incorrect
+   - Use `scripts/error_check` to identify blocked questions
 
-## Data
-The questions for each of the categories can be found below:
+3. **Resource Usage**
+   - Monitor GPU memory for local inference
+   - Adjust batch sizes if needed
+   - Consider using API endpoints for large models
+
+### Error Recovery
+
+1. Check failed questions:
+```bash
+python scripts/error_check
+```
+
+2. Retry failed evaluations:
+```bash
+python scripts/rerun_failed_questions.py
+# or
+python run_livebench.py --resume --retry-failures
+```
+
+## Data Access
+
+### Question Datasets
+Access task-specific questions on HuggingFace:
 - [Reasoning](https://huggingface.co/datasets/livebench/reasoning)
 - [Math](https://huggingface.co/datasets/livebench/math)
 - [Coding](https://huggingface.co/datasets/livebench/coding)
@@ -171,59 +165,54 @@ The questions for each of the categories can be found below:
 - [Data Analysis](https://huggingface.co/datasets/livebench/data_analysis)
 - [Instruction Following](https://huggingface.co/datasets/livebench/instruction_following)
 
-Also available are the [model answers](https://huggingface.co/datasets/livebench/model_answer) and the [model judgments](https://huggingface.co/datasets/livebench/model_judgment).
+Additional resources:
+- [Model Answers](https://huggingface.co/datasets/livebench/model_answer)
+- [Model Judgments](https://huggingface.co/datasets/livebench/model_judgment)
 
-To download the `question.jsonl` files (for inspection) and answer/judgment files from the leaderboard, use
+### Download Data
 ```bash
+# Get questions
 python download_questions.py
+
+# Get leaderboard data
 python download_leaderboard.py
 ```
 
-Questions will be downloaded to `livebench/data/<category>/question.jsonl`.
+## Extending LiveBench
 
-## Evaluating New Questions
-If you want to create your own set of questions, or try out different prompts, etc, follow these steps:
+### Adding New Questions
 
-- Create a `question.jsonl` file with the following path (or, run `python download_questions.py` and update the downloaded file): `livebench/data/live_bench/<category>/<task>/question.jsonl`. For example, `livebench/data/reasoning/web_of_lies_new_prompt/question.jsonl`. Here is an example of the format for `question.jsonl` (it's the first few questions from [web_of_lies_v2](https://huggingface.co/datasets/livebench/reasoning)):
-
-```jsonl
-{"question_id": "0daa7ca38beec4441b9d5c04d0b98912322926f0a3ac28a5097889d4ed83506f", "category": "reasoning", "ground_truth": "no, yes, yes", "turns": ["In this question, assume each person either always tells the truth or always lies. Tala is at the movie theater. The person at the restaurant says the person at the aquarium lies. Ayaan is at the aquarium. Ryan is at the botanical garden. The person at the park says the person at the art gallery lies. The person at the museum tells the truth. Zara is at the museum. Jake is at the art gallery. The person at the art gallery says the person at the theater lies. Beatriz is at the park. The person at the movie theater says the person at the train station lies. Nadia is at the campground. The person at the campground says the person at the art gallery tells the truth. The person at the theater lies. The person at the amusement park says the person at the aquarium tells the truth. Grace is at the restaurant. The person at the aquarium thinks their friend is lying. Nia is at the theater. Kehinde is at the train station. The person at the theater thinks their friend is lying. The person at the botanical garden says the person at the train station tells the truth. The person at the aquarium says the person at the campground tells the truth. The person at the aquarium saw a firetruck. The person at the train station says the person at the amusement park lies. Mateo is at the amusement park. Does the person at the train station tell the truth? Does the person at the amusement park tell the truth? Does the person at the aquarium tell the truth? Think step by step, and then put your answer in **bold** as a list of three words, yes or no (for example, **yes, no, yes**). If you don't know, guess."], "task": "web_of_lies_v2"}
+1. Create `question.jsonl` in appropriate directory:
+```
+livebench/data/live_bench/<category>/<task>/question.jsonl
 ```
 
-- If adding a new task, create a new scoring method in the `process_results` folder. If it is similar to an existing task, you can copy that task's scoring function. For example, `livebench/process_results/reasoning/web_of_lies_new_prompt/utils.py` can be a copy of the `web_of_lies_v2` scoring method.
-- Add the scoring function to `gen_ground_truth_judgment.py` [here](https://github.com/LiveBench/LiveBench/blob/93e3a7d4fa5bb164ef4cb58f67683e4e54554af9/livebench/gen_ground_truth_judgment.py#L124).
-
-- Run and score models using `--question-source jsonl` and specifying your task. For example: 
-```bash 
-python gen_api_answer.py --bench-name live_bench/reasoning/web_of_lies_new_prompt --model claude-3-5-sonnet --question-source jsonl
-python gen_ground_truth_judgment.py --bench-name live_bench/reasoning/web_of_lies_new_prompt --question-source jsonl
-python show_livebench_result.py --bench-name live_bench/reasoning/web_of_lies_new_prompt
+2. Implement scoring method in `process_results` folder
+3. Update `gen_ground_truth_judgment.py`
+4. Test with:
+```bash
+python gen_api_answer.py --bench-name live_bench/<category>/<task> --model <model> --question-source jsonl
+python gen_ground_truth_judgment.py --bench-name live_bench/<category>/<task> --question-source jsonl
+python show_livebench_result.py --bench-name live_bench/<category>/<task>
 ```
 
-## Evaluating New Models
+### Adding New Models
 
-As discussed above, local model models can be evaluated with `gen_model_answer.py`.
+#### For OpenAI-Compatible APIs
+Use `run_livebench.py` with `--api-base` parameter
 
-API-based models with an OpenAI-compatible API can be evaluated with `gen_api_answer.py` by setting the `--api-base` argument.
-
-For other models, it will be necessary to update several files depending on the model.
-
-Models for which there is already an API implementation in LiveBench (e.g. OpenAI, Anthropic, Mistral, Google, Amazon, etc.) can be added simply by adding a new entry in `api_models.py`, using the appropriate `Model` subclass (e.g. `OpenAIModel`, `AnthropicModel`, `MistralModel`, `GoogleModel`, `AmazonModel`, etc.).
-
-For other models:
-
-1. Implement a new completion function in `model/completions.py`. This function should take a `Model`, `Conversation`, `temperature`, `max_tokens`, and `kwargs` as arguments, and return a tuple of `(response, tokens_consumed)` after calling the model's API.
-2. If necessary, implement a new `ModelAdapter` in `model/model_adapter.py`. This class should implement the `BaseModelAdapter` interface. For many models, existing adapters (such as `ChatGPTAdapter`) will work.
-3. Add a new `Model` entry in `model/api_models.py`. This will have the form `Model(api_name=<api_name>, display_name=<display_name>, aliases=[], adapter=<model_adapter>, api_function=<api_function>)`. Make sure to add the new model to the `ALL_MODELS` list. Note: if your new model uses an OpenAI-compatible API, you can use a lambda function for api_function that just called `chat_completion_openai` with the api_dict bound to your desired API base URL and API key.
-
-You should now be able to evaluate the model with `gen_api_answer.py` or other scripts as normal.
+#### For Other APIs
+1. Implement completion function in `model/completions.py`
+2. Add model adapter in `model/model_adapter.py` if needed
+3. Add model entry in `model/api_models.py`
 
 ## Documentation
-Here, we describe our dataset documentation. This information is also available in our paper.
+
+Detailed documentation available in:
 - [Author Responsibility](docs/AUTHOR_RESPONSIBILITY.md)
 - [Code of Conduct](docs/CODE_OF_CONDUCT.md)
 - [Contributing](docs/CONTRIBUTING.md)
-- [Datasheet for LiveBench](docs/DATASHEET.md)
+- [Datasheet](docs/DATASHEET.md)
 - [Maintenance Plan](docs/MAINTENANCE_PLAN.md)
 
 ## Citation
