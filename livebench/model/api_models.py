@@ -277,7 +277,7 @@ TOGETHER_MODELS = [
     ),
     DeepseekModel(
         api_name="deepseek-ai/DeepSeek-R1", display_name='deepseek-r1', api_function=chat_completion_together,
-        aliases=[], api_kwargs={'temperature': 0.7, 'max_tokens': 20000}
+        aliases=[], api_kwargs={'temperature': 0.7, 'max_tokens': 64000}
     ),
     DeepseekModel(api_name="deepseek-ai/deepseek-v3", display_name="deepseek-v3-0324", aliases=[], api_function=chat_completion_together),
     DeepseekModel(
@@ -334,9 +334,9 @@ GOOGLE_GENERATIVEAI_MODELS = [
     GeminiModel(api_name="gemini-exp-1114", display_name="gemini-exp-1114", aliases=[]),
     GeminiModel(api_name="gemini-exp-1121", display_name="gemini-exp-1121", aliases=[]),
     GeminiModel(
-        api_name="gemini-1.5-flash-8b-exp-0924",
-        display_name="gemini-1.5-flash-8b-exp-0924",
-        aliases=[],
+        api_name="gemini-1.5-flash-8b-001",
+        display_name="gemini-1.5-flash-8b-001",
+        aliases=['gemini-1.5-flash-8b'],
     ),
     GeminiModel(
         api_name="learnlm-1.5-pro-experimental",
@@ -389,6 +389,16 @@ GOOGLE_GENERATIVEAI_MODELS = [
         api_name='gemma-3-27b-it',
         display_name='gemma-3-27b-it',
         aliases=['gemma-3-27b']
+    ),
+    GeminiModel(
+        api_name='gemma-3-12b-it',
+        display_name='gemma-3-12b-it',
+        aliases=['gemma-3-12b']
+    ),
+    GeminiModel(
+        api_name='gemma-3-4b-it',
+        display_name='gemma-3-4b-it',
+        aliases=['gemma-3-4b']
     ),
     GeminiModel(
         api_name='gemini-2.5-pro-exp-03-25',
@@ -467,6 +477,11 @@ COHERE_MODELS = [
         display_name="command-r-plus-08-2024",
         aliases=[],
     ),
+    CohereModel(
+        api_name="command-a-03-2025", 
+        display_name="command-a-03-2025",
+        aliases=[],
+    )
 ]
 
 # Deepseek Models
