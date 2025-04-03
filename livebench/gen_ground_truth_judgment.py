@@ -31,7 +31,6 @@ from livebench.process_results.writing.typos.utils import typos_process_results
 from livebench.process_results.writing.connections.utils import get_connections_puzzle_evaluator
 from livebench.process_results.coding.utils import LCB_generation_process_results
 from livebench.process_results.instruction_following.utils import instruction_following_process_results
-from livebench.process_results.reasoning.temporal.utils import temporal_process_results
 from livebench.process_results.reasoning.web_of_lies_v3.utils import web_of_lies_v3_process_results
 from livebench.common import (
     LIVE_BENCH_RELEASES,
@@ -133,9 +132,6 @@ def play_a_match_gt(match: MatchSingle, output_file: str, debug=False):
             category = "reasoning"
         elif task_or_subtask == "spatial":
             score = spatial_process_results(ground_truth, llm_answer, debug)
-            category = "reasoning"
-        elif task_or_subtask == "temporal":
-            score = temporal_process_results(ground_truth, llm_answer, debug)
             category = "reasoning"
         elif task_or_subtask == 'typos':
             score = typos_process_results(ground_truth, llm_answer, debug)
