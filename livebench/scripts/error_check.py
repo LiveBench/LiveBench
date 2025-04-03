@@ -3,13 +3,14 @@ import json
 import argparse
 from collections import defaultdict
 
-def check_errors(bench_names: list[str] | None =None):
+def check_errors(bench_names: list[str] | None = None, model_names: list[str] | None = None):
     """
     Check for errors in model answer files and display them in a nicely formatted way,
     grouped by model and file.
     
     Args:
         bench_names: List of benchmark names to check. If None, check all benchmarks.
+        model_names: List of model names to check. If None, check all models.
     """
     
     # Navigate to the data directory
@@ -42,8 +43,13 @@ def check_errors(bench_names: list[str] | None =None):
         
         # Process all JSONL files in the model_answer directory
         for json_file in [f for f in os.listdir(model_dir) if f.endswith('.jsonl')]:
-            file_path = os.path.join(model_dir, json_file)
             model_name = json_file.replace('.jsonl', '')
+            
+            # Skip if model_names is specified and this model is not in the list
+            if model_names and model_name.lower() not in [model.lower() for model in model_names]:
+                continue
+                
+            file_path = os.path.join(model_dir, json_file)
             
             # Read the file and check for errors
             with open(file_path, 'r') as f:
@@ -126,6 +132,7 @@ def check_errors(bench_names: list[str] | None =None):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Check for errors in model answer files.")
     parser.add_argument('--bench-name', nargs="+", help="Only check specific benchmark directories within data/live_bench/")
+    parser.add_argument('--model', nargs="+", help="Only check specific model files (without .jsonl extension)")
     args = parser.parse_args()
     
-    check_errors(args.bench_name)
+    check_errors(args.bench_name, args.model)
