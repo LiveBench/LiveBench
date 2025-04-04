@@ -1,0 +1,39 @@
+# Qwen Models
+---
+display_name: qwen2.5-7b-instruct-turbo
+api_name:
+  together: Qwen/Qwen2.5-7B-Instruct-Turbo
+aliases:
+  - qwen2.5-7b-instruct
+---
+display_name: qwen2.5-72b-instruct-turbo
+api_name:
+  together: Qwen/Qwen2.5-72B-Instruct-Turbo
+aliases:
+  - qwen2.5-72b-instruct
+---
+display_name: qwen2.5-coder-32b-instruct
+api_name:
+  together: Qwen/Qwen2.5-Coder-32B-Instruct
+aliases:
+  - qwen2.5-coder-32b-instruct
+---
+display_name: qwq-32b-preview
+api_name:
+  together: Qwen/QwQ-32B-Preview
+api_kwargs:
+  max_tokens: 16000
+  temperature: 0.7
+  top_p: 0.95
+---
+display_name: qwq-32b
+api_name:
+  together: Qwen/QwQ-32B
+api_kwargs:
+  max_tokens: 31000
+  temperature: 0.7
+  top_p: 0.95
+---
+display_name: qwen2.5-max
+api_name:
+  alibaba: qwen-max-2025-01-25

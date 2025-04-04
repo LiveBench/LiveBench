@@ -1,0 +1,25 @@
+# AWS Models
+---
+display_name: amazon.nova-micro-v1:0
+api_name:
+  aws: amazon.nova-micro-v1:0
+---
+display_name: amazon.nova-micro-v1:0:128k
+api_name:
+  aws: amazon.nova-micro-v1:0:128k
+---
+display_name: amazon.nova-lite-v1:0
+api_name:
+  aws: amazon.nova-lite-v1:0
+---
+display_name: amazon.nova-lite-v1:0:300k
+api_name:
+  aws: amazon.nova-lite-v1:0:300k
+---
+display_name: amazon.nova-pro-v1:0
+api_name:
+  aws: amazon.nova-pro-v1:0
+---
+display_name: amazon.nova-pro-v1:0:300k
+api_name:
+  aws: amazon.nova-pro-v1:0:300k

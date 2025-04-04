@@ -1,0 +1,160 @@
+# OpenAI Models
+---
+display_name: gpt-4o-2024-11-20
+api_name:
+  openai: gpt-4o-2024-11-20
+aliases:
+  - gpt-4o
+---
+display_name: chatgpt-4o-latest-2025-03-27
+api_name:
+  openai: chatgpt-4o-latest
+aliases:
+  - chatgpt-4o-latest
+---
+display_name: gpt-3.5-turbo
+api_name:
+  openai: gpt-3.5-turbo
+---
+display_name: gpt-3.5-turbo-1106
+api_name:
+  openai: gpt-3.5-turbo-1106
+---
+display_name: gpt-3.5-turbo-0125
+api_name:
+  openai: gpt-3.5-turbo-0125
+---
+display_name: gpt-4
+api_name:
+  openai: gpt-4
+---
+display_name: gpt-4-0314
+api_name:
+  openai: gpt-4-0314
+---
+display_name: gpt-4-0613
+api_name:
+  openai: gpt-4-0613
+---
+display_name: gpt-4-turbo
+api_name:
+  openai: gpt-4-turbo
+---
+display_name: gpt-4-turbo-2024-04-09
+api_name:
+  openai: gpt-4-turbo-2024-04-09
+---
+display_name: gpt-4-1106-preview
+api_name:
+  openai: gpt-4-1106-preview
+---
+display_name: gpt-4-0125-preview
+api_name:
+  openai: gpt-4-0125-preview
+---
+display_name: gpt-4o-2024-05-13
+api_name:
+  openai: gpt-4o-2024-05-13
+---
+display_name: gpt-4o-mini-2024-07-18
+api_name:
+  openai: gpt-4o-mini-2024-07-18
+aliases:
+  - gpt-4o-mini
+---
+display_name: gpt-4o-2024-08-06
+api_name:
+  openai: gpt-4o-2024-08-06
+---
+display_name: gpt-4.5-preview-2025-02-27
+api_name:
+  openai: gpt-4.5-preview-2025-02-27
+aliases:
+  - gpt-4.5-preview
+---
+display_name: o1-mini-2024-09-12
+api_name:
+  openai: o1-mini-2024-09-12
+aliases:
+  - o1-mini
+api_kwargs:
+  temperature: null
+  max_completion_tokens: null
+---
+display_name: o1-preview-2024-09-12
+api_name:
+  openai: o1-preview-2024-09-12
+aliases:
+  - o1-preview
+api_kwargs:
+  temperature: null
+  max_completion_tokens: null
+---
+display_name: o1-2024-12-17-high
+api_name:
+  openai: o1-2024-12-17
+aliases:
+  - o1
+  - o1-high
+  - o1-2024-12-17
+api_kwargs:
+  temperature: null
+  max_completion_tokens: null
+---
+display_name: o1-2024-12-17-low
+api_name:
+  openai: o1-2024-12-17
+aliases:
+  - o1-low
+api_kwargs:
+  temperature: null
+  max_completion_tokens: null
+---
+display_name: o1-2024-12-17-medium
+api_name:
+  openai: o1-2024-12-17
+aliases:
+  - o1-medium
+api_kwargs:
+  temperature: null
+  max_completion_tokens: null
+---
+display_name: o3-mini-2025-01-31-high
+api_name:
+  openai: o3-mini-2025-01-31
+aliases:
+  - o3-mini-high
+  - o3-mini
+  - o3-mini-2025-01-31
+api_kwargs:
+  temperature: null
+  max_completion_tokens: null
+---
+display_name: o3-mini-2025-01-31-low
+api_name:
+  openai: o3-mini-2025-01-31
+aliases:
+  - o3-mini-low
+api_kwargs:
+  temperature: null
+  max_completion_tokens: null
+---
+display_name: o3-mini-2025-01-31-medium
+api_name:
+  openai: o3-mini-2025-01-31
+aliases:
+  - o3-mini-medium
+api_kwargs:
+  temperature: null
+  max_completion_tokens: null
+---
+display_name: o1-pro-2025-03-19
+api_name:
+  openai: o1-pro-2025-03-19
+aliases:
+  - o1-pro
+responses_api: true
+api_kwargs:
+  temperature: null
+  max_completion_tokens: null
+  reasoning_effort: high

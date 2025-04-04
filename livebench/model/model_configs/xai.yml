@@ -1,0 +1,9 @@
+# XAI Models
+---
+display_name: grok-beta
+api_name:
+  xai: grok-beta
+---
+display_name: grok-2-1212
+api_name:
+  xai: grok-2-1212

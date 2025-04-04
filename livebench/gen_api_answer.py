@@ -22,14 +22,15 @@ from livebench.common import (
     LIVE_BENCH_DATA_SUPER_PATH,
     filter_questions
 )
-from livebench.model.completions import chat_completion_openai
+from livebench.model.completions import get_api_function
 
-from livebench.model import Model, get_model
+from livebench.model.api_model_config import get_model_config
 
 
 def get_answer(
     question: dict,
-    model: Model,
+    model: str,
+    model_display_name_override: str | None = None,
     num_choices: int,
     max_tokens: int,
     answer_file: str,
@@ -43,6 +44,7 @@ def get_answer(
     Args:
         question: At minimum, a dictionary with a key 'turns' that maps to a list of messages in the conversation, the last of which should ask the question.
         model: The API name for the model (e.g. gpt-4o-mini or claude-3-5-sonnet-20240620)
+        model_display_name_override: The display name for the model (e.g. gpt-4o-mini or claude-3-5-sonnet-20240620)
         num_choices: The number of model outputs to generate for each question
         max_tokens: The maximum number of tokens for each model response
         answer_file: The path to the file in which to write answers
@@ -59,27 +61,44 @@ def get_answer(
     else:
         temperature = 0
 
+    model_config = get_model_config(model)
+
     choices = []
     total_num_tokens = 0
     for i in range(num_choices):
-        conv = model.adapter.get_default_conv_template(model.api_name)
+        messages = []
 
         turns = []
         for j in range(len(question["turns"])):
-            conv.append_message(conv.roles[0], question["turns"][j])
-            conv.append_message(conv.roles[1], None)
+            messages.append({"role": "user", "content": question["turns"][j]})
 
             if api_dict is not None:
-                output, num_tokens = chat_completion_openai(
-                    model, conv, temperature, max_tokens, api_dict=api_dict, stream=stream
+                output, num_tokens = get_api_function('local')(
+                    model=model_config.display_name,
+                    messages=messages,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    model_api_kwargs=model_config.api_kwargs,
+                    api_dict=api_dict,
+                    stream=stream
                 )
             else:
-                assert model.api_function is not None
-                output, num_tokens = model.api_function(
-                    model, conv, temperature, max_tokens, api_dict=api_dict
+                if model_config.default_provider == 'local' or (len(model_config.api_name) == 1 and list(model_config.api_name.keys())[0] == 'local'):
+                    raise ValueError("Missing API dict for local model")
+                if len(model_config.api_name) > 1 and not model_config.default_provider:
+                    raise ValueError("Missing default provider " + model_config.display_name)
+                provider_name = model_config.default_provider if model_config.default_provider else list(model_config.api_name.keys())[0]
+                output, num_tokens = get_api_function(provider_name)(
+                    model=model_config.api_name[provider_name],
+                    messages=messages,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    model_api_kwargs=model_config.api_kwargs,
+                    api_dict=api_dict,
+                    stream=stream
                 )
 
-            conv.update_last_message(output)
+            messages.append({"role": "assistant", "content": output})
             turns.append(output)
             total_num_tokens += num_tokens
 
@@ -89,7 +108,7 @@ def get_answer(
     ans = {
         "question_id": question["question_id"],
         "answer_id": shortuuid.uuid(),
-        "model_id": model.display_name,
+        "model_id": model_display_name_override if model_display_name_override else model_config.display_name,
         "choices": choices,
         "tstamp": time.time(),
         "total_output_tokens": total_num_tokens,
@@ -103,7 +122,8 @@ def get_answer(
 def run_questions(
     parallel,
     questions: list[dict],
-    model: Model,
+    model: str,
+    model_display_name_override: str | None = None,
     num_choices: int,
     max_tokens: int,
     answer_file: str,
@@ -116,7 +136,7 @@ def run_questions(
 
     Args:
         questions: The list of questions.
-        model: The API name for the model (e.g. gpt-4o-mini or claude-3-5-sonnet-20240620)
+        model: The display name for the model (e.g. gpt-4o-mini or claude-3-5-sonnet-20240620) or an alias
         num_choices: The number of model outputs to generate for each question
         max_tokens: The maximum number of tokens for each model response
         answer_file: The path to the file in which to write answers
@@ -128,6 +148,7 @@ def run_questions(
             get_answer(
                 question,
                 model,
+                model_display_name_override,
                 num_choices,
                 max_tokens,
                 answer_file,
@@ -146,6 +167,7 @@ def run_questions(
                     get_answer,
                     question,
                     model,
+                    model_display_name_override,
                     num_choices,
                     max_tokens,
                     answer_file,
@@ -252,12 +274,6 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    model = get_model(args.model)
-
-    if args.model_display_name is not None:
-        model_dict = model.__dict__
-        model_dict["display_name"] = args.model_display_name
-        model = type(model)(**model_dict)
 
     if args.livebench_release_option not in LIVE_BENCH_RELEASES:
         raise ValueError(f"Bad release {args.livebench_release_option}.")
@@ -278,6 +294,9 @@ if __name__ == "__main__":
     else:
         api_dict = None
 
+    model_config = get_model_config(args.model)
+    model_display_name = args.model_display_name if args.model_display_name else model_config.display_name
+
     if args.question_source == "huggingface":
         categories, tasks = get_categories_tasks(args.bench_name)
 
@@ -297,7 +316,7 @@ if __name__ == "__main__":
                     f"{LIVE_BENCH_DATA_SUPER_PATH}/{category_name}/{task_name}"
                 )
                 answer_file = (
-                    f"data/{task_full_name}/model_answer/{model.display_name}.jsonl"
+                    f"data/{task_full_name}/model_answer/{model_display_name}.jsonl"
                 )
 
                 questions = filter_questions(questions, answer_file, args.resume, args.retry_failures)
@@ -308,7 +327,8 @@ if __name__ == "__main__":
                 run_questions(
                     parallel=args.parallel,
                     questions=questions,
-                    model=model,
+                    model=args.model,
+                    model_display_name_override=model_display_name,
                     num_choices=args.num_choices,
                     max_tokens=args.max_tokens,
                     answer_file=answer_file,
@@ -340,7 +360,7 @@ if __name__ == "__main__":
             questions = questions[args.question_begin:args.question_end]
 
             bench_name = os.path.dirname(question_file).replace("data/", "")
-            answer_file = f"data/{bench_name}/model_answer/{model.display_name}.jsonl"
+            answer_file = f"data/{bench_name}/model_answer/{model_display_name}.jsonl"
 
             questions = filter_questions(questions, answer_file, args.resume, args.retry_failures)
                     
@@ -350,7 +370,8 @@ if __name__ == "__main__":
             run_questions(
                 parallel=args.parallel,
                 questions=questions,
-                model=model,
+                model=args.model,
+                model_display_name_override=model_display_name,
                 num_choices=args.num_choices,
                 max_tokens=args.max_tokens,
                 answer_file=answer_file,

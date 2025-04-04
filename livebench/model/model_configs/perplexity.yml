@@ -1,0 +1,17 @@
+# Perplexity Models
+---
+display_name: sonar
+api_name:
+  perplexity: sonar
+---
+display_name: sonar-pro
+api_name:
+  perplexity: sonar-pro
+---
+display_name: sonar-reasoning
+api_name:
+  perplexity: sonar-reasoning
+---
+display_name: sonar-reasoning-pro
+api_name:
+  perplexity: sonar-reasoning-pro
