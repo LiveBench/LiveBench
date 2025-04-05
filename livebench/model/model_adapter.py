@@ -1674,6 +1674,20 @@ class Llama3Adapter(BaseModelAdapter):
     def get_default_conv_template(self, model_path: str) -> Conversation:
         return get_conv_template("llama-3")
 
+
+class Llama4Adapter(BaseModelAdapter):
+    """The model adapter for Llama-3 (e.g., meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8)"""
+
+    def match(self, model_path: str):
+        return "llama-4" in model_path.lower()
+
+    def load_model(self, model_path: str, from_pretrained_kwargs: dict):
+        raise NotImplementedError()
+
+    def get_default_conv_template(self, model_path: str) -> Conversation:
+        return get_conv_template("chatgpt")
+
+
 class CuteGPTAdapter(BaseModelAdapter):
     """The model adapter for CuteGPT"""
 

@@ -4,8 +4,9 @@ from livebench.model.completions import chat_completion_openai
 from livebench.model.model_adapter import get_model_adapter
 from livebench.model.models import (AnthropicModel, AWSModel, CohereModel,
                                     DeepseekModel, GeminiModel, GemmaModel,
-                                    LlamaModel, MistralModel, Model,
-                                    NvidiaModel, OpenAIModel, OpenAIResponsesModel, PerplexityModel,
+                                    Llama4Model, LlamaModel, MistralModel,
+                                    Model, NvidiaModel, OpenAIModel,
+                                    OpenAIResponsesModel, PerplexityModel,
                                     QwenModel, QwenModelAlibabaAPI, XAIModel)
 
 if sys.version_info >= (3, 9):
@@ -211,6 +212,11 @@ INFERENCE_OPENAI_MODELS = [
 
 # Together Models
 TOGETHER_MODELS = [
+    Llama4Model(
+        api_name="meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8",
+        display_name="Llama-4-Maverick-17B-128E-Instruct",
+        aliases=[],
+    ),
     LlamaModel(
         api_name="meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo",
         display_name="meta-llama-3.1-405b-instruct-turbo",
@@ -502,6 +508,7 @@ ALL_MODELS = (
     + MISTRAL_MODELS
     + COHERE_MODELS
     + DEEPSEEK_MODELS
+    + TOGETHER_MODELS
     + NVIDIA_MODELS
     + XAI_MODELS
     + AWS_MODELS

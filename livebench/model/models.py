@@ -10,7 +10,8 @@ from livebench.model.completions import (chat_completion_anthropic,
                                          chat_completion_google_generativeai,
                                          chat_completion_mistral,
                                          chat_completion_nvidia,
-                                         chat_completion_openai, chat_completion_openai_responses,
+                                         chat_completion_openai,
+                                         chat_completion_openai_responses,
                                          chat_completion_perplexity,
                                          chat_completion_together,
                                          chat_completion_xai)
@@ -18,10 +19,10 @@ from livebench.model.model_adapter import (BaseModelAdapter, ChatGPTAdapter,
                                            ClaudeAdapter, CohereAdapter,
                                            DeepseekChatAdapter, GeminiAdapter,
                                            GemmaAdapter, Llama3Adapter,
-                                           MistralAdapter, NvidiaChatAdapter,
-                                           QwenChatAdapter)
+                                           Llama4Adapter, MistralAdapter,
+                                           NvidiaChatAdapter, QwenChatAdapter)
 
-model_api_function = Callable[["Model", Conversation, float, int, dict | None], tuple[str, int]]
+model_api_function = Callable[['Model', Conversation, float, int, dict | None], tuple[str, int]]
 
 
 @dataclass(kw_only=True, frozen=True)
@@ -50,6 +51,7 @@ class OpenAIModel(Model):
         default=chat_completion_openai
     )
 
+
 @dataclass(kw_only=True, frozen=True)
 class OpenAIResponsesModel(OpenAIModel):
     api_function: model_api_function = field(
@@ -64,12 +66,22 @@ class LlamaModel(Model):
         default=chat_completion_together
     )
 
+
+@dataclass(kw_only=True, frozen=True)
+class Llama4Model(Model):
+    adapter: BaseModelAdapter = field(default=Llama4Adapter())
+    api_function: model_api_function = field(
+        default=chat_completion_together
+    )
+
+
 @dataclass(kw_only=True, frozen=True)
 class QwenModelAlibabaAPI(Model):
     adapter: BaseModelAdapter = field(default=QwenChatAdapter())
     api_function: model_api_function = field(
         default=lambda model, conv, temperature, max_tokens, api_dict: chat_completion_openai(model, conv, temperature, max_tokens, {'api_base': 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1', 'api_key': os.environ.get('QWEN_API_KEY', None)})
     )
+
 
 @dataclass(kw_only=True, frozen=True)
 class QwenModel(Model):
