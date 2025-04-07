@@ -1693,7 +1693,7 @@ class Llama3Adapter(BaseModelAdapter):
 
 
 class Llama4Adapter(BaseModelAdapter):
-    """The model adapter for Llama-3 (e.g., meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8)"""
+    """The model adapter for Llama-3 (e.g., meta-llama/llama-4-maverick-17b-128e-instruct-FP8)"""
 
     def match(self, model_path: str):
         return "llama-4" in model_path.lower()

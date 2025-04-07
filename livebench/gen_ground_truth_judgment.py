@@ -216,7 +216,6 @@ def gen_judgments(
     if model_list is None:
         # evaluate answers for all models who have answers in answer_dir
         models = get_model_list(answer_dir)
-        models = [m for m in models if m != 'deepseek-chat']
     else:
         models = model_list
 

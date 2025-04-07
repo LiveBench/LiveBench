@@ -7,7 +7,7 @@ from livebench.model.models import (AnthropicModel, AWSModel, CohereModel,
                                     Llama4Model, LlamaModel, MistralModel,
                                     Model, NvidiaModel, OpenAIModel,
                                     OpenAIResponsesModel, PerplexityModel,
-                                    QwenModel, QwenModelAlibabaAPI, XAIModel)
+                                    QwenModel, QwenModelAlibabaAPI, XAIModel, StepFunModel)
 
 if sys.version_info >= (3, 9):
     from functools import cache
@@ -214,7 +214,7 @@ INFERENCE_OPENAI_MODELS = [
 TOGETHER_MODELS = [
     Llama4Model(
         api_name="meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8",
-        display_name="Llama-4-Maverick-17B-128E-Instruct",
+        display_name="llama-4-maverick-17b-128e-instruct",
         aliases=[],
     ),
     LlamaModel(
@@ -569,7 +569,6 @@ ALL_MODELS = (
     + PERPLEXITY_MODELS
     + GOOGLE_GENERATIVEAI_MODELS
     + QWEN_ALIBABA_MODELS
-    + TOGETHER_MODELS
     + STEPFUN_MODELS
 )
 
