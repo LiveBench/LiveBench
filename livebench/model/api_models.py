@@ -1,13 +1,13 @@
 import sys
 
-from livebench.model.completions import chat_completion_openai
+from livebench.model.completions import chat_completion_openai, chat_completion_together
 from livebench.model.model_adapter import get_model_adapter
 from livebench.model.models import (AnthropicModel, AWSModel, CohereModel,
                                     DeepseekModel, GeminiModel, GemmaModel,
                                     Llama4Model, LlamaModel, MistralModel,
                                     Model, NvidiaModel, OpenAIModel,
                                     OpenAIResponsesModel, PerplexityModel,
-                                    QwenModel, QwenModelAlibabaAPI, XAIModel)
+                                    QwenModel, QwenModelAlibabaAPI, XAIModel, StepFunModel)
 
 if sys.version_info >= (3, 9):
     from functools import cache
@@ -30,7 +30,7 @@ ANTHROPIC_MODELS = [
     AnthropicModel(
         api_name="claude-3-opus-20240229",
         display_name="claude-3-opus-20240229",
-        aliases=[],
+        aliases=['claude-3-opus'],
     ),
     AnthropicModel(
         api_name="claude-3-sonnet-20240229",
@@ -73,7 +73,7 @@ ANTHROPIC_MODELS = [
     AnthropicModel(
         api_name="claude-3-7-sonnet-20250219",
         display_name="claude-3-7-sonnet-20250219-thinking-64k",
-        aliases=['claude-3-7-sonnet-thinking-64k'],
+        aliases=['claude-3-7-sonnet-thinking-64k', 'claude-3-7-sonnet-thinking'],
         api_kwargs={
             'thinking': {
                 'type': 'enabled',
@@ -86,7 +86,7 @@ ANTHROPIC_MODELS = [
     AnthropicModel(
         api_name="claude-3-7-sonnet-20250219",
         display_name="claude-3-7-sonnet-20250219-base",
-        aliases=['claude-3-7-sonnet-base'],
+        aliases=['claude-3-7-sonnet-base', 'claude-3-7-sonnet'],
     ),
 ]
 
@@ -164,7 +164,7 @@ INFERENCE_OPENAI_MODELS = [
         display_name="o1-2024-12-17-high",
         aliases=['o1', 'o1-high', 'o1-2024-12-17'],
         inference_api=True,
-        api_kwargs={'reasoning_effort': 'high'}
+        api_kwargs={'reasoning_effort': 'high', 'use_developer_messages': True}
     ),
     OpenAIModel(
         api_name="o1-2024-12-17",
@@ -214,7 +214,7 @@ INFERENCE_OPENAI_MODELS = [
 TOGETHER_MODELS = [
     Llama4Model(
         api_name="meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8",
-        display_name="Llama-4-Maverick-17B-128E-Instruct",
+        display_name="llama-4-maverick-17b-128e-instruct",
         aliases=[],
     ),
     LlamaModel(
@@ -238,14 +238,31 @@ TOGETHER_MODELS = [
         aliases=[],
     ),
     QwenModel(
-        api_name="qwen/Qwen2.5-7B-Instruct-Turbo",
-        display_name="Qwen-2.5-7B-Instruct-Turbo",
-        aliases=[],
+        api_name="Qwen/Qwen2.5-7B-Instruct-Turbo",
+        display_name="qwen2.5-7b-instruct-turbo",
+        aliases=['qwen2.5-7b-instruct'],
     ),
     QwenModel(
-        api_name="qwen/Qwen2.5-72B-Instruct-Turbo",
-        display_name="Qwen-2.5-72B-Instruct-Turbo",
+        api_name="Qwen/Qwen2.5-72B-Instruct-Turbo",
+        display_name="qwen2.5-72b-instruct-turbo",
+        aliases=['qwen2.5-72b-instruct'],
+    ),
+    QwenModel(
+        api_name="Qwen/Qwen2.5-Coder-32B-Instruct",
+        display_name="qwen2.5-coder-32b-instruct",
+        aliases=['qwen2.5-coder-32b-instruct'],
+    ),
+    QwenModel(
+        api_name="Qwen/QwQ-32B-Preview",
+        display_name="qwq-32b-preview",
         aliases=[],
+        api_kwargs={'max_tokens': 16000, 'temperature': 0.7, 'top_p': 0.95}
+    ),
+    QwenModel(
+        api_name="Qwen/QwQ-32B",
+        display_name="qwq-32b",
+        aliases=[],
+        api_kwargs={'max_tokens': 31000, 'temperature': 0.7, 'top_p': 0.95}
     ),
     LlamaModel(
         api_name="Llama-3.1-Nemotron-70B-Instruct-HF",
@@ -258,9 +275,18 @@ TOGETHER_MODELS = [
     GemmaModel(
         api_name="google/gemma-2-9b-it", display_name="gemma-2-9b-it", aliases=[]
     ),
-    QwenModel(
-        api_name="qwen/qwq-32b-preview", display_name="Qwen-32B-Preview", aliases=[]
+    DeepseekModel(
+        api_name="deepseek-ai/DeepSeek-R1", display_name='deepseek-r1', api_function=chat_completion_together,
+        aliases=[], api_kwargs={'temperature': 0.7, 'max_tokens': 64000}
     ),
+    DeepseekModel(api_name="deepseek-ai/deepseek-v3", display_name="deepseek-v3-0324", aliases=[], api_function=chat_completion_together),
+    DeepseekModel(
+        api_name="deepseek-ai/DeepSeek-R1-Distill-Llama-70B", 
+        display_name="deepseek-r1-distill-llama-70b", 
+        aliases=[],
+        api_function=chat_completion_together,
+        api_kwargs={'temperature': 0.7, 'max_tokens': 64000}
+    )
 ]
 
 QWEN_ALIBABA_MODELS = [
@@ -308,9 +334,9 @@ GOOGLE_GENERATIVEAI_MODELS = [
     GeminiModel(api_name="gemini-exp-1114", display_name="gemini-exp-1114", aliases=[]),
     GeminiModel(api_name="gemini-exp-1121", display_name="gemini-exp-1121", aliases=[]),
     GeminiModel(
-        api_name="gemini-1.5-flash-8b-exp-0924",
-        display_name="gemini-1.5-flash-8b-exp-0924",
-        aliases=[],
+        api_name="gemini-1.5-flash-8b-001",
+        display_name="gemini-1.5-flash-8b-001",
+        aliases=['gemini-1.5-flash-8b'],
     ),
     GeminiModel(
         api_name="learnlm-1.5-pro-experimental",
@@ -318,21 +344,26 @@ GOOGLE_GENERATIVEAI_MODELS = [
         aliases=[],
     ),
     GeminiModel(
+        api_name='gemini-exp-1206',
+        display_name='gemini-exp-1206',
+        aliases=[],
+    ),
+    GeminiModel(
+        api_name='gemini-2.0-flash-exp',
+        display_name='gemini-2.0-flash-exp',
+        aliases=[],
+    ),
+    GeminiModel(
         api_name="gemini-2.0-flash-thinking-exp-1219",
         display_name="gemini-2.0-flash-thinking-exp-1219",
         aliases=[],
-        api_kwargs={'max_output_tokens': 65536, 'temperature': 0.7, 'top_p': 0.95, 'top_k': 64, 'thinking_config': {'include_thoughts': True}}
-    ),
-    GeminiModel(
-        api_name='gemini-exp-1206',
-        display_name='gemini-exp-1206',
-        aliases=[]
+        api_kwargs={'max_output_tokens': 65536, 'temperature': 0.7, 'top_p': 0.95, 'thinking_config': {'include_thoughts': True}}
     ),
     GeminiModel(
         api_name="gemini-2.0-flash-thinking-exp-01-21",
         display_name="gemini-2.0-flash-thinking-exp-01-21",
         aliases=['gemini-2.0-flash-thinking-exp'],
-        api_kwargs={'max_output_tokens': 65536, 'temperature': 0.7, 'top_p': 0.95, 'top_k': 64, 'thinking_config': {'include_thoughts': True}}
+        api_kwargs={'max_output_tokens': 65536, 'temperature': 0.7, 'top_p': 0.95, 'thinking_config': {'include_thoughts': True}}
     ),
     GeminiModel(
         api_name='gemini-2.0-pro-exp-02-05',
@@ -360,10 +391,20 @@ GOOGLE_GENERATIVEAI_MODELS = [
         aliases=['gemma-3-27b']
     ),
     GeminiModel(
+        api_name='gemma-3-12b-it',
+        display_name='gemma-3-12b-it',
+        aliases=['gemma-3-12b']
+    ),
+    GeminiModel(
+        api_name='gemma-3-4b-it',
+        display_name='gemma-3-4b-it',
+        aliases=['gemma-3-4b']
+    ),
+    GeminiModel(
         api_name='gemini-2.5-pro-exp-03-25',
         display_name='gemini-2.5-pro-exp-03-25',
         aliases=['gemini-2.5-pro-exp'],
-        api_kwargs={'max_output_tokens': 65536, 'temperature': 1, 'top_p': 0.95}
+        api_kwargs={'max_output_tokens': 65536, 'temperature': 1, 'top_p': 0.95, 'thinking_config': {'include_thoughts': True}}
     )
 ]
 
@@ -404,7 +445,7 @@ MISTRAL_MODELS = [
         api_name="open-mistral-nemo", display_name="open-mistral-nemo", aliases=[]
     ),
     MistralModel(
-        api_name="mistral-large-2411", display_name="mistral-large-2411", aliases=[]
+        api_name="mistral-large-2411", display_name="mistral-large-2411", aliases=['mistral-large']
     ),
     MistralModel(
         api_name="mistral-small-2409", display_name="mistral-small-2409", aliases=[]
@@ -436,12 +477,17 @@ COHERE_MODELS = [
         display_name="command-r-plus-08-2024",
         aliases=[],
     ),
+    CohereModel(
+        api_name="command-a-03-2025", 
+        display_name="command-a-03-2025",
+        aliases=[],
+    )
 ]
 
 # Deepseek Models
 DEEPSEEK_MODELS = [
-    DeepseekModel(api_name="deepseek-chat", display_name="deepseek-v3", aliases=[]),
-    DeepseekModel(api_name="deepseek-reasoner", display_name="deepseek-r1", aliases=[], reasoner=True)
+    #DeepseekModel(api_name="deepseek-chat", display_name="deepseek-v3-0324", aliases=[]),
+    # DeepseekModel(api_name="deepseek-reasoner", display_name="deepseek-r1", aliases=[], reasoner=True)
 ]
 
 # Nvidia Models
@@ -501,6 +547,14 @@ PERPLEXITY_MODELS = [
 ]
 
 
+STEPFUN_MODELS = [
+    StepFunModel(
+        api_name='step-2-16k-202411',
+        display_name='step-2-16k-202411',
+        aliases=['step-2-16k']
+    )
+]
+
 ALL_MODELS = (
     ANTHROPIC_MODELS
     + OPENAI_MODELS
@@ -515,6 +569,7 @@ ALL_MODELS = (
     + PERPLEXITY_MODELS
     + GOOGLE_GENERATIVEAI_MODELS
     + QWEN_ALIBABA_MODELS
+    + STEPFUN_MODELS
 )
 
 

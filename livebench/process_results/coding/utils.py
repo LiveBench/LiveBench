@@ -34,21 +34,15 @@ def LCB_generation_process_results(question: dict, llm_answer: str, debug=False)
 
     extracted_answer = extract_code(model_output=llm_answer, lmstyle=None) # Missing out only on some slightly different handling for CodeLlamaInstruct from the original LiveCodeBench
 
-    if extracted_answer == "":
-        if debug:
-            print('INCORRECT', question['question_title'], question['question_id'])
-            print('NO ANSWER FROM LLM')
-            print('END OF OUTPUT')
-            print(llm_answer[-100:])
-        return 0
-
     # if this is a completion question, check that the completion is present.
-    if 'partial_solution' in question and (not question['partial_solution'] is None) and (len(question['partial_solution']) > 0):
+    if 'partial_solution' in question and (not question['partial_solution'] is None) and (len(question['partial_solution']) > 0) and not extracted_answer.startswith(question['partial_solution']):
         # if len(llm_answer) < len(question['partial_solution']):
         #     return 0
         # if llm_answer[:len(question['partial_solution'])] != question['partial_solution']:
         #     return 0
-        extracted_answer = question['partial_solution'] + '\n' + extracted_answer
+        full_solution = question['partial_solution'] + '\n' + extracted_answer
+    else:
+        full_solution = extracted_answer
 
     # code mostly from LiveCodeBench, with modifications.
     public_test_cases = json.loads(question['public_test_cases'])  # type: ignore
@@ -85,7 +79,7 @@ def LCB_generation_process_results(question: dict, llm_answer: str, debug=False)
 
     metrics, results, metadata = codegen_metrics(
         [eval_sample],
-        [[extracted_answer]],
+        [[full_solution]],
         k_list=[1], # can't compute higher pass@ because we don't have more than one prediction.
         num_process_evaluate=1, # multiprocessing is handled at a higher level to parallelize multiple questions at once, so we don't want to complicate this with forking here.
         timeout=6, # default eval setting from livecodebench.
@@ -96,8 +90,14 @@ def LCB_generation_process_results(question: dict, llm_answer: str, debug=False)
     else:
         if debug:
             print('INCORRECT', question['question_title'], question['question_id'])
+            if 'partial_solution' in question and (not question['partial_solution'] is None) and (len(question['partial_solution']) > 0) and not extracted_answer.startswith(question['partial_solution']):
+                print('starter code')
+                print(question['partial_solution'])
             print('extracted answer')
             print(extracted_answer)
+            if extracted_answer != llm_answer.replace('\n```', '').rstrip():
+                print('original llm answer')
+                print(llm_answer)
             print('results', results)
             print('metadata', metadata)
         return 0

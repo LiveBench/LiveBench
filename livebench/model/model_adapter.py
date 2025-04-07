@@ -5,8 +5,8 @@ import math
 import os
 import re
 import sys
-import warnings
 from typing import Dict, List, Optional
+import warnings
 
 if sys.version_info >= (3, 9):
     from functools import cache
@@ -15,15 +15,25 @@ else:
 
 import psutil
 import torch
+from transformers import (
+    AutoConfig,
+    AutoModel,
+    AutoModelForCausalLM,
+    AutoModelForSeq2SeqLM,
+    AutoTokenizer,
+    LlamaTokenizer,
+    LlamaForCausalLM,
+    T5Tokenizer,
+)
+
 from fastchat.constants import CPU_ISA
+from livebench.conversation import Conversation, get_conv_template
 from fastchat.model.compression import load_compress_model
 from fastchat.model.llama_condense_monkey_patch import \
     replace_llama_with_condense
 from fastchat.model.model_chatglm import generate_stream_chatglm
 from fastchat.model.model_codet5p import generate_stream_codet5p
-from fastchat.model.model_exllama import generate_stream_exllama
 from fastchat.model.model_falcon import generate_stream_falcon
-from fastchat.model.model_xfastertransformer import generate_stream_xft
 from fastchat.model.model_yuan2 import generate_stream_yuan2
 from fastchat.model.monkey_patch_non_inplace import \
     replace_llama_attn_with_non_inplace_operations
@@ -39,6 +49,14 @@ from transformers import (AutoConfig, AutoModel, AutoModelForCausalLM,
 
 #from fastchat.model.model_cllm import generate_stream_cllm
 
+from fastchat.model.monkey_patch_non_inplace import (
+    replace_llama_attn_with_non_inplace_operations,
+)
+from fastchat.modules.awq import AWQConfig, load_awq_quantized
+from fastchat.modules.exllama import ExllamaConfig, load_exllama_model
+from fastchat.modules.xfastertransformer import load_xft_model, XftConfig
+from fastchat.modules.gptq import GptqConfig, load_gptq_quantized
+from fastchat.utils import get_gpu_memory
 
 # Check an environment variable to check if we should be sharing Peft model
 # weights.  When false we treat all Peft models as separate.
@@ -301,7 +319,6 @@ def load_model(
 ):
     """Load a model from Hugging Face."""
     import accelerate
-
     # get model adapter
     adapter = get_model_adapter(model_path)
     # Handle device mapping
@@ -1676,7 +1693,7 @@ class Llama3Adapter(BaseModelAdapter):
 
 
 class Llama4Adapter(BaseModelAdapter):
-    """The model adapter for Llama-3 (e.g., meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8)"""
+    """The model adapter for Llama-3 (e.g., meta-llama/llama-4-maverick-17b-128e-instruct-FP8)"""
 
     def match(self, model_path: str):
         return "llama-4" in model_path.lower()

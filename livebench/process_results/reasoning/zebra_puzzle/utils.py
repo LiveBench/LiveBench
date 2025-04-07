@@ -41,7 +41,7 @@ def zebra_puzzle_process_results_old(ground_truth: str, llm_answer: str, debug=F
     return score
 
 
-def zebra_puzzle_process_results(ground_truth: str, llm_answer: str, debug=False) -> int:
+def zebra_puzzle_process_results(ground_truth: str, llm_answer: str, debug=False) -> float:
     # Mapping of numbers to words for 1 to 9
     word_to_num = {
         'one': '1',

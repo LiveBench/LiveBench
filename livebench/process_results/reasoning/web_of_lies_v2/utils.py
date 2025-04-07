@@ -6,15 +6,26 @@ def web_of_lies_process_results(ground_truth: str, llm_answer: str, debug=False)
 
     score = 0
     parsed_answer = None
+
+    # extract text from <solution></solution> tags
+    solution_matches = re.findall(r'<solution>(.*?)</solution>', llm_answer)
+
+    if len(solution_matches) == 0:
+        solution_matches = re.findall(r'</solution>(.*?)</solution>', llm_answer)
+
+    if len(solution_matches) > 0:
+        parsed_answer = solution_matches[-1]
+
+
     # pull out words in bold
     bold_words = re.findall(r'\*\*(.*?)\*\*', llm_answer)
 
-    if bold_words:
+    if parsed_answer is None and bold_words:
         bold_words = [word.lower().strip().replace(',', '').replace('.', '')[0:max(len(word), 3)] for match in bold_words for word in match.split()]
         parsed_answer = []
         i = len(bold_words) - 1
         while i >= 0 and len(parsed_answer) < 3:
-            if bold_words[i] in ["yes", "no"]:
+            if bold_words[i] in ["yes", "no", "unknown"]:
                 parsed_answer = [bold_words[i]] + parsed_answer
             i -= 1
         if len(parsed_answer) > 0:
@@ -34,7 +45,7 @@ def web_of_lies_process_results(ground_truth: str, llm_answer: str, debug=False)
 
     allow_plain = True
     if allow_plain and parsed_answer is None:
-        combs = itertools.product(['yes', 'no'], repeat=3)
+        combs = itertools.product(['yes', 'no', 'unknown'], repeat=3)
         # find all instances of these combinations in the answer, then treat the last one as the actual answer
         # to compare to the ground truth
         final_comb = None
@@ -52,7 +63,7 @@ def web_of_lies_process_results(ground_truth: str, llm_answer: str, debug=False)
         score = 1
 
     # Check if parsed_answer contains the ground_truth
-    if parsed_answer and parsed_answer.count("yes") + parsed_answer.count("no") == 3 and ground_truth.lower() in parsed_answer:
+    if parsed_answer and parsed_answer.count("yes") + parsed_answer.count("no") + parsed_answer.count("unknown") == 3 and ground_truth.lower() in parsed_answer:
         score = 1
 
     if debug and score == 0:
