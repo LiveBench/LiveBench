@@ -109,7 +109,7 @@ def get_answer(
     ans = {
         "question_id": question["question_id"],
         "answer_id": shortuuid.uuid(),
-        "model_id": model_display_name_override if model_display_name_override else model_config.display_name,
+        "model_id": model_display_name_override if model_display_name_override else model_config.display_name.lower(),
         "choices": choices,
         "tstamp": time.time(),
         "total_output_tokens": total_num_tokens,
@@ -326,7 +326,7 @@ if __name__ == "__main__":
                     f"{LIVE_BENCH_DATA_SUPER_PATH}/{category_name}/{task_name}"
                 )
                 answer_file = (
-                    f"data/{task_full_name}/model_answer/{model_display_name}.jsonl"
+                    f"data/{task_full_name}/model_answer/{model_display_name.lower()}.jsonl"
                 )
 
                 questions = filter_questions(questions, answer_file, args.resume, args.retry_failures)
@@ -371,7 +371,7 @@ if __name__ == "__main__":
             questions = questions[args.question_begin:args.question_end]
 
             bench_name = os.path.dirname(question_file).replace("data/", "")
-            answer_file = f"data/{bench_name}/model_answer/{model_display_name}.jsonl"
+            answer_file = f"data/{bench_name}/model_answer/{model_display_name.lower()}.jsonl"
 
             questions = filter_questions(questions, answer_file, args.resume, args.retry_failures)
                     
