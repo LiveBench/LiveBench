@@ -36,7 +36,8 @@ def get_answer(
     answer_file: str,
     api_dict: dict | None = None,
     stream: bool = False,
-    force_temperature: float | None = None
+    force_temperature: float | None = None,
+    model_provider_override: str | None = None
 ):
     """
     Perform inference for a single question.
@@ -87,7 +88,7 @@ def get_answer(
                     raise ValueError("Missing API dict for local model")
                 if len(model_config.api_name) > 1 and not model_config.default_provider:
                     raise ValueError("Missing default provider " + model_config.display_name)
-                provider_name = model_config.default_provider if model_config.default_provider else list(model_config.api_name.keys())[0]
+                provider_name = model_provider_override if model_provider_override else model_config.default_provider if model_config.default_provider else list(model_config.api_name.keys())[0]
                 output, num_tokens = get_api_function(provider_name)(
                     model=model_config.api_name[provider_name],
                     messages=messages,
@@ -129,7 +130,8 @@ def run_questions(
     answer_file: str,
     api_dict: dict | None,
     stream: bool,
-    force_temperature: float | None
+    force_temperature: float | None,
+    model_provider_override: str | None
 ):
     """
     Perform inference on a list of questions. Output answers to answer_file.
@@ -154,7 +156,8 @@ def run_questions(
                 answer_file,
                 api_dict=api_dict,
                 stream=stream,
-                force_temperature=force_temperature
+                force_temperature=force_temperature,
+                model_provider_override=model_provider_override
             )
         if len(questions) > 0:
             reorg_answer_file(answer_file)
@@ -173,7 +176,8 @@ def run_questions(
                     answer_file,
                     api_dict=api_dict,
                     stream=stream,
-                    force_temperature=force_temperature
+                    force_temperature=force_temperature,
+                    model_provider_override=model_provider_override
                 )
                 futures.append(future)
 
@@ -272,6 +276,12 @@ if __name__ == "__main__":
         default=False,
         help="Stream responses, for models that support streaming"
     )
+    parser.add_argument(
+        "--model-provider-override",
+        type=str,
+        default=None,
+        help="Override the provider for the model. If not provided, will be inferred from --model.",
+    )
     args = parser.parse_args()
 
 
@@ -334,7 +344,8 @@ if __name__ == "__main__":
                     answer_file=answer_file,
                     api_dict=api_dict,
                     stream=args.stream,
-                    force_temperature=args.force_temperature
+                    force_temperature=args.force_temperature,
+                    model_provider_override=args.model_provider_override
                 )
 
     elif args.question_source == "jsonl":
@@ -377,7 +388,8 @@ if __name__ == "__main__":
                 answer_file=answer_file,
                 api_dict=api_dict,
                 stream=args.stream,
-                force_temperature=args.force_temperature
+                force_temperature=args.force_temperature,
+                model_provider_override=args.model_provider_override
             )
 
     else:
