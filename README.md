@@ -37,11 +37,9 @@ LiveBench has the following properties:
 * Each question has verifiable, objective ground-truth answers, allowing hard questions to be scored accurately and automatically, without the use of an LLM judge.
 * LiveBench currently contains a set of 18 diverse tasks across 6 categories, and we will release new, harder tasks over time.
 
-**We will evaluate your model!** Open an [issue](https://github.com/LiveBench/LiveBench/issues) or email us at [livebench.ai@gmail.com](mailto:livebench.ai@gmail.com)!
+**We will evaluate your model!** Open an [issue](https://github.com/LiveBench/LiveBench/issues) or email us at [livebench@livebench.ai](mailto:livebench@livebench.ai)!
 
 ## Installation Quickstart
-
-Tested on Python 3.10.
 
 We recommend using a virtual environment to install LiveBench.
 ```bash
@@ -64,6 +62,8 @@ pip install -e .[flash_attn]
 
 **Note about fschat**: The fschat package version on pip (i.e., [lmsys/fastchat](https://github.com/lm-sys/FastChat)) is currently out of date, so we strongly recommend `pip uninstall fschat` before running the above, since it will then automatically install a more recent commit of fastchat.
 
+**Note about local models**: Local model inference is unmaintained. We highly recommend serving your model on an OpenAI compatible API using [vllm](https://github.com/vllm-project/vllm) and performing inference using `run_livebench.py`.
+
 Our repo is adapted from FastChat's excellent [llm_judge](https://github.com/lm-sys/FastChat/tree/main/fastchat/llm_judge) module, and it also contains code from [LiveCodeBench](https://github.com/LiveCodeBench/LiveCodeBench) and [IFEval](https://github.com/Rohan2002/IFEval?tab=readme-ov-file).
 
 ## Usage
@@ -82,11 +82,12 @@ python run_livebench.py --model gpt-4o --bench-name live_bench/coding
 ```
 
 Some common options:
-- `--bench-name`: Specify which subset of questions to use (e.g. `live_bench` for all questions, `live_bench/coding` for coding tasks only)
+- `--bench-name`: Specify which subset(s) of questions to use (e.g. `live_bench` for all questions, `live_bench/coding` for coding tasks only)
 - `--model`: The model to evaluate
-- `--max-tokens`: Maximum number of tokens in model responses
+- `--max-tokens`: Maximum number of tokens in model responses (defaults to 4096 unless overriden for specific models)
 - `--api-base`: Custom API endpoint for OpenAI-compatible servers
 - `--api-key-name`: Environment variable name containing the API key (defaults to OPENAI_API_KEY for OpenAI models)
+- `--api-key`: Raw API key value
 - `--parallel-requests`: Number of concurrent API requests (for models with high rate limits)
 - `--resume`: Continue from a previous interrupted run
 - `--retry-failures`: Retry questions that failed in previous runs
@@ -99,7 +100,7 @@ When this is finished, follow along with [Viewing Results](#viewing-results) to 
 
 LiveBench provides two different arguments for parallelizing evaluations, which can be used independently or together:
 
-- `--mode parallel`: Runs separate tasks/categories in parallel by creating multiple tmux sessions. Each category or task runs in its own terminal session, allowing simultaneous evaluation across different benchmark subsets. This also parallelizes the ground truth evaluation phase.
+- `--mode parallel`: Runs separate tasks/categories in parallel by creating multiple tmux sessions. Each category or task runs in its own terminal session, allowing simultaneous evaluation across different benchmark subsets. This also parallelizes the ground truth evaluation phase. By default, this will create one session for each category; if `--bench-name` is supplied, there will be one session for each value of `--bench-name`.
 
 - `--parallel-requests`: Sets the number of concurrent questions to be answered within a single task evaluation instance. This controls how many API requests are made simultaneously for a specific task.
 
@@ -157,10 +158,10 @@ The leaderboard will be displayed in the terminal. You can also find the breakdo
 
 ### Error Checking
 
-The `scripts/error_check` script will print out questions for which a model's output is `$ERROR$`, which indicates repeated API call failures.
+The `scripts/error_check.py` script will print out questions for which a model's output is `$ERROR$`, which indicates repeated API call failures.
 You can use the `scripts/rerun_failed_questions.py` script to rerun the failed questions, or run `run_livebench.py` as normal with the `--resume` and `--retry-failures` arguments.
 
-By default, LiveBench will retry API calls three times and will include a delay in between attempts to account for rate limits. If the errors seen during evaluation are due to rate limits, nonetheless, you may need to switch to `--mode single` or `--mode sequential` and decrease the value of `--parallel-requests`. If after multiple attempts, the model's output is still `$ERROR$`, it's likely that the question is triggering some content filter from the model's provider (Gemini models are particularly prone to this, with an error of `RECITATION`). In this case, there is not much that can be done. We consider such failures to be incorrect responses.
+By default, LiveBench will retry API calls three times and will include a delay in between attempts to account for rate limits. If the errors seen during evaluation are due to rate limits, you may need to switch to `--mode single` or `--mode sequential` and decrease the value of `--parallel-requests`. If after multiple attempts, the model's output is still `$ERROR$`, it's likely that the question is triggering some content filter from the model's provider (Gemini models are particularly prone to this, with an error of `RECITATION`). In this case, there is not much that can be done. We consider such failures to be incorrect responses.
 
 ## Data
 The questions for each of the categories can be found below:
@@ -200,23 +201,17 @@ python gen_ground_truth_judgment.py --bench-name live_bench/reasoning/web_of_lie
 python show_livebench_result.py --bench-name live_bench/reasoning/web_of_lies_new_prompt
 ```
 
-## Evaluating New Models
+## API Model Configuration
 
-As discussed above, local model models can be evaluated with `gen_model_answer.py`.
+Any API-based model for which there is an OpenAI compatible endpoint should work out of the box using the `--api-base` and `--api-key` (or `--api-key-name`) arguments. If you'd like to override the name of the model for local files (e.g. saving it as `deepseek-v3` instead of `deepseek-chat`), use the `--model-display-name` argument. You can also override values for temperature and max tokens using the `--force-temperature` and `--max-tokens` arguments, respectively.
 
-API-based models with an OpenAI-compatible API can be evaluated with `gen_api_answer.py` by setting the `--api-base` argument.
+If you'd like to have persistent model configuration without needing to specify command-line arguments, you can create a model configuration document in a yaml file in `livebench/model/model_configs`. See the other files there for examples of the necessary format. Important values are `model_display_name`, which determines the answer .jsonl file name and model ID used for other scripts, and `api_name`, which provides a mapping between API providers and names for the model in that API. For instance, Deepseek R1 can be evaluated using the Deepseek API with a name of `deepseek-reasoner` and the Together API with a name of `deepseek-ai/deepseek-r1`. `api_kwargs` allows you to set overrides for parameters such as temperature, max tokens, and top p, for all providers or for specific ones.
 
-For other models, it will be necessary to update several files depending on the model.
+When performing inference, use the `--model-provider-override` argument to specify which provider you'd like to use for the model.
 
-Models for which there is already an API implementation in LiveBench (e.g. OpenAI, Anthropic, Mistral, Google, Amazon, etc.) can be added simply by adding a new entry in `api_models.py`, using the appropriate `Model` subclass (e.g. `OpenAIModel`, `AnthropicModel`, `MistralModel`, `GoogleModel`, `AmazonModel`, etc.).
+We have also implemented inference for Anthropic, Cohere, Mistral, Together, and Google models, so those should also all work immediately either by using `--model-provider-override` or adding a new entry to the appropriate configuration file.
 
-For other models:
-
-1. Implement a new completion function in `model/completions.py`. This function should take a `Model`, `Conversation`, `temperature`, `max_tokens`, and `kwargs` as arguments, and return a tuple of `(response, tokens_consumed)` after calling the model's API.
-2. If necessary, implement a new `ModelAdapter` in `model/model_adapter.py`. This class should implement the `BaseModelAdapter` interface. For many models, existing adapters (such as `ChatGPTAdapter`) will work.
-3. Add a new `Model` entry in `model/api_models.py`. This will have the form `Model(api_name=<api_name>, display_name=<display_name>, aliases=[], adapter=<model_adapter>, api_function=<api_function>)`. Make sure to add the new model to the `ALL_MODELS` list. Note: if your new model uses an OpenAI-compatible API, you can use a lambda function for api_function that just called `chat_completion_openai` with the api_dict bound to your desired API base URL and API key.
-
-You should now be able to evaluate the model with `gen_api_answer.py` or other scripts as normal.
+If you'd like to use a model with a new provider that is not OpenAI-compatible, you will need to implement a new completions function in `completions.py` and add it to `get_api_function` in that file; then, you can use it in your model configuration.
 
 ## Documentation
 Here, we describe our dataset documentation. This information is also available in our paper.
