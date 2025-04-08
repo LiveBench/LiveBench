@@ -61,6 +61,43 @@ def get_answer(
     else:
         temperature = 0
 
+    provider = model_provider_override
+    if provider is None and api_dict is not None:
+        assert 'api_base' in api_dict, "Missing API base for model"
+        provider = 'local'
+    if provider is None:
+        provider = model_config.default_provider
+    if provider is None:
+        provider = list(model_config.api_name.keys())[0]
+
+    if 'https' in provider:
+        # provider name is a base URL
+        if api_dict is None:
+            api_dict = {
+                'api_base': provider,   
+            }
+            if model_config.api_keys and os.environ.get(model_config.api_keys[provider]):
+                api_dict['api_key'] = os.environ.get(model_config.api_keys[provider])
+    
+    if provider is None:
+        raise ValueError(f"Missing provider for model {model_config.display_name}")
+
+    api_kwargs = None
+    if model_config.api_kwargs:
+        api_kwargs = {}
+        if model_config.api_kwargs.get('default'):
+            # pull default kwargs for model
+            api_kwargs = model_config.api_kwargs['default']
+        if provider in model_config.api_kwargs:
+            # update with local-specific kwargs
+            api_kwargs.update(model_config.api_kwargs[provider])
+
+    if provider == 'local':
+        assert api_dict is not None, "Missing API dict for local model"
+        assert 'api_base' in api_dict, "Missing API base for local model"
+
+    model_api_name = model_config.api_name[provider] if provider in model_config.api_name else model_config.display_name
+
     choices = []
     total_num_tokens = 0
     for i in range(num_choices):
@@ -70,48 +107,15 @@ def get_answer(
         for j in range(len(question["turns"])):
             messages.append({"role": "user", "content": question["turns"][j]})
 
-            if model_config.default_provider == 'local' or (len(model_config.api_name) == 1 and list(model_config.api_name.keys())[0] == 'local') or api_dict is not None:
-                api_kwargs = None
-                if model_config.api_kwargs:
-                    api_kwargs = {}
-                    if model_config.api_kwargs.get('default'):
-                        # pull default kwargs for model
-                        api_kwargs = model_config.api_kwargs['default']
-                    if 'local' in model_config.api_kwargs:
-                        # update with local-specific kwargs
-                        api_kwargs.update(model_config.api_kwargs['local'])
-                assert api_dict is not None, "Missing API dict for local model"
-                output, num_tokens = get_api_function('local')(
-                    model=model_config.display_name,
-                    messages=messages,
-                    temperature=temperature,
-                    max_tokens=max_tokens,
-                    model_api_kwargs=api_kwargs,
-                    api_dict=api_dict,
-                    stream=stream
-                )
-            else:
-                if len(model_config.api_name) > 1 and not model_config.default_provider:
-                    raise ValueError("Missing default provider " + model_config.display_name)
-                provider_name = model_provider_override if model_provider_override else model_config.default_provider if model_config.default_provider else list(model_config.api_name.keys())[0]
-                api_kwargs = None
-                if model_config.api_kwargs:
-                    api_kwargs = {}
-                    if model_config.api_kwargs.get('default'):
-                        # pull default kwargs for model
-                        api_kwargs = model_config.api_kwargs['default']
-                    if provider_name in model_config.api_kwargs:
-                        # update with provider-specific kwargs
-                        api_kwargs.update(model_config.api_kwargs[provider_name])
-                output, num_tokens = get_api_function(provider_name)(
-                    model=model_config.api_name[provider_name] if provider_name in model_config.api_name else model_config.display_name,
-                    messages=messages,
-                    temperature=temperature,
-                    max_tokens=max_tokens,
-                    model_api_kwargs=api_kwargs,
-                    api_dict=api_dict,
-                    stream=stream
-                )
+            output, num_tokens = get_api_function(provider)(
+                model=model_api_name,
+                messages=messages,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                model_api_kwargs=api_kwargs,
+                api_dict=api_dict,
+                stream=stream
+            )
 
             messages.append({"role": "assistant", "content": output})
             turns.append(output)
@@ -127,6 +131,11 @@ def get_answer(
         "choices": choices,
         "tstamp": time.time(),
         "total_output_tokens": total_num_tokens,
+        "api_info": {
+            "provider": provider if provider != 'local' else api_dict['api_base'],
+            "api_name": model_api_name,
+            "api_kwargs": api_kwargs
+        }
     }
 
     os.makedirs(os.path.dirname(answer_file), exist_ok=True)

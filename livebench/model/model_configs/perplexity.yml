@@ -2,16 +2,24 @@
 ---
 display_name: sonar
 api_name:
-  perplexity: sonar
+  https://api.perplexity.ai: sonar
+api_keys:
+  https://api.perplexity.ai: PERPLEXITY_API_KEY
 ---
 display_name: sonar-pro
 api_name:
-  perplexity: sonar-pro
+  https://api.perplexity.ai: sonar-pro
+api_keys:
+  https://api.perplexity.ai: PERPLEXITY_API_KEY
 ---
 display_name: sonar-reasoning
 api_name:
-  perplexity: sonar-reasoning
+  https://api.perplexity.ai: sonar-reasoning
+api_keys:
+  https://api.perplexity.ai: PERPLEXITY_API_KEY
 ---
 display_name: sonar-reasoning-pro
 api_name:
-  perplexity: sonar-reasoning-pro
+  https://api.perplexity.ai: sonar-reasoning-pro
+api_keys:
+  https://api.perplexity.ai: PERPLEXITY_API_KEY

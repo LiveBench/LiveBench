@@ -2,22 +2,26 @@
 ---
 display_name: deepseek-r1
 api_name:
-  deepseek: deepseek-reasoner
+  https://api.deepseek.com: deepseek-reasoner
   together: deepseek-ai/DeepSeek-R1
 default_provider: together
+api_keys:
+  https://api.deepseek.com: DEEPSEEK_API_KEY
 api_kwargs:
   default:
     temperature: 0.7
     max_tokens: 64000
-  deepseek:
+  https://api.deepseek.com:
     temperature: null
     max_tokens: null
 ---
 display_name: deepseek-v3-0324
 api_name:
-  deepseek: deepseek-chat
+  https://api.deepseek.com: deepseek-chat
   together: deepseek-ai/deepseek-v3
 default_provider: together
+api_keys:
+  https://api.deepseek.com: DEEPSEEK_API_KEY
 ---
 display_name: deepseek-r1-distill-llama-70b
 api_name:

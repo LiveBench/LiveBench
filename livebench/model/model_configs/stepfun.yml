@@ -2,6 +2,8 @@
 ---
 display_name: step-2-16k-202411
 api_name:
-  stepfun: step-2-16k-202411
+  https://api.stepfun.com/v1: step-2-16k-202411
+api_keys:
+  https://api.stepfun.com/v1: STEP_API_KEY
 aliases:
   - step-2-16k

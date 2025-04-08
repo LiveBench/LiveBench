@@ -2,8 +2,12 @@
 ---
 display_name: grok-beta
 api_name:
-  xai: grok-beta
+  https://api.x.ai/v1: grok-beta
+api_keys:
+  https://api.x.ai/v1: XAI_API_KEY
 ---
 display_name: grok-2-1212
 api_name:
-  xai: grok-2-1212
+  https://api.x.ai/v1: grok-2-1212
+api_keys:
+  https://api.x.ai/v1: XAI_API_KEY

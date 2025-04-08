@@ -8,6 +8,7 @@ class ModelConfig:
     display_name: str
     api_name: dict[str, str]
     default_provider: str | None = None
+    api_keys: dict[str, str] | None = None
     aliases: list[str] | None = None
     api_kwargs: dict[str, dict[str, str | int | float | bool | dict[str, str] | None]] | None = None
 
