@@ -15,7 +15,7 @@ import numpy as np
 from tqdm import tqdm
 
 # todo: find a better solution than all these imports.
-from livebench.model.api_models import get_model
+from livebench.model import get_model_config
 from livebench.process_results.data_analysis.tablereformat.utils import table_process_results
 from livebench.process_results.data_analysis.cta.utils import cta_process_results
 from livebench.process_results.data_analysis.tablejoin.utils import joinmap_process_results
@@ -216,10 +216,11 @@ def gen_judgments(
     if model_list is None:
         # evaluate answers for all models who have answers in answer_dir
         models = get_model_list(answer_dir)
+        models = [m for m in models if m != 'deepseek-chat']
     else:
         models = model_list
 
-    models = [get_model(m).display_name for m in models]
+    models = [get_model_config(m).display_name for m in models]
 
     print('models:', models)
 
@@ -453,7 +454,7 @@ if __name__ == "__main__":
             if args.model_display_name is not None:
                 model_list.append(args.model_display_name[i].lower())
             else:
-                model_list.append(get_model(model_name).display_name.lower())
+                model_list.append(get_model_config(model_name).display_name.lower())
 
     if args.question_source == "huggingface":
         for bench_name in args.bench_name:

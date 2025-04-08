@@ -12,7 +12,7 @@ import os
 import re
 from typing import Optional
 
-from livebench.model.api_models import get_model
+from livebench.model.api_model_config import get_model_config
 
 
 # Extract scores from judgments
@@ -271,7 +271,7 @@ def load_model_answers(answer_dir: str, models: list[str] | None = None):
 
     for filename in filenames:
         model_name = os.path.basename(filename)[: -len(".jsonl")]
-        model_name = get_model(model_name).display_name.lower()
+        model_name = get_model_config(model_name).display_name.lower()
         if models is not None and model_name not in models:
             continue
         answer = {}

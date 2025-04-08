@@ -1,0 +1,13 @@
+# XAI Models
+---
+display_name: grok-beta
+api_name:
+  https://api.x.ai/v1: grok-beta
+api_keys:
+  https://api.x.ai/v1: XAI_API_KEY
+---
+display_name: grok-2-1212
+api_name:
+  https://api.x.ai/v1: grok-2-1212
+api_keys:
+  https://api.x.ai/v1: XAI_API_KEY

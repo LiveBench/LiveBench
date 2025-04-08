@@ -1,0 +1,57 @@
+# Mistral Models
+---
+display_name: mistral-large-latest
+api_name:
+  mistral: mistral-large-latest
+---
+display_name: mistral-large-2402
+api_name:
+  mistral: mistral-large-2402
+---
+display_name: mistral-medium-23-12
+api_name:
+  mistral: mistral-medium-23-12
+---
+display_name: mistral-medium
+api_name:
+  mistral: mistral-medium
+---
+display_name: mistral-small-2402
+api_name:
+  mistral: mistral-small-2402
+---
+display_name: open-mixtral-8x7b
+api_name:
+  mistral: open-mixtral-8x7b
+---
+display_name: open-mixtral-8x22b
+api_name:
+  mistral: open-mixtral-8x22b
+---
+display_name: mistral-large-2407
+api_name:
+  mistral: mistral-large-2407
+---
+display_name: open-mistral-nemo
+api_name:
+  mistral: open-mistral-nemo
+---
+display_name: mistral-large-2411
+api_name:
+  mistral: mistral-large-2411
+aliases:
+  - mistral-large
+---
+display_name: mistral-small-2409
+api_name:
+  mistral: mistral-small-2409
+---
+display_name: mistral-small-2501
+api_name:
+  mistral: mistral-small-2501
+---
+display_name: mistral-small-2503
+api_name:
+  mistral: mistral-small-2503
+aliases:
+  - mistral-small

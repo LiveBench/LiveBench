@@ -22,20 +22,21 @@ from livebench.common import (
     LIVE_BENCH_DATA_SUPER_PATH,
     filter_questions
 )
-from livebench.model.completions import chat_completion_openai
 
-from livebench.model import Model, get_model
+from livebench.model import ModelConfig, get_model_config, get_api_function
 
 
 def get_answer(
     question: dict,
-    model: Model,
+    model_config: ModelConfig,
     num_choices: int,
     max_tokens: int,
     answer_file: str,
-    api_dict: dict | None = None,
+    api_dict: dict[str, str] | None = None,
     stream: bool = False,
-    force_temperature: float | None = None
+    force_temperature: float | None = None,
+    model_provider_override: str | None = None,
+    model_display_name_override: str | None = None
 ):
     """
     Perform inference for a single question.
@@ -43,6 +44,7 @@ def get_answer(
     Args:
         question: At minimum, a dictionary with a key 'turns' that maps to a list of messages in the conversation, the last of which should ask the question.
         model: The API name for the model (e.g. gpt-4o-mini or claude-3-5-sonnet-20240620)
+        model_display_name_override: The display name for the model (e.g. gpt-4o-mini or claude-3-5-sonnet-20240620)
         num_choices: The number of model outputs to generate for each question
         max_tokens: The maximum number of tokens for each model response
         answer_file: The path to the file in which to write answers
@@ -59,27 +61,63 @@ def get_answer(
     else:
         temperature = 0
 
+    provider = model_provider_override
+    if provider is None and api_dict is not None:
+        assert 'api_base' in api_dict, "Missing API base for model"
+        provider = 'local'
+    if provider is None:
+        provider = model_config.default_provider
+    if provider is None:
+        provider = list(model_config.api_name.keys())[0]
+
+    if 'https' in provider:
+        # provider name is a base URL
+        if api_dict is None:
+            api_dict = {
+                'api_base': provider,   
+            }
+            if model_config.api_keys and os.environ.get(model_config.api_keys[provider]):
+                api_dict['api_key'] = os.environ.get(model_config.api_keys[provider])
+    
+    if provider is None:
+        raise ValueError(f"Missing provider for model {model_config.display_name}")
+
+    api_kwargs = None
+    if model_config.api_kwargs:
+        api_kwargs = {}
+        if model_config.api_kwargs.get('default'):
+            # pull default kwargs for model
+            api_kwargs = model_config.api_kwargs['default']
+        if provider in model_config.api_kwargs:
+            # update with local-specific kwargs
+            api_kwargs.update(model_config.api_kwargs[provider])
+
+    if provider == 'local':
+        assert api_dict is not None, "Missing API dict for local model"
+        assert 'api_base' in api_dict, "Missing API base for local model"
+
+    model_api_name = model_config.api_name[provider] if provider in model_config.api_name else model_config.display_name
+
     choices = []
     total_num_tokens = 0
     for i in range(num_choices):
-        conv = model.adapter.get_default_conv_template(model.api_name)
+        messages = []
 
         turns = []
         for j in range(len(question["turns"])):
-            conv.append_message(conv.roles[0], question["turns"][j])
-            conv.append_message(conv.roles[1], None)
+            messages.append({"role": "user", "content": question["turns"][j]})
 
-            if api_dict is not None:
-                output, num_tokens = chat_completion_openai(
-                    model, conv, temperature, max_tokens, api_dict=api_dict, stream=stream
-                )
-            else:
-                assert model.api_function is not None
-                output, num_tokens = model.api_function(
-                    model, conv, temperature, max_tokens, api_dict=api_dict
-                )
+            output, num_tokens = get_api_function(provider)(
+                model=model_api_name,
+                messages=messages,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                model_api_kwargs=api_kwargs,
+                api_dict=api_dict,
+                stream=stream
+            )
 
-            conv.update_last_message(output)
+            messages.append({"role": "assistant", "content": output})
             turns.append(output)
             total_num_tokens += num_tokens
 
@@ -89,10 +127,15 @@ def get_answer(
     ans = {
         "question_id": question["question_id"],
         "answer_id": shortuuid.uuid(),
-        "model_id": model.display_name.lower(),
+        "model_id": model_display_name_override if model_display_name_override else model_config.display_name.lower(),
         "choices": choices,
         "tstamp": time.time(),
         "total_output_tokens": total_num_tokens,
+        "api_info": {
+            "provider": provider if provider != 'local' else api_dict['api_base'],
+            "api_name": model_api_name,
+            "api_kwargs": api_kwargs
+        }
     }
 
     os.makedirs(os.path.dirname(answer_file), exist_ok=True)
@@ -103,20 +146,22 @@ def get_answer(
 def run_questions(
     parallel,
     questions: list[dict],
-    model: Model,
+    model_config: ModelConfig,
     num_choices: int,
     max_tokens: int,
     answer_file: str,
-    api_dict: dict | None,
     stream: bool,
-    force_temperature: float | None
+    force_temperature: float | None,
+    model_provider_override: str | None,
+    model_display_name_override: str | None = None,
+    api_dict: dict[str, str] | None = None,
 ):
     """
     Perform inference on a list of questions. Output answers to answer_file.
 
     Args:
         questions: The list of questions.
-        model: The API name for the model (e.g. gpt-4o-mini or claude-3-5-sonnet-20240620)
+        model: The display name for the model (e.g. gpt-4o-mini or claude-3-5-sonnet-20240620) or an alias
         num_choices: The number of model outputs to generate for each question
         max_tokens: The maximum number of tokens for each model response
         answer_file: The path to the file in which to write answers
@@ -127,13 +172,15 @@ def run_questions(
         for question in tqdm.tqdm(questions):
             get_answer(
                 question,
-                model,
+                model_config,
                 num_choices,
                 max_tokens,
                 answer_file,
                 api_dict=api_dict,
                 stream=stream,
-                force_temperature=force_temperature
+                force_temperature=force_temperature,
+                model_provider_override=model_provider_override,
+                model_display_name_override=model_display_name_override,
             )
         if len(questions) > 0:
             reorg_answer_file(answer_file)
@@ -145,13 +192,15 @@ def run_questions(
                 future = executor.submit(
                     get_answer,
                     question,
-                    model,
+                    model_config,
                     num_choices,
                     max_tokens,
                     answer_file,
                     api_dict=api_dict,
                     stream=stream,
-                    force_temperature=force_temperature
+                    force_temperature=force_temperature,
+                    model_provider_override=model_provider_override,
+                    model_display_name_override=model_display_name_override
                 )
                 futures.append(future)
 
@@ -250,14 +299,14 @@ if __name__ == "__main__":
         default=False,
         help="Stream responses, for models that support streaming"
     )
+    parser.add_argument(
+        "--model-provider-override",
+        type=str,
+        default=None,
+        help="Override the provider for the model. If not provided, will be inferred from --model.",
+    )
     args = parser.parse_args()
 
-    model = get_model(args.model)
-
-    if args.model_display_name is not None:
-        model_dict = model.__dict__
-        model_dict["display_name"] = args.model_display_name
-        model = type(model)(**model_dict)
 
     if args.livebench_release_option not in LIVE_BENCH_RELEASES:
         raise ValueError(f"Bad release {args.livebench_release_option}.")
@@ -278,6 +327,9 @@ if __name__ == "__main__":
     else:
         api_dict = None
 
+    model_config = get_model_config(args.model)
+    model_display_name = args.model_display_name if args.model_display_name else model_config.display_name
+
     if args.question_source == "huggingface":
         categories, tasks = get_categories_tasks(args.bench_name)
 
@@ -297,7 +349,7 @@ if __name__ == "__main__":
                     f"{LIVE_BENCH_DATA_SUPER_PATH}/{category_name}/{task_name}"
                 )
                 answer_file = (
-                    f"data/{task_full_name}/model_answer/{model.display_name.lower()}.jsonl"
+                    f"data/{task_full_name}/model_answer/{model_display_name.lower()}.jsonl"
                 )
 
                 questions = filter_questions(questions, answer_file, args.resume, args.retry_failures)
@@ -308,13 +360,15 @@ if __name__ == "__main__":
                 run_questions(
                     parallel=args.parallel,
                     questions=questions,
-                    model=model,
+                    model_config=model_config,
                     num_choices=args.num_choices,
                     max_tokens=args.max_tokens,
                     answer_file=answer_file,
                     api_dict=api_dict,
                     stream=args.stream,
-                    force_temperature=args.force_temperature
+                    force_temperature=args.force_temperature,
+                    model_provider_override=args.model_provider_override,
+                    model_display_name_override=model_display_name
                 )
 
     elif args.question_source == "jsonl":
@@ -340,7 +394,7 @@ if __name__ == "__main__":
             questions = questions[args.question_begin:args.question_end]
 
             bench_name = os.path.dirname(question_file).replace("data/", "")
-            answer_file = f"data/{bench_name}/model_answer/{model.display_name.lower()}.jsonl"
+            answer_file = f"data/{bench_name}/model_answer/{model_display_name.lower()}.jsonl"
 
             questions = filter_questions(questions, answer_file, args.resume, args.retry_failures)
                     
@@ -350,13 +404,15 @@ if __name__ == "__main__":
             run_questions(
                 parallel=args.parallel,
                 questions=questions,
-                model=model,
+                model_config=model_config,
+                model_display_name_override=model_display_name,
                 num_choices=args.num_choices,
                 max_tokens=args.max_tokens,
                 answer_file=answer_file,
                 api_dict=api_dict,
                 stream=args.stream,
-                force_temperature=args.force_temperature
+                force_temperature=args.force_temperature,
+                model_provider_override=args.model_provider_override
             )
 
     else:

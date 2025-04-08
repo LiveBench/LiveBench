@@ -3,23 +3,32 @@ import os
 import sys
 import time
 import traceback
-from typing import TYPE_CHECKING, cast
+from typing import Protocol
 import httpx
 
+from openai import Stream
+from openai.types.chat import ChatCompletionChunk, ChatCompletion
 from tenacity import retry, stop_after_attempt, retry_if_exception_type, wait_fixed, wait_incrementing
 
 logging.basicConfig(stream=sys.stdout, level=logging.WARNING)
 
 
 logger = logging.getLogger(__name__)
-if TYPE_CHECKING:
-    from livebench.model.models import Model
 
 # API setting constants
 API_MAX_RETRY = 3
 API_RETRY_SLEEP_MIN = 10
 API_RETRY_SLEEP_MAX = 60
 API_ERROR_OUTPUT = "$ERROR$"
+
+# model api function takes in Model, list of messages, temperature, max tokens, api kwargs, and an api dict
+# returns tuple of (output, num tokens)
+Conversation = list[dict[str, str]]
+API_Kwargs = dict[str, str | float | int | dict[str, str] | None]
+
+class ModelAPI(Protocol):
+    def __call__(self, model: str, messages: Conversation, temperature: float, max_tokens: int, model_api_kwargs: API_Kwargs | None, api_dict: dict[str, str] | None, stream: bool) -> tuple[str, int]:
+        ...
 
 
 def retry_fail(_):
@@ -41,9 +50,8 @@ def retry_log(retry_state):
     retry_error_callback=retry_fail
 )
 def chat_completion_openai(
-    model: "Model", conv, temperature, max_tokens, api_dict=None, stream=False
+    model: str, messages: Conversation, temperature: float, max_tokens: int, model_api_kwargs: API_Kwargs | None = None, api_dict: dict[str, str] | None = None, stream: bool = False
 ) -> tuple[str, int]:
-    from livebench.model.models import OpenAIModel
     from openai import NOT_GIVEN, OpenAI
 
     if api_dict is not None:
@@ -54,30 +62,33 @@ def chat_completion_openai(
     else:
         client = OpenAI(timeout=1000)
 
-    messages = conv.to_openai_api_messages()
-    messages = [m for m in messages if m['role'] != 'system']
-    if isinstance(model, OpenAIModel) and model.inference_api:
+    if 'o1' in model or 'o3' in model:
         messages[0]['content'] = 'Formatting reenabled\n' + messages[0]['content']
+
+    api_kwargs: API_Kwargs = {
+        'temperature': temperature
+    }
+
+    if model_api_kwargs is not None:
+        model_api_kwargs = {key: value for key, value in model_api_kwargs.items()}
+        api_kwargs.update(model_api_kwargs)
+
+    if 'max_tokens' not in api_kwargs and 'max_completion_tokens' not in api_kwargs:
+        # gpt models can use max_completion_tokens but other apis might not support this
+        api_kwargs['max_completion_tokens'] = max_tokens if 'gpt' in model else None
+        api_kwargs['max_tokens'] = max_tokens if 'gpt' not in model else None
+
+    actual_api_kwargs = {key: (value if value is not None else NOT_GIVEN) for key, value in api_kwargs.items()}
+
     try:
         if stream:
-            stream = client.chat.completions.create(
-                model=model.api_name,
+            stream: Stream[ChatCompletionChunk] = client.chat.completions.create(
+                model=model,
                 messages=messages,
                 n=1,
-                temperature=(
-                    temperature
-                    if not isinstance(model, OpenAIModel) or not model.inference_api
-                    else NOT_GIVEN
-                ),
-                max_completion_tokens=(
-                    max_tokens if isinstance(model, OpenAIModel) and not model.inference_api else NOT_GIVEN
-                ),
-                max_tokens=(
-                    max_tokens if not isinstance(model, OpenAIModel) else NOT_GIVEN
-                ),
-                reasoning_effort=model.api_kwargs['reasoning_effort'] if model.api_kwargs is not None and 'reasoning_effort' in model.api_kwargs else NOT_GIVEN,
                 stream=True,
-                stream_options={'include_usage': True}
+                stream_options={'include_usage': True},
+                **actual_api_kwargs
             )
 
             message = ''
@@ -95,23 +106,12 @@ def chat_completion_openai(
                     print(message)
                 raise
         else:
-            response = client.chat.completions.create(
-                model=model.api_name,
+            response: ChatCompletion = client.chat.completions.create(
+                model=model,
                 messages=messages,
                 n=1,
-                temperature=(
-                    temperature
-                    if not isinstance(model, OpenAIModel) or not model.inference_api
-                    else NOT_GIVEN
-                ),
-                max_completion_tokens=(
-                    max_tokens if isinstance(model, OpenAIModel) and not model.inference_api else NOT_GIVEN
-                ),
-                max_tokens=(
-                    max_tokens if not isinstance(model, OpenAIModel) else NOT_GIVEN
-                ),
-                reasoning_effort=model.api_kwargs['reasoning_effort'] if model.api_kwargs is not None and 'reasoning_effort' in model.api_kwargs else NOT_GIVEN,
                 stream=False,
+                **actual_api_kwargs
             )
             if response is None:
                 raise Exception("No response returned from OpenAI")
@@ -149,8 +149,7 @@ def chat_completion_openai(
     after=retry_log,
     retry_error_callback=retry_fail
 )
-def chat_completion_openai_responses(model, conv, temperature, max_tokens, api_dict=None) -> tuple[str, int]:
-    from livebench.model.models import OpenAIResponsesModel
+def chat_completion_openai_responses(model: str, messages: Conversation, temperature: float, max_tokens: int, model_api_kwargs: API_Kwargs | None = None, api_dict: dict[str, str] | None = None, stream: bool = False) -> tuple[str, int]:
     from openai import NOT_GIVEN, OpenAI
 
     if api_dict is not None:
@@ -160,21 +159,27 @@ def chat_completion_openai_responses(model, conv, temperature, max_tokens, api_d
     else:
         client = OpenAI(timeout=2400)
 
-    model = cast(OpenAIResponsesModel, model)
+    messages = [message for message in messages if message['role'] == 'user']
+    developer_message = ''
+    if 'o1' in model or 'o3' in model:
+        developer_message = 'Formatting reenabled\n'
 
-    messages = conv.to_openai_api_messages()
-    developer_message_index = None
-    for i, message in enumerate(messages):
-        if message["role"] == "system" or message["role"] == "developer":
-            developer_message_index = i
-            break
-    developer_message = messages[developer_message_index]['content']
-    messages = messages[0:developer_message_index] + messages[developer_message_index+1:]
-    developer_message = 'Formatting reenabled\n' + developer_message
+    api_kwargs: API_Kwargs = {
+        'max_completion_tokens': max_tokens if 'gpt' in model else None,
+        'max_tokens': max_tokens if 'gpt' not in model else None,
+        'temperature': temperature
+    }
 
-    reasoning_effort = model.api_kwargs['reasoning_effort'] if model.api_kwargs is not None and 'reasoning_effort' in model.api_kwargs else NOT_GIVEN
-    max_output_tokens = max_tokens if not model.inference_api else NOT_GIVEN
-    temperature = temperature if not model.inference_api else NOT_GIVEN
+    if model_api_kwargs is not None:
+        model_api_kwargs = {key: value for key, value in model_api_kwargs.items()}
+        api_kwargs.update(model_api_kwargs)
+
+    actual_api_kwargs = {key: (value if value is not None else NOT_GIVEN) for key, value in api_kwargs.items()}
+
+    reasoning = NOT_GIVEN
+    if 'reasoning_effort' in api_kwargs:
+        reasoning = {'effort': api_kwargs['reasoning_effort']}
+        del api_kwargs['reasoning_effort']
 
     input = '\n'.join([message['content'] for message in messages])
 
@@ -182,12 +187,11 @@ def chat_completion_openai_responses(model, conv, temperature, max_tokens, api_d
     output_tokens = None
 
     stream = client.responses.create(
-        model=model.api_name,
+        model=model,
         instructions=developer_message,
         input=input,
-        reasoning={"effort": reasoning_effort} if reasoning_effort is not NOT_GIVEN else NOT_GIVEN,
-        max_output_tokens=max_output_tokens,
-        temperature=temperature,
+        reasoning=reasoning,
+        **actual_api_kwargs,
         stream = True
     )
 
@@ -214,173 +218,47 @@ def chat_completion_openai_responses(model, conv, temperature, max_tokens, api_d
     after=retry_log,
     retry_error_callback=retry_fail
 )
-def chat_completion_aws(model, conv, temperature, max_tokens, api_dict=None) -> tuple[str, int]:
+def chat_completion_aws(model: str, messages: Conversation, temperature: float, max_tokens: int, model_api_kwargs: API_Kwargs | None = None, api_dict: dict[str, str] | None = None, stream: bool = False) -> tuple[str, int]:
     import boto3
 
-    brt = boto3.client("bedrock-runtime", region_name="us-east-1")
-    prompt = [text for role, text in conv.messages if role == "user"][0]
+    # AWS region can be customized via api_dict
+    region_name = "us-east-1"
+    if api_dict is not None and "region_name" in api_dict:
+        region_name = api_dict["region_name"]
+    
+    brt = boto3.client("bedrock-runtime", region_name=region_name)
+    user_messages = [text for role, text in messages if role == "user"]
+    prompt = user_messages[0] if user_messages else ""
 
+    # Set up API kwargs
+    inference_config = {
+        "maxTokens": max_tokens,
+        "temperature": temperature,
+    }
+
+    # Update with additional kwargs if provided
+    if model_api_kwargs is not None:
+        if 'max_tokens' in model_api_kwargs:
+            inference_config['maxTokens'] = model_api_kwargs['max_tokens']
+        if 'temperature' in model_api_kwargs:
+            inference_config['temperature'] = model_api_kwargs['temperature']
+
+   
+    # Make the API call
     response = brt.converse(
-        modelId=model.api_name,
+        modelId=model,
         messages=[{"role": "user", "content": [{"text": prompt}]}],
-        inferenceConfig={
-            "maxTokens": max_tokens,
-            "temperature": temperature,
-        },
+        inferenceConfig=inference_config,
     )
-
+    
+    if response is None:
+        raise Exception("No response returned from AWS Bedrock")
+    
     output = response["output"]["message"]["content"][0]["text"]
     num_tokens = response["usage"]["outputTokens"]
 
     return output, num_tokens
 
-
-@retry(
-    stop=stop_after_attempt(API_MAX_RETRY),
-    wait=wait_fixed(API_RETRY_SLEEP_MIN),
-    retry=retry_if_exception_type(Exception),
-    after=retry_log,
-    retry_error_callback=retry_fail
-)
-def chat_completion_deepseek(model, conv, temperature, max_tokens, api_dict=None) -> tuple[str, int]:
-    if api_dict is not None and "api_key" in api_dict:
-        api_key = api_dict["api_key"]
-    else:
-        api_key = os.environ["DEEPSEEK_API_KEY"]
-
-    from livebench.model.models import DeepseekModel
-    model = cast(DeepseekModel, model)
-
-    print("sleeping for 3 sec")
-    time.sleep(3)
-    from openai import NOT_GIVEN, OpenAI
-    client = OpenAI(api_key=api_key, base_url="https://api.deepseek.com")
-    messages = conv.to_openai_api_messages()
-
-    kwargs = {
-        'temperature': temperature if not model.reasoner else NOT_GIVEN,
-        'max_tokens': max_tokens
-    }
-    kwargs.update(model.api_kwargs)
-
-    response = client.chat.completions.create(
-        model=model.api_name,
-        messages=messages,
-        n=1,
-        stream=False,
-        **kwargs
-    )
-    message = response.choices[0].message.content
-    if message is None:
-        raise Exception("No message returned from DeepSeek")
-    output = message
-    num_tokens = response.usage.completion_tokens
-    if hasattr(response.usage, 'reasoning_tokens'):
-        num_tokens += response.usage.reasoning_tokens
-
-    return output, num_tokens
-
-
-@retry(
-    stop=stop_after_attempt(API_MAX_RETRY),
-    wait=wait_fixed(API_RETRY_SLEEP_MIN),
-    retry=retry_if_exception_type(Exception),
-    after=retry_log,
-    retry_error_callback=retry_fail
-)
-def chat_completion_nvidia(model, conv, temperature, max_tokens, api_dict=None) -> tuple[str, int]:
-    if api_dict is not None and "api_key" in api_dict:
-        api_key = api_dict["api_key"]
-    else:
-        api_key = os.environ["NVIDIA_API_KEY"]
-
-    print("sleeping for 2 sec")
-    time.sleep(2)
-
-    from openai import OpenAI
-
-    client = OpenAI(
-        api_key=api_key, base_url="https://integrate.api.nvidia.com/v1"
-    )
-    messages = conv.to_openai_api_messages()
-    response = client.chat.completions.create(
-        model=model.api_name,
-        messages=messages,
-        temperature=temperature,
-        max_tokens=max_tokens,
-        top_p=1,
-        stream=False,
-    )
-    message = response.choices[0].message.content
-    if message is None:
-        raise Exception("No message returned from NVIDIA")
-
-    return message, response.usage.completion_tokens
-
-
-@retry(
-    stop=stop_after_attempt(API_MAX_RETRY),
-    wait=wait_fixed(API_RETRY_SLEEP_MIN),
-    retry=retry_if_exception_type(Exception),
-    after=retry_log,
-    retry_error_callback=retry_fail
-)
-def chat_completion_xai(model, conv, temperature, max_tokens, api_dict=None) -> tuple[str, int]:
-    if api_dict is not None and "api_key" in api_dict:
-        api_key = api_dict["api_key"]
-    else:
-        api_key = os.environ["XAI_API_KEY"]
-
-    from openai import OpenAI
-
-    client = OpenAI(base_url="https://api.x.ai/v1", api_key=api_key)
-    messages = conv.to_openai_api_messages()
-
-    response = client.chat.completions.create(
-        model=model.api_name,
-        messages=messages,
-        temperature=temperature,
-        max_tokens=max_tokens,
-        n=1,
-        stream=False,
-    )
-    message = response.choices[0].message.content
-    if message is None:
-        raise Exception("No message returned from X.AI")
-    if response.usage is not None:
-        num_tokens = response.usage.completion_tokens
-        if hasattr(response.usage, 'reasoning_tokens'):
-            num_tokens += response.usage.reasoning_tokens
-    else:
-        num_tokens = None
-
-    return message, num_tokens
-
-
-@retry(
-    stop=stop_after_attempt(API_MAX_RETRY),
-    wait=wait_fixed(API_RETRY_SLEEP_MIN),
-    retry=retry_if_exception_type(Exception),
-    after=retry_log,
-    retry_error_callback=retry_fail
-)
-def chat_completion_vertex(
-    model, conv, temperature, max_tokens, api_dict=None, project_name="DEFAULT"
-) -> tuple[str, int]:
-    import vertexai
-    from vertexai.preview.generative_models import GenerativeModel
-
-    print("sleeping for 5 sec")
-    time.sleep(5)
-    vertexai.init(project=project_name, location="us-central1")
-    generative_multimodal_model = GenerativeModel(model.api_name)
-    prompt = [text for role, text in conv.messages if role == "user"][0]
-    response = generative_multimodal_model.generate_content([prompt])
-    message = response.candidates[0].content.parts[0].text
-    if message is None:
-        raise Exception("No message returned from Vertex")
-
-    return message.strip(), response.usage.output_tokens
 
 incremental_wait = wait_incrementing(start=API_RETRY_SLEEP_MIN, max=API_RETRY_SLEEP_MAX, increment=20)
 
@@ -404,7 +282,7 @@ def gemini_custom_wait(retry_state):
     retry_error_callback=retry_fail
 )
 def chat_completion_google_generativeai(
-    model, conv, temperature, max_tokens, api_dict=None
+    model: str, messages: Conversation, temperature: float, max_tokens: int, model_api_kwargs: API_Kwargs | None = None, api_dict: dict[str, str] | None = None, stream: bool = False
 ) -> tuple[str, int]:
     from google import genai
     from google.genai import types
@@ -413,58 +291,76 @@ def chat_completion_google_generativeai(
         api_key = api_dict["api_key"]
     else:
         api_key = os.environ["GEMINI_API_KEY"]
+    
     client = genai.Client(api_key=api_key, http_options={'api_version': 'v1alpha'})
 
     safety_settings = [
-        types.SafetySetting(category="HARM_CATEGORY_HARASSMENT", threshold="BLOCK_NONE"),
-        types.SafetySetting(category="HARM_CATEGORY_HATE_SPEECH", threshold="BLOCK_NONE"),
-        types.SafetySetting(category="HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold="BLOCK_NONE"),
-        types.SafetySetting(category="HARM_CATEGORY_DANGEROUS_CONTENT", threshold="BLOCK_NONE"),
+        types.SafetySetting(category=types.HarmCategory.HARM_CATEGORY_HARASSMENT, threshold=types.HarmBlockThreshold.BLOCK_NONE),
+        types.SafetySetting(category=types.HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold=types.HarmBlockThreshold.BLOCK_NONE),
+        types.SafetySetting(category=types.HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold=types.HarmBlockThreshold.BLOCK_NONE),
+        types.SafetySetting(category=types.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold=types.HarmBlockThreshold.BLOCK_NONE),
     ]
 
-    system = [text for role, text in conv.messages if role == "system"][0] if len([text for role, text in conv.messages if role == "system"]) > 0 else None
-    prompt = [text for role, text in conv.messages if role == "user"][0]
+    # Extract system message and user prompt
+    system = [text for role, text in messages if role == "system"][0] if len([text for role, text in messages if role == "system"]) > 0 else None
+    prompt = [text for role, text in messages if role == "user"][0]
 
-    kwargs = {'safety_settings': safety_settings, 'system_instruction': system}
+    # Initialize with default kwargs and safety settings
+    api_kwargs: API_Kwargs = {
+        'safety_settings': safety_settings, 
+        'system_instruction': system,
+        'temperature': temperature,
+        'max_output_tokens': max_tokens
+    }
+    
+    # Update with additional kwargs if provided
+    if model_api_kwargs is not None:
+        model_api_kwargs = {key: value for key, value in model_api_kwargs.items()}
+        api_kwargs.update(model_api_kwargs)
 
-    if model.api_kwargs is not None:
-        kwargs.update(model.api_kwargs)
 
-    config = types.GenerateContentConfig(**kwargs)
-
+    config = types.GenerateContentConfig(**api_kwargs)
+    
     response = client.models.generate_content(
-        model=model.api_name,
+        model=model,
         contents=prompt,
         config=config
     )
-
+    
     if response is None or response.candidates is None or len(response.candidates) == 0 or response.candidates[0].content is None or response.candidates[0].content.parts is None or len(response.candidates[0].content.parts) == 0:
         msg = "No message returned from Google Generative AI"
         if response is not None and response.candidates is not None and len(response.candidates) > 0 and response.candidates[0].finish_reason is not None:
             msg += f" - finish reason: {response.candidates[0].finish_reason}"
         raise Exception(msg)
-
+    
+    # Handle reasoning models that provide chain-of-thought
     if len(response.candidates[0].content.parts) > 1:
-        # if using a reasoning model, don't return the CoT text
-        final_res = ''
+        message = ''
         cot = ''
         for part in response.candidates[0].content.parts:
-            if part.thought:
+            if hasattr(part, 'thought') and part.thought:
                 cot += part.text
             else:
-                final_res += part.text
+                message += part.text
     else:
-        final_res = response.candidates[0].content.parts[0].text
+        message = response.candidates[0].content.parts[0].text
         cot = ''
-
-    full = final_res + '\n' + cot
-
-    tokens = client.models.count_tokens(
-        model=model.api_name,
-        contents=full
-    ).total_tokens
-
-    return final_res, tokens
+    
+    # Get token count if available
+    num_tokens = None
+    if hasattr(response, 'usage') and response.usage:
+        if hasattr(response.usage, 'output_tokens'):
+            num_tokens = response.usage.output_tokens
+        # Some models separate reasoning tokens
+        if hasattr(response.usage, 'reasoning_tokens'):
+            reasoning_tokens = response.usage.reasoning_tokens
+            if num_tokens is not None:
+                num_tokens += reasoning_tokens
+            else:
+                num_tokens = reasoning_tokens
+    
+    
+    return message, num_tokens
 
 
 @retry(
@@ -474,7 +370,7 @@ def chat_completion_google_generativeai(
     after=retry_log,
     retry_error_callback=retry_fail
 )
-def chat_completion_together(model, conv, temperature, max_tokens, api_dict=None) -> tuple[str, int]:
+def chat_completion_together(model: str, messages: Conversation, temperature: float, max_tokens: int, model_api_kwargs: API_Kwargs | None = None, api_dict: dict[str, str] | None = None, stream: bool = False) -> tuple[str, int]:
     from together import Together
 
     if api_dict is not None and "api_key" in api_dict:
@@ -483,61 +379,30 @@ def chat_completion_together(model, conv, temperature, max_tokens, api_dict=None
         api_key = os.environ["TOGETHER_API_KEY"]
     client = Together(api_key=api_key)
 
-    messages = conv.to_openai_api_messages()
-    
+
     messages = [message for message in messages if message['role'] == 'user']
 
-    kwargs = {'max_tokens': max_tokens, 'temperature': temperature}
-    if model.api_kwargs is not None:
-        kwargs.update(model.api_kwargs)
+    api_kwargs: API_Kwargs = {'max_tokens': max_tokens, 'temperature': temperature}
+    if model_api_kwargs is not None:
+        model_api_kwargs = {key: value for key, value in model_api_kwargs.items()}
+        api_kwargs.update(model_api_kwargs)
 
     response = client.chat.completions.create(
-        model=model.api_name,
+        model=model,
         messages=messages,
-        **kwargs
+        **api_kwargs
     )
-
-    return response.choices[0].message.content, response.usage.completion_tokens
-
-
-@retry(
-    stop=stop_after_attempt(API_MAX_RETRY),
-    wait=wait_fixed(API_RETRY_SLEEP_MIN),
-    retry=retry_if_exception_type(Exception),
-    after=retry_log,
-    retry_error_callback=retry_fail
-)
-def chat_completion_perplexity(model, conv, temperature, max_tokens, api_dict=None) -> tuple[str, int]:
-    if api_dict is not None and "api_key" in api_dict:
-        api_key = api_dict["api_key"]
-    else:
-        api_key = os.environ["PERPLEXITY_API_KEY"]
-
-    from openai import OpenAI
-
-    client = OpenAI(base_url="https://api.perplexity.ai", api_key=api_key)
-    messages = conv.to_openai_api_messages()
-
-    response = client.chat.completions.create(
-        model=model.api_name,
-        messages=messages,
-        temperature=temperature,
-        max_tokens=max_tokens,
-    )
-
+    
     if response is None:
-        raise Exception("No response returned from Perplexity")
+        raise Exception("No response returned from Together AI")
     elif response.choices is None:
-        print(response)
-        raise Exception("API request failed")
-    if isinstance(response.choices[0], str):
-        message = response.choices[0]
-    else:
-        message = response.choices[0].message.content
-    if response.usage is not None:
-        num_tokens = response.usage.completion_tokens
-    else:
-        num_tokens = None
+        raise Exception("No choices returned from Together AI")
+    
+    message = response.choices[0].message.content
+    if message is None:
+        raise Exception("No message returned from Together AI")
+    
+    num_tokens = response.usage.completion_tokens if hasattr(response, 'usage') and hasattr(response.usage, 'completion_tokens') else None
 
     return message, num_tokens
 
@@ -549,46 +414,7 @@ def chat_completion_perplexity(model, conv, temperature, max_tokens, api_dict=No
     after=retry_log,
     retry_error_callback=retry_fail
 )
-def chat_completion_openai_azure(model, conv, temperature, max_tokens, api_dict=None) -> tuple[str, int]:
-    import openai
-    openai.api_type = "azure"
-    openai.api_version = "2023-07-01-preview"
-    if api_dict is not None:
-        openai.base_url = api_dict["api_base"]
-        openai.api_key = api_dict["api_key"]
-    else:
-        openai.base_url = os.environ["AZURE_OPENAI_ENDPOINT"]
-        openai.api_key = os.environ["AZURE_OPENAI_KEY"]
-
-    if "azure-" in model:
-        model = model[6:]
-
-    from openai import OpenAI
-    client = OpenAI()
-
-    messages = conv.to_openai_api_messages()
-    response = client.chat.completions.create(
-        engine=model.api_name,
-        messages=messages,
-        n=1,
-        temperature=temperature,
-        max_tokens=max_tokens,
-    )
-    output = response.choices[0].message.content
-    if output is None:
-        raise Exception("No message returned from Azure OpenAI")
-
-    return output, response.usage.completion_tokens
-
-
-@retry(
-    stop=stop_after_attempt(API_MAX_RETRY),
-    wait=wait_fixed(API_RETRY_SLEEP_MIN),
-    retry=retry_if_exception_type(Exception),
-    after=retry_log,
-    retry_error_callback=retry_fail
-)
-def chat_completion_anthropic(model, conv, temperature, max_tokens, api_dict=None) -> tuple[str, int]:
+def chat_completion_anthropic(model: str, messages: Conversation, temperature: float, max_tokens: int, model_api_kwargs: API_Kwargs | None = None, api_dict: dict[str, str] | None = None, stream: bool = False) -> tuple[str, int]:
     if api_dict is not None and "api_key" in api_dict:
         api_key = api_dict["api_key"]
     else:
@@ -596,28 +422,24 @@ def chat_completion_anthropic(model, conv, temperature, max_tokens, api_dict=Non
 
     from anthropic import NOT_GIVEN, Anthropic
     c = Anthropic(api_key=api_key)
-    prompt = [text for role, text in conv.messages if role == "Human"][0]
 
-    kwargs = {
+    api_kwargs: API_Kwargs = {
         'max_tokens': max_tokens,
         'temperature': temperature
     }
 
-    if model.api_kwargs is not None:
-        kwargs.update(model.api_kwargs)
+    if model_api_kwargs is not None:
+        model_api_kwargs = {key: value for key, value in model_api_kwargs.items()}
+        api_kwargs.update(model_api_kwargs)
 
-    for k in kwargs:
-        if kwargs[k] == None:
-            kwargs[k] = NOT_GIVEN
+    actual_api_kwargs = {key: (value if value is not None else NOT_GIVEN) for key, value in api_kwargs.items()}
 
     message = []
 
     with c.messages.stream(
-        model=model.api_name,
-        messages=[
-            {"role": "user", "content": prompt}
-        ],
-        **kwargs
+        model=model,
+        messages=messages,
+        **actual_api_kwargs
     ) as stream:
         new_block = {}
         for event in stream:
@@ -649,16 +471,16 @@ def chat_completion_anthropic(model, conv, temperature, max_tokens, api_dict=Non
                 message.append(new_block)
                 new_block = {}
 
-    del kwargs['max_tokens']
-    del kwargs['temperature']
+    del actual_api_kwargs['max_tokens']
+    del actual_api_kwargs['temperature']
 
     try:
         tokens = c.messages.count_tokens(
-            model=model.api_name,
+            model=model,
             messages=[
                 {"role": "assistant", "content": message}
             ],
-            **kwargs
+            **actual_api_kwargs
         ).input_tokens
     except Exception as e:
         print('Failed to count tokens:', e)
@@ -680,27 +502,44 @@ def chat_completion_anthropic(model, conv, temperature, max_tokens, api_dict=Non
     after=retry_log,
     retry_error_callback=retry_fail
 )
-def chat_completion_mistral(model, conv, temperature, max_tokens, api_dict=None) -> tuple[str, int]:
+def chat_completion_mistral(model: str, messages: Conversation, temperature: float, max_tokens: int, model_api_kwargs: API_Kwargs | None = None, api_dict: dict[str, str] | None = None, stream: bool = False) -> tuple[str, int]:
     if api_dict is not None and "api_key" in api_dict:
         api_key = api_dict["api_key"]
     else:
         api_key = os.environ["MISTRAL_API_KEY"]
 
-    from mistralai import Mistral
+    from mistralai import Mistral, UNSET
     client = Mistral(api_key=api_key)
+    
+    # Set up API kwargs
+    api_kwargs: API_Kwargs = {
+        'max_tokens': max_tokens,
+        'temperature': temperature
+    }
+    if model_api_kwargs is not None:
+        model_api_kwargs = {key: value for key, value in model_api_kwargs.items()}
+        api_kwargs.update(model_api_kwargs)
 
-    messages = conv.to_openai_api_messages()
+    actual_api_kwargs = {key: (value if value is not None else UNSET) for key, value in api_kwargs.items()}
+
     chat_response = client.chat.complete(
-        model=model.api_name,
-        max_tokens=max_tokens,
-        temperature=temperature,
+        model=model,
         messages=messages,
+        **actual_api_kwargs
     )
-
-    if chat_response.choices[0].message.content is None:
+    
+    if chat_response is None:
+        raise Exception("No response returned from Mistral")
+    elif not hasattr(chat_response, 'choices') or not chat_response.choices:
+        raise Exception("No choices returned from Mistral")
+    
+    message = chat_response.choices[0].message.content
+    if message is None:
         raise Exception("No message returned from Mistral")
+    
+    num_tokens = chat_response.usage.completion_tokens if hasattr(chat_response, 'usage') and hasattr(chat_response.usage, 'completion_tokens') else None
 
-    return chat_response.choices[0].message.content.strip(), chat_response.usage.completion_tokens
+    return message.strip(), num_tokens
 
 
 @retry(
@@ -710,52 +549,61 @@ def chat_completion_mistral(model, conv, temperature, max_tokens, api_dict=None)
     after=retry_log,
     retry_error_callback=retry_fail
 )
-def chat_completion_cohere(model, conv, temperature, max_tokens, api_dict=None) -> tuple[str, int]:
+def chat_completion_cohere(model: str, messages: Conversation, temperature: float, max_tokens: int, model_api_kwargs: API_Kwargs | None = None, api_dict: dict[str, str] | None = None, stream: bool = False) -> tuple[str, int]:
     if api_dict is not None and "api_key" in api_dict:
         api_key = api_dict["api_key"]
     else:
         api_key = os.environ["CO_API_KEY"]
 
-    import cohere
-    co = cohere.Client(api_key=api_key)
-    prompt = [text for role, text in conv.messages if role == "user"][0]
+    from cohere import OMIT, Client
+    co = Client(api_key=api_key)
+    
+    # Set up API kwargs
+    api_kwargs: API_Kwargs = {
+        'max_tokens': max_tokens,
+        'temperature': temperature
+    }
+    if model_api_kwargs is not None:
+        model_api_kwargs = {key: value for key, value in model_api_kwargs.items()}
+        api_kwargs.update(model_api_kwargs)
+
+    actual_api_kwargs = {key: (value if value is not None else OMIT) for key, value in api_kwargs.items()}
+    
+    actual_api_kwargs['max_tokens'] = min(max_tokens, 4000)
 
     response = co.chat(
-        model=model.api_name,
-        max_tokens=min(max_tokens, 4000),
+        model=model,
+        max_tokens=safe_max_tokens,
         temperature=temperature,
-        message=prompt,
+        messages=messages,
+        **actual_api_kwargs
     )
-    if response.text is None:
+            
+    if response is None:
+        raise Exception("No response returned from Cohere")
+    
+    message = response.text
+    if message is None:
         raise Exception("No message returned from Cohere")
+    
+    num_tokens = response.meta.tokens.output_tokens if hasattr(response, 'meta') and hasattr(response.meta, 'tokens') and hasattr(response.meta.tokens, 'output_tokens') else None
 
-    return response.text.strip(), response.meta.tokens.output_tokens
+    return message.strip(), num_tokens
 
-
-@retry(
-    stop=stop_after_attempt(API_MAX_RETRY),
-    wait=wait_fixed(API_RETRY_SLEEP_MIN),
-    retry=retry_if_exception_type(Exception),
-    after=retry_log,
-    retry_error_callback=retry_fail
-)
-def chat_completion_palm(chat_state, model, conv, temperature, max_tokens) -> tuple[str, int]:
-    from fastchat.serve.api_provider import init_palm_chat
-
-    assert model.api_name == "palm-2-chat-bison-001"
-
-    if chat_state is None:
-        chat_state = init_palm_chat("chat-bison@001")
-
-    parameters = {
-        "temperature": temperature,
-        "top_p": 0.8,
-        "top_k": 40,
-        "max_output_tokens": max_tokens,
-    }
-
-    response = chat_state.send_message(conv.messages[-2][1], **parameters)
-    if response.text is None:
-        raise Exception("No message returned from PaLM")
-
-    return chat_state, response.text, response.usage.output_tokens
+def get_api_function(provider_name: str) -> ModelAPI:
+    if provider_name == 'openai':
+        return chat_completion_openai
+    elif provider_name == 'openai_responses':
+        return chat_completion_openai_responses
+    elif provider_name == 'anthropic':
+        return chat_completion_anthropic
+    elif provider_name == 'mistral':
+        return chat_completion_mistral
+    elif provider_name == 'cohere':
+        return chat_completion_cohere
+    elif provider_name == 'together':
+        return chat_completion_together
+    elif provider_name == 'google':
+        return chat_completion_google_generativeai
+    else:
+        return chat_completion_openai

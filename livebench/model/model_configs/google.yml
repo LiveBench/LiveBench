@@ -1,0 +1,143 @@
+
+# Google Models
+---
+display_name: gemma-2-27b-it
+api_name:
+  together: google/gemma-2-27b-it
+---
+display_name: gemma-2-9b-it
+api_name:
+  together: google/gemma-2-9b-it
+---
+display_name: gemini-1.5-pro-001
+api_name:
+  google: gemini-1.5-pro-001
+---
+display_name: gemini-1.5-flash-001
+api_name:
+  google: gemini-1.5-flash-001
+---
+display_name: gemini-1.5-pro-exp-0801
+api_name:
+  google: gemini-1.5-pro-exp-0801
+---
+display_name: gemini-1.5-pro-exp-0827
+api_name:
+  google: gemini-1.5-pro-exp-0827
+---
+display_name: gemini-1.5-flash-exp-0827
+api_name:
+  google: gemini-1.5-flash-exp-0827
+---
+display_name: gemini-1.5-flash-8b-exp-0827
+api_name:
+  google: gemini-1.5-flash-8b-exp-0827
+---
+display_name: gemini-1.5-pro-002
+api_name:
+  google: gemini-1.5-pro-002
+---
+display_name: gemini-1.5-flash-002
+api_name:
+  google: gemini-1.5-flash-002
+---
+display_name: gemini-exp-1114
+api_name:
+  google: gemini-exp-1114
+---
+display_name: gemini-exp-1121
+api_name:
+  google: gemini-exp-1121
+---
+display_name: gemini-1.5-flash-8b-001
+api_name:
+  google: gemini-1.5-flash-8b-001
+aliases:
+  - gemini-1.5-flash-8b
+---
+display_name: learnlm-1.5-pro-experimental
+api_name:
+  google: learnlm-1.5-pro-experimental
+---
+display_name: gemini-exp-1206
+api_name:
+  google: gemini-exp-1206
+---
+display_name: gemini-2.0-flash-exp
+api_name:
+  google: gemini-2.0-flash-exp
+---
+display_name: gemini-2.0-flash-thinking-exp-1219
+api_name:
+  google: gemini-2.0-flash-thinking-exp-1219
+api_kwargs:
+  max_output_tokens: 65536
+  temperature: 0.7
+  top_p: 0.95
+  thinking_config:
+    include_thoughts: true
+---
+display_name: gemini-2.0-flash-thinking-exp-01-21
+api_name:
+  google: gemini-2.0-flash-thinking-exp-01-21
+aliases:
+  - gemini-2.0-flash-thinking-exp
+api_kwargs:
+  max_output_tokens: 65536
+  temperature: 0.7  
+  top_p: 0.95
+  thinking_config:
+    include_thoughts: true
+---
+display_name: gemini-2.0-pro-exp-02-05
+api_name:
+  google: gemini-2.0-pro-exp-02-05
+aliases:
+  - gemini-2.0-pro-exp
+---
+display_name: gemini-2.0-flash-001
+api_name:
+  google: gemini-2.0-flash-001
+aliases:
+  - gemini-2.0-flash
+---
+display_name: gemini-2.0-flash-lite-preview-02-05
+api_name:
+  google: gemini-2.0-flash-lite-preview-02-05
+---
+display_name: gemini-2.0-flash-lite-001
+api_name:
+  google: gemini-2.0-flash-lite-001
+aliases:
+  - gemini-2.0-flash-lite
+---
+display_name: gemma-3-27b-it
+api_name:
+  google: gemma-3-27b-it
+aliases:
+  - gemma-3-27b
+---
+display_name: gemma-3-12b-it
+api_name:
+  google: gemma-3-12b-it
+aliases:
+  - gemma-3-12b
+---
+display_name: gemma-3-4b-it
+api_name:
+  google: gemma-3-4b-it
+aliases:
+  - gemma-3-4b
+---
+display_name: gemini-2.5-pro-exp-03-25
+api_name:
+  google: gemini-2.5-pro-exp-03-25
+aliases:
+  - gemini-2.5-pro-exp
+api_kwargs:
+  default:
+    max_output_tokens: 65536
+    temperature: 1
+    top_p: 0.95
+    thinking_config:
+      include_thoughts: true

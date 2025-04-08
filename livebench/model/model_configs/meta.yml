@@ -1,0 +1,24 @@
+# Meta Models
+---
+display_name: meta-llama-3.1-405b-instruct-turbo
+api_name:
+  together: meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo
+---
+display_name: meta-llama-3.1-70b-instruct-turbo
+api_name:
+  together: meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo
+---
+display_name: meta-llama-3.1-8b-instruct-turbo
+api_name:
+  together: meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo
+---
+display_name: llama-3.3-70b-instruct-turbo
+api_name:
+  together: meta-llama/Llama-3.3-70B-Instruct-Turbo
+---
+display_name: llama-3.1-nemotron-70b-instruct
+api_name:
+  together: Llama-3.1-Nemotron-70B-Instruct-HF
+aliases:
+  - llama-3.1-nemotron-70b-instruct
+  - nvidia/llama-3.1-nemotron-70b-instruct
