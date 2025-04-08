@@ -22,22 +22,21 @@ from livebench.common import (
     LIVE_BENCH_DATA_SUPER_PATH,
     filter_questions
 )
-from livebench.model.completions import get_api_function
 
-from livebench.model.api_model_config import get_model_config
+from livebench.model import ModelConfig, get_model_config, get_api_function
 
 
 def get_answer(
     question: dict,
-    model: str,
-    model_display_name_override: str | None = None,
+    model_config: ModelConfig,
     num_choices: int,
     max_tokens: int,
     answer_file: str,
-    api_dict: dict | None = None,
+    api_dict: dict[str, str] | None = None,
     stream: bool = False,
     force_temperature: float | None = None,
-    model_provider_override: str | None = None
+    model_provider_override: str | None = None,
+    model_display_name_override: str | None = None
 ):
     """
     Perform inference for a single question.
@@ -62,8 +61,6 @@ def get_answer(
     else:
         temperature = 0
 
-    model_config = get_model_config(model)
-
     choices = []
     total_num_tokens = 0
     for i in range(num_choices):
@@ -73,7 +70,8 @@ def get_answer(
         for j in range(len(question["turns"])):
             messages.append({"role": "user", "content": question["turns"][j]})
 
-            if api_dict is not None:
+            if model_config.default_provider == 'local' or (len(model_config.api_name) == 1 and list(model_config.api_name.keys())[0] == 'local') or api_dict is not None:
+                assert api_dict is not None, "Missing API dict for local model"
                 output, num_tokens = get_api_function('local')(
                     model=model_config.display_name,
                     messages=messages,
@@ -84,13 +82,11 @@ def get_answer(
                     stream=stream
                 )
             else:
-                if model_config.default_provider == 'local' or (len(model_config.api_name) == 1 and list(model_config.api_name.keys())[0] == 'local'):
-                    raise ValueError("Missing API dict for local model")
                 if len(model_config.api_name) > 1 and not model_config.default_provider:
                     raise ValueError("Missing default provider " + model_config.display_name)
                 provider_name = model_provider_override if model_provider_override else model_config.default_provider if model_config.default_provider else list(model_config.api_name.keys())[0]
                 output, num_tokens = get_api_function(provider_name)(
-                    model=model_config.api_name[provider_name],
+                    model=model_config.api_name[provider_name] if provider_name in model_config.api_name else model_config.display_name,
                     messages=messages,
                     temperature=temperature,
                     max_tokens=max_tokens,
@@ -123,15 +119,15 @@ def get_answer(
 def run_questions(
     parallel,
     questions: list[dict],
-    model: str,
-    model_display_name_override: str | None = None,
+    model_config: ModelConfig,
     num_choices: int,
     max_tokens: int,
     answer_file: str,
-    api_dict: dict | None,
     stream: bool,
     force_temperature: float | None,
-    model_provider_override: str | None
+    model_provider_override: str | None,
+    model_display_name_override: str | None = None,
+    api_dict: dict[str, str] | None = None,
 ):
     """
     Perform inference on a list of questions. Output answers to answer_file.
@@ -149,15 +145,15 @@ def run_questions(
         for question in tqdm.tqdm(questions):
             get_answer(
                 question,
-                model,
-                model_display_name_override,
+                model_config,
                 num_choices,
                 max_tokens,
                 answer_file,
                 api_dict=api_dict,
                 stream=stream,
                 force_temperature=force_temperature,
-                model_provider_override=model_provider_override
+                model_provider_override=model_provider_override,
+                model_display_name_override=model_display_name_override,
             )
         if len(questions) > 0:
             reorg_answer_file(answer_file)
@@ -169,15 +165,15 @@ def run_questions(
                 future = executor.submit(
                     get_answer,
                     question,
-                    model,
-                    model_display_name_override,
+                    model_config,
                     num_choices,
                     max_tokens,
                     answer_file,
                     api_dict=api_dict,
                     stream=stream,
                     force_temperature=force_temperature,
-                    model_provider_override=model_provider_override
+                    model_provider_override=model_provider_override,
+                    model_display_name_override=model_display_name_override
                 )
                 futures.append(future)
 
@@ -337,15 +333,15 @@ if __name__ == "__main__":
                 run_questions(
                     parallel=args.parallel,
                     questions=questions,
-                    model=args.model,
-                    model_display_name_override=model_display_name,
+                    model_config=model_config,
                     num_choices=args.num_choices,
                     max_tokens=args.max_tokens,
                     answer_file=answer_file,
                     api_dict=api_dict,
                     stream=args.stream,
                     force_temperature=args.force_temperature,
-                    model_provider_override=args.model_provider_override
+                    model_provider_override=args.model_provider_override,
+                    model_display_name_override=model_display_name
                 )
 
     elif args.question_source == "jsonl":
@@ -381,7 +377,7 @@ if __name__ == "__main__":
             run_questions(
                 parallel=args.parallel,
                 questions=questions,
-                model=args.model,
+                model_config=model_config,
                 model_display_name_override=model_display_name,
                 num_choices=args.num_choices,
                 max_tokens=args.max_tokens,

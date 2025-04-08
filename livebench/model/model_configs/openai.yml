@@ -100,6 +100,7 @@ aliases:
 api_kwargs:
   temperature: null
   max_completion_tokens: null
+  reasoning_effort: high
 ---
 display_name: o1-2024-12-17-low
 api_name:
@@ -109,6 +110,7 @@ aliases:
 api_kwargs:
   temperature: null
   max_completion_tokens: null
+  reasoning_effort: low
 ---
 display_name: o1-2024-12-17-medium
 api_name:
@@ -118,6 +120,7 @@ aliases:
 api_kwargs:
   temperature: null
   max_completion_tokens: null
+  reasoning_effort: medium
 ---
 display_name: o3-mini-2025-01-31-high
 api_name:
@@ -129,6 +132,7 @@ aliases:
 api_kwargs:
   temperature: null
   max_completion_tokens: null
+  reasoning_effort: high
 ---
 display_name: o3-mini-2025-01-31-low
 api_name:
@@ -138,6 +142,7 @@ aliases:
 api_kwargs:
   temperature: null
   max_completion_tokens: null
+  reasoning_effort: low
 ---
 display_name: o3-mini-2025-01-31-medium
 api_name:
@@ -147,13 +152,13 @@ aliases:
 api_kwargs:
   temperature: null
   max_completion_tokens: null
+  reasoning_effort: medium
 ---
 display_name: o1-pro-2025-03-19
 api_name:
-  openai: o1-pro-2025-03-19
+  openai_responses: o1-pro-2025-03-19
 aliases:
   - o1-pro
-responses_api: true
 api_kwargs:
   temperature: null
   max_completion_tokens: null

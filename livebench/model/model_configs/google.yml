@@ -140,4 +140,3 @@ api_kwargs:
   top_p: 0.95
   thinking_config:
     include_thoughts: true
----

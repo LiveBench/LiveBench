@@ -3,5 +3,5 @@ from livebench.model.model_adapter import (
     get_conversation_template,
     add_model_args,
 )
-from livebench.model.models import Model
-from livebench.model.api_models import get_model
+from livebench.model.api_model_config import ModelConfig, get_model_config
+from livebench.model.completions import get_api_function

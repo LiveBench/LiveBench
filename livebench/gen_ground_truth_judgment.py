@@ -15,7 +15,7 @@ import numpy as np
 from tqdm import tqdm
 
 # todo: find a better solution than all these imports.
-from livebench.model.api_models import get_model
+from livebench.model import get_model_config
 from livebench.process_results.data_analysis.tablereformat.utils import table_process_results
 from livebench.process_results.data_analysis.cta.utils import cta_process_results
 from livebench.process_results.data_analysis.tablejoin.utils import joinmap_process_results
@@ -220,7 +220,7 @@ def gen_judgments(
     else:
         models = model_list
 
-    models = [get_model(m).display_name for m in models]
+    models = [get_model_config(m).display_name for m in models]
 
     print('models:', models)
 

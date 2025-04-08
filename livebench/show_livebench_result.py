@@ -15,7 +15,7 @@ from livebench.common import (
     load_questions,
     load_questions_jsonl
 )
-from livebench.model.api_models import get_model
+from livebench.model import get_model_config
 
 
 def calculate_usage(args, df, questions_all):
@@ -28,7 +28,7 @@ def calculate_usage(args, df, questions_all):
     # Get model list to filter by if provided
     model_filter = None
     if args.model_list is not None:
-        model_filter = {get_model(x).display_name.lower() for x in args.model_list}
+        model_filter = {get_model_config(x).display_name.lower() for x in args.model_list}
         print(f"Filtering token usage for models: {', '.join(sorted(model_filter))}")
     
     # Load model answer files
@@ -283,7 +283,7 @@ def display_result_single(args):
     df["score"] *= 100
 
     if args.model_list is not None:
-        model_list = [get_model(x).display_name for x in args.model_list]
+        model_list = [get_model_config(x).display_name for x in args.model_list]
         df = df[df["model"].isin([x.lower() for x in model_list])]
         model_list_to_check = model_list
     else:

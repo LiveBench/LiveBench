@@ -66,22 +66,24 @@ def chat_completion_openai(
         messages[0]['content'] = 'Formatting reenabled\n' + messages[0]['content']
 
     api_kwargs: API_Kwargs = {
-        'max_completion_tokens': max_tokens if 'gpt' in model else None,
-        'max_tokens': max_tokens if 'gpt' not in model else None,
         'temperature': temperature
     }
 
     if model_api_kwargs is not None:
-        model_api_kwargs = {key: value for key, value in model_api_kwargs.items() if value is not None}
+        model_api_kwargs = {key: value for key, value in model_api_kwargs.items()}
         api_kwargs.update(model_api_kwargs)
 
+    if 'max_tokens' not in api_kwargs and 'max_completion_tokens' not in api_kwargs:
+        # gpt models can use max_completion_tokens but other apis might not support this
+        api_kwargs['max_completion_tokens'] = max_tokens if 'gpt' in model else None
+        api_kwargs['max_tokens'] = max_tokens if 'gpt' not in model else None
 
     actual_api_kwargs = {key: (value if value is not None else NOT_GIVEN) for key, value in api_kwargs.items()}
 
     try:
         if stream:
             stream: Stream[ChatCompletionChunk] = client.chat.completions.create(
-                model=model.api_name,
+                model=model,
                 messages=messages,
                 n=1,
                 stream=True,
@@ -105,7 +107,7 @@ def chat_completion_openai(
                 raise
         else:
             response: ChatCompletion = client.chat.completions.create(
-                model=model.api_name,
+                model=model,
                 messages=messages,
                 n=1,
                 stream=False,
@@ -169,7 +171,7 @@ def chat_completion_openai_responses(model: str, messages: Conversation, tempera
     }
 
     if model_api_kwargs is not None:
-        model_api_kwargs = {key: value for key, value in model_api_kwargs.items() if value is not None}
+        model_api_kwargs = {key: value for key, value in model_api_kwargs.items()}
         api_kwargs.update(model_api_kwargs)
 
     actual_api_kwargs = {key: (value if value is not None else NOT_GIVEN) for key, value in api_kwargs.items()}
@@ -280,7 +282,7 @@ def chat_completion_deepseek(model: str, messages: Conversation, temperature: fl
     }
 
     if model_api_kwargs is not None:
-        model_api_kwargs = {key: value for key, value in model_api_kwargs.items() if value is not None}
+        model_api_kwargs = {key: value for key, value in model_api_kwargs.items()}
         api_kwargs.update(model_api_kwargs)
 
     # deepseek-reasoner doesn't support temperature
@@ -288,6 +290,10 @@ def chat_completion_deepseek(model: str, messages: Conversation, temperature: fl
         api_kwargs['temperature'] = None
 
     actual_api_kwargs = {key: (value if value is not None else NOT_GIVEN) for key, value in api_kwargs.items()}
+
+    print('deepseek')
+    print('model', model)
+    print('api_kwargs', actual_api_kwargs)
 
     response = client.chat.completions.create(
         model=model,
@@ -341,7 +347,7 @@ def chat_completion_nvidia(model: str, messages: Conversation, temperature: floa
     }
 
     if model_api_kwargs is not None:
-        model_api_kwargs = {key: value for key, value in model_api_kwargs.items() if value is not None}
+        model_api_kwargs = {key: value for key, value in model_api_kwargs.items()}
         api_kwargs.update(model_api_kwargs)
     
     actual_api_kwargs = {key: (value if value is not None else NOT_GIVEN) for key, value in api_kwargs.items()}
@@ -389,7 +395,7 @@ def chat_completion_xai(model: str, messages: Conversation, temperature: float, 
         'max_tokens': max_tokens
     }
     if model_api_kwargs is not None:
-        model_api_kwargs = {key: value for key, value in model_api_kwargs.items() if value is not None}
+        model_api_kwargs = {key: value for key, value in model_api_kwargs.items()}
         api_kwargs.update(model_api_kwargs)
 
     actual_api_kwargs = {key: (value if value is not None else NOT_GIVEN) for key, value in api_kwargs.items()}
@@ -475,7 +481,7 @@ def chat_completion_google_generativeai(
     
     # Update with additional kwargs if provided
     if model_api_kwargs is not None:
-        model_api_kwargs = {key: value for key, value in model_api_kwargs.items() if value is not None}
+        model_api_kwargs = {key: value for key, value in model_api_kwargs.items()}
         api_kwargs.update(model_api_kwargs)
 
 
@@ -544,8 +550,12 @@ def chat_completion_together(model: str, messages: Conversation, temperature: fl
 
     api_kwargs: API_Kwargs = {'max_tokens': max_tokens, 'temperature': temperature}
     if model_api_kwargs is not None:
-        model_api_kwargs = {key: value for key, value in model_api_kwargs.items() if value is not None}
+        model_api_kwargs = {key: value for key, value in model_api_kwargs.items()}
         api_kwargs.update(model_api_kwargs)
+
+    print('together')
+    print('model', model)
+    print('api_kwargs', api_kwargs)
 
     response = client.chat.completions.create(
         model=model,
@@ -589,7 +599,7 @@ def chat_completion_perplexity(model: str, messages: Conversation, temperature: 
         'max_tokens': max_tokens
     }
     if model_api_kwargs is not None:
-        model_api_kwargs = {key: value for key, value in model_api_kwargs.items() if value is not None}
+        model_api_kwargs = {key: value for key, value in model_api_kwargs.items()}
         api_kwargs.update(model_api_kwargs)
 
     actual_api_kwargs = {key: (value if value is not None else NOT_GIVEN) for key, value in api_kwargs.items()}
@@ -643,7 +653,7 @@ def chat_completion_anthropic(model: str, messages: Conversation, temperature: f
     }
 
     if model_api_kwargs is not None:
-        model_api_kwargs = {key: value for key, value in model_api_kwargs.items() if value is not None}
+        model_api_kwargs = {key: value for key, value in model_api_kwargs.items()}
         api_kwargs.update(model_api_kwargs)
 
     actual_api_kwargs = {key: (value if value is not None else NOT_GIVEN) for key, value in api_kwargs.items()}
@@ -731,7 +741,7 @@ def chat_completion_mistral(model: str, messages: Conversation, temperature: flo
         'temperature': temperature
     }
     if model_api_kwargs is not None:
-        model_api_kwargs = {key: value for key, value in model_api_kwargs.items() if value is not None}
+        model_api_kwargs = {key: value for key, value in model_api_kwargs.items()}
         api_kwargs.update(model_api_kwargs)
 
     actual_api_kwargs = {key: (value if value is not None else UNSET) for key, value in api_kwargs.items()}
@@ -778,7 +788,7 @@ def chat_completion_cohere(model: str, messages: Conversation, temperature: floa
         'temperature': temperature
     }
     if model_api_kwargs is not None:
-        model_api_kwargs = {key: value for key, value in model_api_kwargs.items() if value is not None}
+        model_api_kwargs = {key: value for key, value in model_api_kwargs.items()}
         api_kwargs.update(model_api_kwargs)
 
     actual_api_kwargs = {key: (value if value is not None else OMIT) for key, value in api_kwargs.items()}
@@ -807,6 +817,8 @@ def chat_completion_cohere(model: str, messages: Conversation, temperature: floa
 def get_api_function(provider_name: str) -> ModelAPI:
     if provider_name == 'openai':
         return chat_completion_openai
+    elif provider_name == 'openai_responses':
+        return chat_completion_openai_responses
     elif provider_name == 'anthropic':
         return chat_completion_anthropic
     elif provider_name == 'mistral':

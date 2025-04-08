@@ -14,11 +14,11 @@ class ModelConfig:
 @cache
 def load_model_configs(file_path: str) -> dict[str, ModelConfig]:
     with open(file_path, 'r') as file:
-        model_configs_list = yaml.safe_load(file)
+        model_configs_list = yaml.safe_load_all(file)
 
-    model_configs = {}
-    for model_config in model_configs_list:
-        model_configs[model_config['display_name']] = ModelConfig(**model_config)
+        model_configs = {}
+        for model_config in model_configs_list:
+            model_configs[model_config['display_name']] = ModelConfig(**model_config)
 
     return model_configs
 
