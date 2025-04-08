@@ -9,14 +9,14 @@ class ModelConfig:
     api_name: dict[str, str]
     default_provider: str | None = None
     aliases: list[str] | None = None
-    api_kwargs: dict[str, str | int | float | bool | dict[str, str] | None] | None = None
+    api_kwargs: dict[str, dict[str, str | int | float | bool | dict[str, str] | None]] | None = None
 
 @cache
 def load_model_configs(file_path: str) -> dict[str, ModelConfig]:
     with open(file_path, 'r') as file:
         model_configs_list = yaml.safe_load_all(file)
 
-        model_configs = {}
+        model_configs: dict[str, ModelConfig] = {}
         for model_config in model_configs_list:
             model_configs[model_config['display_name']] = ModelConfig(**model_config)
 
@@ -25,7 +25,7 @@ def load_model_configs(file_path: str) -> dict[str, ModelConfig]:
 MODEL_CONFIGS_DIR = os.path.join(os.path.dirname(__file__), 'model_configs')
 @cache
 def load_all_configs() -> dict[str, ModelConfig]:
-    model_configs = {}
+    model_configs: dict[str, ModelConfig] = {}
     for file in os.listdir(MODEL_CONFIGS_DIR):
         model_configs.update(load_model_configs(os.path.join(MODEL_CONFIGS_DIR, file)))
     return model_configs
@@ -33,7 +33,7 @@ def load_all_configs() -> dict[str, ModelConfig]:
 @cache
 def get_model_config(model_name: str) -> ModelConfig:
     model_configs = load_all_configs()
-    matches = []
+    matches: list[ModelConfig] = []
     for model_config in model_configs.values():
         if model_name == model_config.display_name or (model_config.aliases and model_name in model_config.aliases):
             matches.append(model_config)

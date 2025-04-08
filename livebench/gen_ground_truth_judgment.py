@@ -454,7 +454,7 @@ if __name__ == "__main__":
             if args.model_display_name is not None:
                 model_list.append(args.model_display_name[i].lower())
             else:
-                model_list.append(get_model(model_name).display_name.lower())
+                model_list.append(get_model_config(model_name).display_name.lower())
 
     if args.question_source == "huggingface":
         for bench_name in args.bench_name:

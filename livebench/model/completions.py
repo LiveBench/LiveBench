@@ -291,10 +291,6 @@ def chat_completion_deepseek(model: str, messages: Conversation, temperature: fl
 
     actual_api_kwargs = {key: (value if value is not None else NOT_GIVEN) for key, value in api_kwargs.items()}
 
-    print('deepseek')
-    print('model', model)
-    print('api_kwargs', actual_api_kwargs)
-
     response = client.chat.completions.create(
         model=model,
         messages=messages,
@@ -552,10 +548,6 @@ def chat_completion_together(model: str, messages: Conversation, temperature: fl
     if model_api_kwargs is not None:
         model_api_kwargs = {key: value for key, value in model_api_kwargs.items()}
         api_kwargs.update(model_api_kwargs)
-
-    print('together')
-    print('model', model)
-    print('api_kwargs', api_kwargs)
 
     response = client.chat.completions.create(
         model=model,

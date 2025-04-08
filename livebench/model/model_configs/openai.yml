@@ -78,8 +78,9 @@ api_name:
 aliases:
   - o1-mini
 api_kwargs:
-  temperature: null
-  max_completion_tokens: null
+  default:
+    temperature: null
+    max_completion_tokens: null
 ---
 display_name: o1-preview-2024-09-12
 api_name:
@@ -87,8 +88,9 @@ api_name:
 aliases:
   - o1-preview
 api_kwargs:
-  temperature: null
-  max_completion_tokens: null
+  default:
+    temperature: null
+    max_completion_tokens: null
 ---
 display_name: o1-2024-12-17-high
 api_name:
@@ -98,9 +100,10 @@ aliases:
   - o1-high
   - o1-2024-12-17
 api_kwargs:
-  temperature: null
-  max_completion_tokens: null
-  reasoning_effort: high
+  default:
+    temperature: null
+    max_completion_tokens: null
+    reasoning_effort: high
 ---
 display_name: o1-2024-12-17-low
 api_name:
@@ -108,9 +111,10 @@ api_name:
 aliases:
   - o1-low
 api_kwargs:
-  temperature: null
-  max_completion_tokens: null
-  reasoning_effort: low
+  default:
+    temperature: null
+    max_completion_tokens: null
+    reasoning_effort: low
 ---
 display_name: o1-2024-12-17-medium
 api_name:
@@ -118,9 +122,10 @@ api_name:
 aliases:
   - o1-medium
 api_kwargs:
-  temperature: null
-  max_completion_tokens: null
-  reasoning_effort: medium
+  default:
+    temperature: null
+    max_completion_tokens: null
+    reasoning_effort: medium
 ---
 display_name: o3-mini-2025-01-31-high
 api_name:
@@ -130,9 +135,10 @@ aliases:
   - o3-mini
   - o3-mini-2025-01-31
 api_kwargs:
-  temperature: null
-  max_completion_tokens: null
-  reasoning_effort: high
+  default:
+    temperature: null
+    max_completion_tokens: null
+    reasoning_effort: high
 ---
 display_name: o3-mini-2025-01-31-low
 api_name:
@@ -140,9 +146,10 @@ api_name:
 aliases:
   - o3-mini-low
 api_kwargs:
-  temperature: null
-  max_completion_tokens: null
-  reasoning_effort: low
+  default:
+    temperature: null
+    max_completion_tokens: null
+    reasoning_effort: low
 ---
 display_name: o3-mini-2025-01-31-medium
 api_name:
@@ -150,9 +157,10 @@ api_name:
 aliases:
   - o3-mini-medium
 api_kwargs:
-  temperature: null
-  max_completion_tokens: null
-  reasoning_effort: medium
+  default:
+    temperature: null
+    max_completion_tokens: null
+    reasoning_effort: medium
 ---
 display_name: o1-pro-2025-03-19
 api_name:
@@ -160,6 +168,7 @@ api_name:
 aliases:
   - o1-pro
 api_kwargs:
-  temperature: null
-  max_completion_tokens: null
-  reasoning_effort: high
+  default:
+    temperature: null
+    max_completion_tokens: null
+    reasoning_effort: high

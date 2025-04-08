@@ -22,17 +22,19 @@ display_name: qwq-32b-preview
 api_name:
   together: Qwen/QwQ-32B-Preview
 api_kwargs:
-  max_tokens: 16000
-  temperature: 0.7
-  top_p: 0.95
+  default:
+    max_tokens: 16000
+    temperature: 0.7
+    top_p: 0.95
 ---
 display_name: qwq-32b
 api_name:
   together: Qwen/QwQ-32B
 api_kwargs:
-  max_tokens: 31000
-  temperature: 0.7
-  top_p: 0.95
+  default:
+    max_tokens: 31000
+    temperature: 0.7
+    top_p: 0.95
 ---
 display_name: qwen2.5-max
 api_name:

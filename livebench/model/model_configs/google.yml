@@ -135,8 +135,9 @@ api_name:
 aliases:
   - gemini-2.5-pro-exp
 api_kwargs:
-  max_output_tokens: 65536
-  temperature: 1
-  top_p: 0.95
-  thinking_config:
-    include_thoughts: true
+  default:
+    max_output_tokens: 65536
+    temperature: 1
+    top_p: 0.95
+    thinking_config:
+      include_thoughts: true

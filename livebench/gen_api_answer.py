@@ -71,13 +71,22 @@ def get_answer(
             messages.append({"role": "user", "content": question["turns"][j]})
 
             if model_config.default_provider == 'local' or (len(model_config.api_name) == 1 and list(model_config.api_name.keys())[0] == 'local') or api_dict is not None:
+                api_kwargs = None
+                if model_config.api_kwargs:
+                    api_kwargs = {}
+                    if model_config.api_kwargs.get('default'):
+                        # pull default kwargs for model
+                        api_kwargs = model_config.api_kwargs['default']
+                    if 'local' in model_config.api_kwargs:
+                        # update with local-specific kwargs
+                        api_kwargs.update(model_config.api_kwargs['local'])
                 assert api_dict is not None, "Missing API dict for local model"
                 output, num_tokens = get_api_function('local')(
                     model=model_config.display_name,
                     messages=messages,
                     temperature=temperature,
                     max_tokens=max_tokens,
-                    model_api_kwargs=model_config.api_kwargs,
+                    model_api_kwargs=api_kwargs,
                     api_dict=api_dict,
                     stream=stream
                 )
@@ -85,12 +94,21 @@ def get_answer(
                 if len(model_config.api_name) > 1 and not model_config.default_provider:
                     raise ValueError("Missing default provider " + model_config.display_name)
                 provider_name = model_provider_override if model_provider_override else model_config.default_provider if model_config.default_provider else list(model_config.api_name.keys())[0]
+                api_kwargs = None
+                if model_config.api_kwargs:
+                    api_kwargs = {}
+                    if model_config.api_kwargs.get('default'):
+                        # pull default kwargs for model
+                        api_kwargs = model_config.api_kwargs['default']
+                    if provider_name in model_config.api_kwargs:
+                        # update with provider-specific kwargs
+                        api_kwargs.update(model_config.api_kwargs[provider_name])
                 output, num_tokens = get_api_function(provider_name)(
                     model=model_config.api_name[provider_name] if provider_name in model_config.api_name else model_config.display_name,
                     messages=messages,
                     temperature=temperature,
                     max_tokens=max_tokens,
-                    model_api_kwargs=model_config.api_kwargs,
+                    model_api_kwargs=api_kwargs,
                     api_dict=api_dict,
                     stream=stream
                 )

@@ -36,10 +36,12 @@ api_name:
 aliases:
   - claude-3-7-sonnet-thinking-25k
 api_kwargs:
-  thinking:
-    type: enabled
-    budget_tokens: 25000
-  max_tokens: 32000
+  default:
+    thinking:
+      type: enabled
+      budget_tokens: 25000
+    max_tokens: 32000
+    temperature: 1
 ---
 display_name: claude-3-7-sonnet-20250219-thinking-64k
 api_name:
@@ -48,10 +50,12 @@ aliases:
   - claude-3-7-sonnet-thinking-64k
   - claude-3-7-sonnet-thinking
 api_kwargs:
-  thinking:
-    type: enabled
-    budget_tokens: 63000
-  max_tokens: 64000
+  default:
+    thinking:
+      type: enabled
+      budget_tokens: 63000
+    max_tokens: 64000
+    temperature: 1
 ---
 display_name: claude-3-7-sonnet-20250219-base
 api_name:
