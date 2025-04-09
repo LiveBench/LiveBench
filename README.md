@@ -23,7 +23,7 @@ Please see the [changelog](changelog.md) for details about each LiveBench releas
 - [Usage](#usage)
 - [Data](#data)
 - [Adding New Questions](#adding-new-questions)
-- [Adding New Models](#adding-new-models)
+- [Evaluating New Models and Configuring API Parameters](#evaluating-new-models-and-configuring-api-parameters)
 - [Documentation](#documentation)
 - [Citation](#citation)
 
@@ -201,13 +201,13 @@ python gen_ground_truth_judgment.py --bench-name live_bench/reasoning/web_of_lie
 python show_livebench_result.py --bench-name live_bench/reasoning/web_of_lies_new_prompt
 ```
 
-## API Model Configuration
+## Evaluating New Models and Configuring API Parameters
 
 Any API-based model for which there is an OpenAI compatible endpoint should work out of the box using the `--api-base` and `--api-key` (or `--api-key-name`) arguments. If you'd like to override the name of the model for local files (e.g. saving it as `deepseek-v3` instead of `deepseek-chat`), use the `--model-display-name` argument. You can also override values for temperature and max tokens using the `--force-temperature` and `--max-tokens` arguments, respectively.
 
-If you'd like to have persistent model configuration without needing to specify command-line arguments, you can create a model configuration document in a yaml file in `livebench/model/model_configs`. See the other files there for examples of the necessary format. Important values are `model_display_name`, which determines the answer .jsonl file name and model ID used for other scripts, and `api_name`, which provides a mapping between API providers and names for the model in that API. For instance, Deepseek R1 can be evaluated using the Deepseek API with a name of `deepseek-reasoner` and the Together API with a name of `deepseek-ai/deepseek-r1`. `api_kwargs` allows you to set overrides for parameters such as temperature, max tokens, and top p, for all providers or for specific ones.
+If you'd like to have persistent model configuration without needing to specify command-line arguments, you can create a model configuration document in a yaml file in `livebench/model/model_configs`. See the other files there for examples of the necessary format. Important values are `model_display_name`, which determines the answer .jsonl file name and model ID used for other scripts, and `api_name`, which provides a mapping between API providers and names for the model in that API. For instance, Deepseek R1 can be evaluated using the Deepseek API with a name of `deepseek-reasoner` and the Together API with a name of `deepseek-ai/deepseek-r1`. `api_kwargs` allows you to set overrides for parameters such as temperature, max tokens, and top p, for all providers or for specific ones. Once this is set, you can use `--model <model_name>` with the `model_display_name` value you put in the yaml document when running `run_livebench.py`.
 
-When performing inference, use the `--model-provider-override` argument to specify which provider you'd like to use for the model.
+When performing inference, use the `--model-provider-override` argument to override the provider you'd like to use for the model.
 
 We have also implemented inference for Anthropic, Cohere, Mistral, Together, and Google models, so those should also all work immediately either by using `--model-provider-override` or adding a new entry to the appropriate configuration file.
 
