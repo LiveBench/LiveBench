@@ -11,3 +11,33 @@ api_name:
   https://api.x.ai/v1: grok-2-1212
 api_keys:
   https://api.x.ai/v1: XAI_API_KEY
+---
+display_name: grok-3-beta
+api_name:
+  https://api.x.ai/v1: grok-3-beta
+api_keys:
+  https://api.x.ai/v1: XAI_API_KEY
+---
+display_name: grok-3-mini-beta-high
+api_name:
+  https://api.x.ai/v1: grok-3-mini-beta
+api_keys:
+  https://api.x.ai/v1: XAI_API_KEY
+aliases:
+  - grok-3-mini-beta
+api_kwargs:
+  default:
+    reasoning_effort: high
+    max_tokens: 64000
+    temperature: 0.7
+---
+display_name: grok-3-mini-beta-low
+api_name:
+  https://api.x.ai/v1: grok-3-mini-beta
+api_keys:
+  https://api.x.ai/v1: XAI_API_KEY
+api_kwargs:
+  default:
+    reasoning_effort: low
+    max_tokens: 64000
+    temperature: 0.7

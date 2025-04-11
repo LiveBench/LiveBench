@@ -79,7 +79,6 @@ def chat_completion_openai(
         api_kwargs['max_tokens'] = max_tokens if 'gpt' not in model else None
 
     actual_api_kwargs = {key: (value if value is not None else NOT_GIVEN) for key, value in api_kwargs.items()}
-
     try:
         if stream:
             stream: Stream[ChatCompletionChunk] = client.chat.completions.create(
@@ -124,12 +123,15 @@ def chat_completion_openai(
                 message = response.choices[0].message.content
             if response.usage is not None:
                 num_tokens = response.usage.completion_tokens
-                if hasattr(response.usage, 'reasoning_tokens'):
-                    num_tokens += response.usage.reasoning_tokens
+                if hasattr(response.usage, 'completion_tokens_details') and hasattr(response.usage.completion_tokens_details, 'reasoning_tokens'):
+                    reasoning_tokens = response.usage.completion_tokens_details.reasoning_tokens
+                    if num_tokens is not None and reasoning_tokens is not None:
+                        num_tokens += reasoning_tokens
             else:
                 num_tokens = None
 
         if message is None or message == '':
+            print(response)
             raise Exception("No message returned from OpenAI")
         if num_tokens is None:
             num_tokens = -1
