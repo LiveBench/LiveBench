@@ -1,6 +1,6 @@
 ## Changelog
 
-### 2025-04-0
+### 2025-04-02
  - Refreshed coding questions (coding_completion and LCB_generation) with *much* newer questions from LiveCodeBench. The previous questions were likely heavily contaminated for newer models. LiveCodeBench also increases question difficulty over time.
  - Refreshed typos and plot_unscrambling questions with newer ArXiv papers and movie plots from Wikipedia, respectively. Issues in the typos question generation script were also fixed, so that all questions can be fairly evaluated
  - Replaced 2023 AMC questions with 2024 AMC questions in math_comp
