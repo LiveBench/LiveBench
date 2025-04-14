@@ -172,3 +172,21 @@ api_kwargs:
     temperature: null
     max_completion_tokens: null
     reasoning_effort: high
+---
+display_name: gpt-4.1-2025-04-14
+api_name:
+  openai: gpt-4.1-2025-04-14
+aliases:
+  - gpt-4.1
+---
+display_name: gpt-4.1-mini-2025-04-14
+api_name:
+  openai: gpt-4.1-mini-2025-04-14
+aliases:
+  - gpt-4.1-mini
+---
+display_name: gpt-4.1-nano-2025-04-14
+api_name:
+  openai: gpt-4.1-nano-2025-04-14
+aliases:
+  - gpt-4.1-nano

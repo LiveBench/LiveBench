@@ -19,7 +19,8 @@ def load_model_configs(file_path: str) -> dict[str, ModelConfig]:
 
         model_configs: dict[str, ModelConfig] = {}
         for model_config in model_configs_list:
-            model_configs[model_config['display_name']] = ModelConfig(**model_config)
+            if model_config is not None:
+                model_configs[model_config['display_name']] = ModelConfig(**model_config)
 
     return model_configs
 
