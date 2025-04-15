@@ -22,3 +22,11 @@ api_name:
 aliases:
   - llama-3.1-nemotron-70b-instruct
   - nvidia/llama-3.1-nemotron-70b-instruct
+---
+display_name: llama4-maverick-instruct-basic
+api_name:
+  https://api.fireworks.ai/inference/v1: accounts/fireworks/models/llama4-maverick-instruct-basic
+api_keys:
+  https://api.fireworks.ai/inference/v1: FIREWORKS_API_KEY
+aliases:
+  - llama4-maverick
