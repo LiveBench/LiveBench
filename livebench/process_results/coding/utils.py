@@ -9,6 +9,7 @@ import base64
 import re
 from enum import Enum
 
+from livebench.bcb_runner.eval import untrusted_check, PASS, FAIL, TIMEOUT
 from livebench.lcb_runner.utils.extraction_utils import extract_code
 from livebench.lcb_runner.evaluation.compute_code_generation_metrics import codegen_metrics
 
@@ -102,3 +103,35 @@ def LCB_generation_process_results(question: dict, llm_answer: str, debug=False)
             print('metadata', metadata)
         return 0
 
+def BCB_generation_process_results(question: dict, llm_answer: str, debug=False) -> int:
+    extracted_code = extract_code(model_output=llm_answer, lmstyle=None)
+
+    if 'partial_solution' in question and (not question['partial_solution'] is None) and (len(question['partial_solution']) > 0) and not extracted_code.startswith(question['partial_solution']):
+        extracted_code = question['partial_solution'] + '\n' + extracted_code
+
+    test_cases = question['tests']
+    expected_time = question['expected_time']
+
+    stat, details = untrusted_check( # defaults from bigcodebench
+        code=extracted_code,
+        test_code=test_cases,
+        entry_point=question['entry_point'],
+        max_as_limit=30 * 1024,
+        max_data_limit=30 * 1024,
+        max_stack_limit=10,
+        min_time_limit=1,
+        gt_time_limit=expected_time if 'expected_time' in question else 20
+    )
+
+    if stat == PASS:
+        return 1
+    else:
+        if debug:
+            print('INCORRECT', question['question_title'], question['question_id'])
+            print('extracted code')
+            print(extracted_code)
+            print('stat', stat)
+            print('details', details)
+        return 0
+    
+    

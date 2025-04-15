@@ -29,7 +29,7 @@ from livebench.process_results.math.AMPS_Hard.utils import amps_hard_process_res
 from livebench.process_results.writing.plot_unscrambling.utils import plot_unscrambling_process_results
 from livebench.process_results.writing.typos.utils import typos_process_results
 from livebench.process_results.writing.connections.utils import get_connections_puzzle_evaluator
-from livebench.process_results.coding.utils import LCB_generation_process_results
+from livebench.process_results.coding.utils import LCB_generation_process_results, BCB_generation_process_results
 from livebench.process_results.instruction_following.utils import instruction_following_process_results
 from livebench.process_results.reasoning.web_of_lies_v3.utils import web_of_lies_v3_process_results
 from livebench.common import (
@@ -79,7 +79,7 @@ def play_a_match_gt(match: MatchSingle, output_file: str, debug=False):
         match.model,
         match.answer,
     )
-    coding_test_case_tasks = ["coding_completion", "LCB_generation"]
+    coding_test_case_tasks = ["coding_completion", "LCB_generation", "BCB_generation"]
     if "ground_truth" not in question and "reference" not in question and question["task"] not in coding_test_case_tasks and question["category"] != "instruction_following":
         # aside from coding and instruction following tasks, all questions should contain the ground truth answer
         raise ValueError("Questions must have ground_truth to run gen_ground_truth_judgment.")
@@ -145,7 +145,10 @@ def play_a_match_gt(match: MatchSingle, output_file: str, debug=False):
             category = "language"
         elif task_or_subtask in coding_test_case_tasks:
             # use entire question object, because there are test cases inside.
-            score = LCB_generation_process_results(question, llm_answer, debug)
+            if task_or_subtask == "LCB_generation" or task_or_subtask == "coding_completion":
+                score = LCB_generation_process_results(question, llm_answer, debug)
+            elif task_or_subtask == "BCB_generation":
+                score = BCB_generation_process_results(question, llm_answer, debug)
             category = "coding"
         else:
             raise NotImplementedError(f"This task ({task_or_subtask}) has not been implemented yet.")
