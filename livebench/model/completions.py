@@ -294,18 +294,21 @@ def chat_completion_google_generativeai(
     else:
         api_key = os.environ["GEMINI_API_KEY"]
     
-    client = genai.Client(api_key=api_key, http_options={'api_version': 'v1alpha'})
+    client = genai.Client(api_key=api_key)
+
+    if any(message['role'] == 'system' for message in messages):
+        system = [types.Part.from_text(text=message['content']) for message in messages if message['role'] == "system"][0]
+    else:
+        system = None
+    messages: list[types.Content] = [types.Content(role=message['role'], parts=[types.Part.from_text(text=message['content'])]) for message in messages if message['role'] != 'system']
 
     safety_settings = [
         types.SafetySetting(category=types.HarmCategory.HARM_CATEGORY_HARASSMENT, threshold=types.HarmBlockThreshold.BLOCK_NONE),
         types.SafetySetting(category=types.HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold=types.HarmBlockThreshold.BLOCK_NONE),
         types.SafetySetting(category=types.HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold=types.HarmBlockThreshold.BLOCK_NONE),
         types.SafetySetting(category=types.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold=types.HarmBlockThreshold.BLOCK_NONE),
+        types.SafetySetting(category=types.HarmCategory.HARM_CATEGORY_CIVIC_INTEGRITY, threshold=types.HarmBlockThreshold.BLOCK_NONE),
     ]
-
-    # Extract system message and user prompt
-    system = [text for role, text in messages if role == "system"][0] if len([text for role, text in messages if role == "system"]) > 0 else None
-    prompt = [text for role, text in messages if role == "user"][0]
 
     # Initialize with default kwargs and safety settings
     api_kwargs: API_Kwargs = {
@@ -320,46 +323,25 @@ def chat_completion_google_generativeai(
         model_api_kwargs = {key: value for key, value in model_api_kwargs.items()}
         api_kwargs.update(model_api_kwargs)
 
-
     config = types.GenerateContentConfig(**api_kwargs)
     
     response = client.models.generate_content(
         model=model,
-        contents=prompt,
+        contents=messages,
         config=config
     )
     
-    if response is None or response.candidates is None or len(response.candidates) == 0 or response.candidates[0].content is None or response.candidates[0].content.parts is None or len(response.candidates[0].content.parts) == 0:
-        msg = "No message returned from Google Generative AI"
-        if response is not None and response.candidates is not None and len(response.candidates) > 0 and response.candidates[0].finish_reason is not None:
-            msg += f" - finish reason: {response.candidates[0].finish_reason}"
-        raise Exception(msg)
+    if response is None or response.text is None:
+        raise Exception("No response returned from Google")
+
+    message = response.text
     
-    # Handle reasoning models that provide chain-of-thought
-    if len(response.candidates[0].content.parts) > 1:
-        message = ''
-        cot = ''
-        for part in response.candidates[0].content.parts:
-            if hasattr(part, 'thought') and part.thought:
-                cot += part.text
-            else:
-                message += part.text
-    else:
-        message = response.candidates[0].content.parts[0].text
-        cot = ''
-    
-    # Get token count if available
     num_tokens = None
-    if hasattr(response, 'usage') and response.usage:
-        if hasattr(response.usage, 'output_tokens'):
-            num_tokens = response.usage.output_tokens
-        # Some models separate reasoning tokens
-        if hasattr(response.usage, 'reasoning_tokens'):
-            reasoning_tokens = response.usage.reasoning_tokens
-            if num_tokens is not None:
-                num_tokens += reasoning_tokens
-            else:
-                num_tokens = reasoning_tokens
+    if response.usage_metadata is not None:
+        num_tokens = response.usage_metadata.candidates_token_count
+    
+    if num_tokens is None:
+        num_tokens = -1
     
     
     return message, num_tokens
