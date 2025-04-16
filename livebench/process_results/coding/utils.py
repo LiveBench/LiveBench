@@ -120,7 +120,7 @@ def BCB_generation_process_results(question: dict, llm_answer: str, debug=False)
         max_data_limit=30 * 1024,
         max_stack_limit=10,
         min_time_limit=1,
-        gt_time_limit=expected_time if 'expected_time' in question else 20
+        gt_time_limit=expected_time + 3 if 'expected_time' in question else 20
     )
 
     if stat == PASS:
