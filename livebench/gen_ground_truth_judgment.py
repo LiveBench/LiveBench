@@ -147,7 +147,7 @@ def play_a_match_gt(match: MatchSingle, output_file: str, debug=False):
             # use entire question object, because there are test cases inside.
             if task_or_subtask == "LCB_generation" or task_or_subtask == "coding_completion":
                 score = LCB_generation_process_results(question, llm_answer, debug)
-            elif task_or_subtask == "BCB_generation":
+            elif task_or_subtask == "BCB_generation" or task_or_subtask == "BCB_completion":
                 score = BCB_generation_process_results(question, llm_answer, debug)
             category = "coding"
         else:
