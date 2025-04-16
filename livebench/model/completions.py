@@ -62,7 +62,7 @@ def chat_completion_openai(
     else:
         client = OpenAI(timeout=1000)
 
-    if 'o1' in model or 'o3' in model:
+    if 'o1' in model or 'o3' in model or 'o4' in model:
         messages[0]['content'] = 'Formatting reenabled\n' + messages[0]['content']
 
     api_kwargs: API_Kwargs = {
@@ -335,7 +335,7 @@ def chat_completion_google_generativeai(
         raise Exception("No response returned from Google")
 
     message = response.text
-    
+
     num_tokens = None
     if response.usage_metadata is not None:
         num_tokens = response.usage_metadata.candidates_token_count
