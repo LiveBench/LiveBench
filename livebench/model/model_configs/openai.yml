@@ -203,6 +203,18 @@ api_kwargs:
     max_completion_tokens: null
     reasoning_effort: high
 ---
+display_name: o3-2025-04-16-medium
+api_name:
+  openai: o3-2025-04-16
+aliases:
+  - o3-medium
+  - o3-2025-04-16-medium
+api_kwargs:
+  default:
+    temperature: null
+    max_completion_tokens: null
+    reasoning_effort: medium
+---
 display_name: o4-mini-2025-04-16-high
 api_name:
   openai: o4-mini-2025-04-16
@@ -213,3 +225,14 @@ api_kwargs:
     temperature: null
     max_completion_tokens: null
     reasoning_effort: high
+---
+display_name: o4-mini-2025-04-16-medium
+api_name:
+  openai: o4-mini-2025-04-16
+aliases:
+  - o4-mini-medium
+api_kwargs:
+  default:
+    temperature: null
+    max_completion_tokens: null
+    reasoning_effort: medium
