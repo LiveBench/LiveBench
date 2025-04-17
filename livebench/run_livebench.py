@@ -22,6 +22,15 @@ DEFAULT_BENCHMARKS = [
     "live_bench/reasoning"
 ]
 
+# Detect if we're in an active virtual environment
+def detect_active_venv():
+    """Detect if a virtual environment is active and return its activate script path"""
+    venv_path = os.environ.get("VIRTUAL_ENV")
+    if venv_path:
+        # Return the path to the activate script
+        return os.path.join(venv_path, "bin", "activate")
+    return None
+
 @dataclass
 class LiveBenchParams:
     """Parameters for LiveBench execution"""
@@ -157,6 +166,7 @@ def setup_tmux_session(session_name: str, benchmarks: list[str], commands: list[
             if not os.path.exists(venv_path):
                 print(f"Virtual environment not found at {venv_path}, skipping activation")
             else:
+                print(f"Activating virtual environment: {venv_path}")
                 pane.send_keys(f"source {venv_path}")
                 time.sleep(0.5)
         
@@ -409,11 +419,14 @@ def run_single(params: LiveBenchParams) -> int:
 def main():
     parser = argparse.ArgumentParser(description="Run LiveBench benchmarks with various execution modes")
     
+    # Get default venv path - check for active venv first
+    default_venv = detect_active_venv()
+    
     # Required arguments
     parser.add_argument("--model", required=False, default=None, nargs="+", help="One or more model identifiers (e.g., gpt-4)")
     
     # Optional arguments
-    parser.add_argument("--venv", help="Path to virtual environment to activate", default="../.venv/bin/activate")
+    parser.add_argument("--venv", help="Path to virtual environment to activate", default=default_venv)
     parser.add_argument("--mode", choices=["single", "parallel", "sequential"], default="single",
                       help="Execution mode: single benchmark, parallel benchmarks, or sequential benchmarks")
     parser.add_argument("--bench-name", nargs="+",

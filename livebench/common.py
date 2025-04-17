@@ -16,7 +16,7 @@ from livebench.model.api_model_config import get_model_config
 
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(override=True)
 
 
 # Extract scores from judgments
