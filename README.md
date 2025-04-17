@@ -78,7 +78,7 @@ The simplest way to run LiveBench inference and scoring is using the `run_livebe
 
 Basic usage:
 ```bash
-python run_livebench.py --model gpt-4o --bench-name live_bench/coding
+python run_livebench.py --model gpt-4o --bench-name live_bench/coding --livebench-release-option 2024-11-25
 ```
 
 Some common options:
@@ -91,10 +91,13 @@ Some common options:
 - `--parallel-requests`: Number of concurrent API requests (for models with high rate limits)
 - `--resume`: Continue from a previous interrupted run
 - `--retry-failures`: Retry questions that failed in previous runs
+- `--livebench-release-option`: Evaluate questions from a specific LiveBench release
 
 Run `python run_livebench.py --help` to see all available options.
 
 When this is finished, follow along with [Viewing Results](#viewing-results) to view results.
+
+**Note: The current LiveBench release is 2025-04-02; however, not all questions for this release are public on Huggingface. In order to evaluate all categories, you will need to pass `--livebench-release-option 2024-11-25` to all scripts to use the most recent public questions.**
 
 #### Parallel Evaluation Options
 
@@ -139,7 +142,7 @@ Run `python gen_model_answer.py --help` for more details.
 You can view the results of your evaluations using the `show_livebench_result.py` script:
 
 ```bash
-python show_livebench_result.py --bench-name <bench-name> --model-list <model-list> --question-source <question-source>
+python show_livebench_result.py --bench-name <bench-name> --model-list <model-list> --question-source <question-source> --livebench-release-option 2024-11-25
 ```
 
 `<model-list>` is a space-separated list of model IDs to show. For example, to show the results of gpt-4o and claude-3-5-sonnet on coding tasks, run:
@@ -152,7 +155,7 @@ Multiple `--bench-name` values can be provided to see scores on specific subsets
 python show_livebench_result.py --bench-name live_bench/coding live_bench/math --model-list gpt-4o
 ```
 
-If no `--model-list` argument is provided, all models will be shown. The `--question-source` argument defaults to `huggingface` but should match what was used during evaluation.
+If no `--model-list` argument is provided, all models will be shown. The `--question-source` argument defaults to `huggingface` but should match what was used during evaluation, as should `--livebench-release-option`.
 
 The leaderboard will be displayed in the terminal. You can also find the breakdown by category in `all_groups.csv` and by task in `all_tasks.csv`.
 
