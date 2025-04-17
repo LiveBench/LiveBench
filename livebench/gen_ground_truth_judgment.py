@@ -79,7 +79,7 @@ def play_a_match_gt(match: MatchSingle, output_file: str, debug=False):
         match.model,
         match.answer,
     )
-    coding_test_case_tasks = ["coding_completion", "LCB_generation", "BCB_generation"]
+    coding_test_case_tasks = ["coding_completion", "LCB_generation", "BCB_generation", "BCB_completion"]
     if "ground_truth" not in question and "reference" not in question and question["task"] not in coding_test_case_tasks and question["category"] != "instruction_following":
         # aside from coding and instruction following tasks, all questions should contain the ground truth answer
         raise ValueError("Questions must have ground_truth to run gen_ground_truth_judgment.")
