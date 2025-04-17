@@ -238,6 +238,7 @@ def build_run_command(
         gen_api_cmd += f" --max-tokens {max_tokens}"
     if parallel_requests:
         gen_api_cmd += f" --parallel {parallel_requests}"
+        gen_judge_cmd += f" --parallel {parallel_requests}"
     if resume:
         gen_api_cmd += " --resume"
         gen_judge_cmd += " --resume"
