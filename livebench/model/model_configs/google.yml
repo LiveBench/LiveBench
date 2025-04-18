@@ -141,3 +141,16 @@ api_kwargs:
     top_p: 0.95
     thinking_config:
       include_thoughts: true
+---
+display_name: gemini-2.5-flash-preview-04-17
+api_name:
+  google: gemini-2.5-flash-preview-04-17
+aliases:
+  - gemini-2.5-flash-preview
+api_kwargs:
+  default:
+    max_output_tokens: 65536
+    temperature: 1
+    top_p: 0.95
+    thinking_config:
+      include_thoughts: true

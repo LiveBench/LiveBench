@@ -36,3 +36,5 @@ build
 data
 
 core
+
+.env

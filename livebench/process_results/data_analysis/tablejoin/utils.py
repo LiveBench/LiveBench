@@ -11,6 +11,8 @@ def clean_llm_output(s):
     except:
         matches = re.findall('%s(.*?)%s' % ("```python", "```"), s.replace("\n",""),re.MULTILINE)
         if len(matches) == 0:
+            matches = re.findall('%s(.*?)%s' % ("```json", "```"), s.replace("\n",""),re.MULTILINE)
+        if len(matches) == 0:
             matches = re.findall('%s(.*?)%s' % ("```", "```"), s.replace("\n",""),re.MULTILINE)
         if len(matches) == 0:
             if '\\boxed' in s:
