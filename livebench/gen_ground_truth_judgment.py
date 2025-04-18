@@ -109,7 +109,11 @@ def play_a_match_gt(match: MatchSingle, output_file: str, debug=False):
             score = cta_process_results(ground_truth, llm_answer, debug)
             category = "data_analysis"
         elif task_or_subtask == "tablereformat":
-            score = table_process_results(question_text, ground_truth, llm_answer, debug)
+            if question["livebench_release_date"] >= "2025-04-25":
+                version = "v2"
+            else:
+                version = "v1"
+            score = table_process_results(question_text, ground_truth, llm_answer, version, debug)
             category = "data_analysis"
         elif task_or_subtask == "tablejoin":
             score = joinmap_process_results(question_text, ground_truth, llm_answer, debug)

@@ -38,7 +38,51 @@ def read_df_func(df_type, df_str):
     elif df_type == "tsv":
         return pd.read_csv(StringIO(df_str), sep='\t', encoding="utf-8")
 
+def read_df_func_v2(df_type, df_str):
+    if df_type == "json":
+        try:
+            # Try table orientation first as it preserves dtypes
+            return pd.read_json(StringIO(df_str), orient="table", encoding="utf-8")
+        except:
+            try:
+                return pd.read_json(StringIO(df_str), orient="index", lines=False, encoding="utf-8")
+            except:
+                try:
+                    return pd.read_json(StringIO(df_str), orient="records", lines=False, encoding="utf-8")
+                except:
+                    print("Could not read JSON")
+                    return None
+    elif df_type == "jsonl":
+        return pd.read_json(StringIO(df_str), orient="records", lines=True, encoding="utf-8")
+    elif df_type == "html":
+        return pd.concat(pd.read_html(StringIO(df_str), encoding="utf-8"), axis=0)
+    elif df_type == "csv":
+        return pd.read_csv(StringIO(df_str), encoding="utf-8")
+    elif df_type == "markdown":
+        # Process markdown table by removing the separator line
+        lines = df_str.strip().split("\n")
+        header = lines[0]
+        # Skip the separator line (typically line with |:-----|:-----|)
+        data_lines = lines[2:] if len(lines) > 2 else []
+        processed_md = header + "\n" + "\n".join(data_lines)
+        df = pd.read_table(StringIO(processed_md), sep="|", header=0, skipinitialspace=True).iloc[:, 1:-1]
+        
+        # Strip whitespace from all string columns
+        for col in df.columns:
+            if df[col].dtype == 'object':
+                df[col] = df[col].astype(str).str.strip()
+        
+        return df
+    elif df_type == "tsv":
+        return pd.read_csv(StringIO(df_str), sep='\t', encoding="utf-8")
+    else:
+        raise ValueError(f"Unsupported file type: {df_type}")
+
 def clean_llm_output(s):
+    pattern_solution = r'<solution>(.*?)</solution>'
+    matches = re.findall(pattern_solution, s, re.DOTALL)
+    if len(matches) > 0:
+        return clean_llm_output(matches[-1].strip())
     pattern_json = r'```json\n(.*?)```'
     matches = re.findall(pattern_json, s, re.DOTALL)
     if len(matches) > 0:
@@ -96,22 +140,28 @@ def remove_initial_phrase(text):
     modified_text = re.sub(pattern, '', text, flags=re.IGNORECASE)
     return modified_text.strip()
 
-def table_process_results(input_command: str, ground_truth: str, llm_answer: str, debug=False) -> int:
-    input_format = input_command.split("Please convert the Input Table from ")[1].split(" format")[0].lower()
-    output_format = input_command.split("Please convert the Input Table from ")[1].split("format to ")[1].split(" format")[0].lower()
-    gt_df = read_df_func(output_format, ground_truth)
-    try:
-        gt_df = read_df_func(output_format, ground_truth)
-    except:
-        print('Error when reading the ground-truth table')
-        return "err"
+def table_process_results(input_command: str, ground_truth: str, llm_answer: str, version: str = "v1", debug=False) -> int:
+    if version == "v1":  
+        input_format = input_command.split("Please convert the Input Table from ")[1].split(" format")[0].lower()
+        output_format = input_command.split("Please convert the Input Table from ")[1].split("format to ")[1].split(" format")[0].lower()
+    else:
+        command_lines = input_command.split('\n')
+        input_format_lines = [line for line in command_lines if "Source Format" in line]
+        input_format = input_format_lines[-1].split("Source Format: ")[1].strip().lower()
+        output_format_lines = [line for line in command_lines if "Target Format" in line]
+        output_format = output_format_lines[-1].split("Target Format: ")[1].strip().lower()
+
+    df_read_func = read_df_func if version == "v1" else read_df_func_v2
+    
+    gt_df = df_read_func(output_format, ground_truth)
+    
     llm_clean = clean_llm_output(llm_answer)
     # if there's an initial phrase before the table, remove it and try to score again
     llm_clean = remove_initial_phrase(llm_clean)
     # first check the raw LLM output
     llm_df = None
     try:
-        llm_df = read_df_func(output_format, llm_clean)
+        llm_df = df_read_func(output_format, llm_clean)
     except:
         if output_format == 'csv' or output_format == 'tsv':
             header = (',', '\t')[output_format == 'tsv'].join(gt_df.columns)
@@ -138,15 +188,19 @@ def table_process_results(input_command: str, ground_truth: str, llm_answer: str
             score = check_table_reformat(output_format, llm_df, gt_df, debug)
     if debug and score == 0:
         print('INCORRECT')
-        print('GROUND TRUTH\n', gt_df)
-        print('LLM DF\n', llm_df)
+        print('GROUND TRUTH\n', gt_df.head())
+        print('LLM DF\n', llm_df.head())
         print('LLM ANSWER\n', llm_clean)
     return score
 
 def check_table_reformat(output_format, llm_df, gt_df, debug=False):
     try:
         gt_df.columns = [s.strip() for s in gt_df.columns]
+        if 'index' in gt_df.columns:
+            gt_df = gt_df.drop(columns=['index'])
         llm_df.columns = [s.strip() for s in llm_df.columns]
+        if 'index' in llm_df.columns:
+            llm_df = llm_df.drop(columns=['index'])
         assert len(llm_df) == len(gt_df), f"DataFrame Length does not match, {len(llm_df)} (LLM) vs {len(gt_df)} (Ground Truth)"
         assert list(sorted(llm_df.columns)) == list(sorted(gt_df.columns)), f"Columns do not match:\n{sorted(llm_df.columns)} (LLM)\n{sorted(gt_df.columns)} (Ground Truth)"
         # for test_col in llm_df.columns:
