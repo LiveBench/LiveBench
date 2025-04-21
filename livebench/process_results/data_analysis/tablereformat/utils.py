@@ -188,8 +188,8 @@ def table_process_results(input_command: str, ground_truth: str, llm_answer: str
             score = check_table_reformat(output_format, llm_df, gt_df, debug)
     if debug and score == 0:
         print('INCORRECT')
-        print('GROUND TRUTH\n', gt_df.head())
-        print('LLM DF\n', llm_df.head())
+        print('GROUND TRUTH\n', 'None' if gt_df is None else gt_df.head())
+        print('LLM DF\n', 'None' if llm_df is None else llm_df.head())
         print('LLM ANSWER\n', llm_clean)
     return score
 
