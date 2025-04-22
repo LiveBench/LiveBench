@@ -28,6 +28,8 @@ import tempfile
 import time
 import types
 import unittest
+import io
+import contextlib
 from multiprocessing import Array, Value, Manager
 from typing import Any, Dict, List, Tuple, Union
 
@@ -37,6 +39,9 @@ from livebench.bcb_runner.eval.utils import (
     create_tempdir,
     reliability_guard,
     swallow_io,
+    redirect_stdin,
+    WriteOnlyStringIO,
+    swallow_subprocess_output,
     time_limit,
     safe_environment,
     TIMEOUT_LIMIT,
@@ -139,10 +144,17 @@ def unsafe_execute(
             'environ': os.environ,
         })
 
+        # Create string IO objects to capture stdout and stderr
+        stdout_capture = io.StringIO()
+        stderr_capture = io.StringIO()
+
+        stdin_capture = WriteOnlyStringIO()
+
         try:
             full_code = code + "\n" + test_code
 
-            with swallow_io():
+            # Use contextlib to redirect stdout and stderr instead of swallowing IO
+            with contextlib.redirect_stdout(stdout_capture), contextlib.redirect_stderr(stderr_capture), redirect_stdin(new_target=stdin_capture), swallow_subprocess_output():
                 exec(compile(full_code, f"{module_name}.py", 'exec'), new_module.__dict__)
                 sys.modules[module_name] = new_module
                 TestCases = getattr(new_module, 'TestCases')
@@ -153,13 +165,32 @@ def unsafe_execute(
                 with time_limit(timeout):
                     suite.run(test_result)
             
+            # Capture stdout and stderr content
+            stdout_content = stdout_capture.getvalue()
+            stderr_content = stderr_capture.getvalue()
+            
             issues = test_result.failures + test_result.errors
             for test, trace in issues:
-                details[test.id().split(".")[-1]] = trace
+                details[test.id().split(".")[-1]] = (test.shortDescription(), trace)
+
+            if issues:
+                # Store outputs in details
+                details["_captured_stdout_"] = stdout_content
+                details["_captured_stderr_"] = stderr_content
+            
             stat.value = _SUCCESS
         except BaseException as e:
-            details["ALL"] = str(e)
+            # Capture stdout and stderr content before the exception
+            stdout_content = stdout_capture.getvalue()
+            stderr_content = stderr_capture.getvalue()
+            
+            # Store outputs and exception details
+            details["_captured_stdout_"] = stdout_content
+            details["_captured_stderr_"] = stderr_content
+            details["_exception_"] = str(e)
+            
             stat.value = _FAILED
+            
         # Needed for cleaning up.
         shutil.rmtree = rmtree
         os.rmdir = rmdir
@@ -212,6 +243,7 @@ def untrusted_check(
     
     if not stat:
         stat = TIMEOUT
+        
     if stat == PASS:
         if details:
             stat = FAIL

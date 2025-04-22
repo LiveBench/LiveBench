@@ -3,20 +3,26 @@ Common data structures and utilities.
 """
 
 import dataclasses
-from datasets import load_dataset, Dataset
+
 from datetime import datetime
 import glob
 import json
 import os
 
 import re
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 from livebench.model.api_model_config import get_model_config
 
 from dotenv import load_dotenv
 
+from rich.traceback import install
+install(show_locals=True)
+
 load_dotenv(override=True)
+
+if TYPE_CHECKING:
+    from datasets import Dataset
 
 
 # Extract scores from judgments
@@ -101,10 +107,11 @@ def get_categories_tasks(bench_name: str):
 
 def get_hf_dataset(dataset_name: str, split="test"):
     """Load a dataset from HuggingFace using the given split."""
+    from datasets import load_dataset
     return load_dataset(f"{LIVE_BENCH_HF_ORGANIZATION}/{dataset_name}", split=split)
 
 
-def get_tasks_from_hf_category(category: Dataset):
+def get_tasks_from_hf_category(category: 'Dataset'):
     """Retrieve the set of task names for a category."""
     return list(set(category["task"]))
 
@@ -137,7 +144,7 @@ def load_answers_judgments():
 
 
 def load_questions(
-    category: Dataset,
+    category: 'Dataset',
     livebench_releases: set = LIVE_BENCH_RELEASES,
     livebench_release: Optional[str] = None,
     task_name: Optional[str] = None,

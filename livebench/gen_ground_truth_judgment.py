@@ -63,7 +63,7 @@ def reorg_output_file(output_file):
             fout.write(judgments[key])
 
 
-def play_a_match_gt(match: MatchSingle, output_file: str, debug=False):
+def play_a_match_gt(match: MatchSingle, output_file: str | None = None, debug=False):
     """
     Evaluate a model's answer to a question.
 

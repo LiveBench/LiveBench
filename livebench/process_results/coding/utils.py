@@ -131,7 +131,25 @@ def BCB_generation_process_results(question: dict, llm_answer: str, debug=False)
             print('extracted code')
             print(extracted_code)
             print('stat', stat)
-            print('details', details)
+            print('details:')
+            for test_id in details:
+                if test_id == '_captured_stdout_' or test_id == '_captured_stderr_' or test_id == '_exception_':
+                    continue
+                description, trace = details[test_id]
+                print(f'  Test {test_id}:')
+                print(f'    Description: {description}')
+                print(f'    Traceback: {trace}')
+                print()
+            if '_captured_stdout_' in details and details['_captured_stdout_'].strip() != '':
+                print('captured stdout:')
+                print(details['_captured_stdout_'])
+            if '_captured_stderr_' in details and details['_captured_stderr_'].strip() != '':
+                print('captured stderr:')
+                print(details['_captured_stderr_'])
+            if '_exception_' in details and details['_exception_'].strip() != '':
+                print('exception:')
+                print(details['_exception_'])
+                
         return 0
     
     
