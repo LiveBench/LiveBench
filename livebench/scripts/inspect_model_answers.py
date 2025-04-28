@@ -393,6 +393,15 @@ def process_single_question(question_id, model_id, model_answers, include_judgme
     
     task, model_answer_obj = task_and_model_answer
     model_answer: str = model_answer_obj['choices'][0]['turns'][0]
+
+    if '</think>' in model_answer:
+        model_answer = model_answer.split('</think>')[1].strip()
+    elif '<think>' in model_answer:
+        # if there's a <think> without a </think>, then we hit max tokens while thinking
+        # so there's no actual answer
+        model_answer = ''
+
+
     
     # Load score for the task
     model_scores = load_model_scores(task)
@@ -409,6 +418,16 @@ def process_single_question(question_id, model_id, model_answers, include_judgme
     
     # Find the question content
     question_content = load_question_content(task, question_id)
+
+    if 'partial_solution' in question_content:
+        if '```python' in model_answer:
+            model_answer = model_answer.split('```python')[1].strip()
+        if model_answer.startswith('```'):
+            model_answer = model_answer[3:].strip()
+        if model_answer.endswith('```'):
+            model_answer = model_answer[:-3].strip()
+        if not model_answer.startswith(question_content['partial_solution']):
+            model_answer = question_content['partial_solution'] + '\n' + model_answer
     
     # Get debug output if include_judgment_debug is set and not in cache
     model_debug = None
@@ -617,7 +636,7 @@ def process_benchmark(bench_name, model1, model2, model1_answers, model2_answers
 def main():
     parser = argparse.ArgumentParser(description="Compare answers from one or two models for a specific question or all questions in a benchmark.")
     parser.add_argument("--bench-name", help="Name of the benchmark to compare all questions for")
-    parser.add_argument("--question_id", help="ID of the question to compare answers for")
+    parser.add_argument("--question-id", help="ID of the question to compare answers for")
     parser.add_argument("--model1", required=True, help="First model ID or path to JSONL file")
     parser.add_argument("--model2", help="Second model ID or path to JSONL file (optional)")
     parser.add_argument("--include-judgment-debug", action="store_true", help="Include debug output from judgment")
@@ -669,7 +688,7 @@ def display_model_comparison(model1, model2, model1_answer, model2_answer, model
     has_ground_truth = question_content and "ground_truth" in question_content
     ground_truth = question_content.get("ground_truth", None) if has_ground_truth else None
 
-    if question_content['task'] in ['BCB_generation', 'BCB_completion']:
+    if question_content['task'] in ['BCB_generation', 'BCB_completion'] and not ground_truth.startswith(question_content['code_prompt']):
         ground_truth = question_content['code_prompt'] + '\n' + ground_truth
     
     # Escape rich markup in text to prevent formatting interpretation

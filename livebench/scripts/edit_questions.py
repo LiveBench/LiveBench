@@ -43,10 +43,11 @@ def prepare_edit(question_ids: list[str]):
             # Extract prompt, ground truth, and tests
             prompt = question.get("turns", [""])[0]
             
-            if "BCB_generation" in question_file_path:
+            if "BCB_generation" in question_file_path or "BCB_completion" in question_file_path:
                 ground_truth = question.get("ground_truth", "")
                 code_prompt = question.get("code_prompt", "")
-                ground_truth = code_prompt + "\n" + ground_truth
+                if not ground_truth.startswith(code_prompt):
+                    ground_truth = code_prompt + "\n" + ground_truth
                 tests = question.get("tests", "")
             else:
                 raise NotImplementedError(f"Question type {question_file_path} not supported")
@@ -71,7 +72,7 @@ def evaluate(question_id: str, model: str | None = None):
     
     Args:
         question_id: ID of the question to evaluate
-        model: If provided, use this model's answer instead of ground truth
+        model: If provided, also evaluate this model's answer in addition to ground truth
     """
     # Find the edited question directory
     data_dir = "data"
@@ -117,12 +118,31 @@ def evaluate(question_id: str, model: str | None = None):
             tests = f.read()
     
     question["turns"] = [prompt]
-
-    if model:
-        model = get_model_config(model).display_name
+    # Use ground truth
+    question["ground_truth"] = ground_truth
         
-        # Load model answer instead of using ground truth
-        model_answer_file = os.path.join(data_dir, question_rel_path, "model_answer", f"{model}.jsonl")
+    if tests:
+        question["tests"] = tests
+
+    # Always run ground truth evaluation
+    gt_match = make_match_single([question], ["ground_truth"], {
+        "ground_truth": {question["question_id"]: {"choices": [{"turns": [question["ground_truth"]]}]}}
+    })[0]
+    
+    try:
+        gt_result = play_a_match_gt(gt_match, output_file=None, debug=True)
+        print("Ground Truth Evaluation:")
+        print(gt_result)
+    except Exception as e:
+        print(f"Error evaluating ground truth for question {question_id}: {str(e)}")
+        gt_result = None
+
+    # If model is provided, also run model evaluation
+    if model:
+        model_name = get_model_config(model).display_name
+        
+        # Load model answer
+        model_answer_file = os.path.join(data_dir, question_rel_path, "model_answer", f"{model_name}.jsonl")
         
         if not os.path.exists(model_answer_file):
             raise ValueError(f"Model answer file not found: {model_answer_file}")
@@ -141,28 +161,20 @@ def evaluate(question_id: str, model: str | None = None):
             raise ValueError(f"Could not find answer for question {question_id} in {model_answer_file}")
         
         # Create a match using model answer
-        match = make_match_single([question], [model], {
-            model: {question["question_id"]: model_answer}
+        model_match = make_match_single([question], [model_name], {
+            model_name: {question["question_id"]: model_answer}
         })[0]
-    else:
-        # Use ground truth
-        question["ground_truth"] = ground_truth
         
-        if tests:
-            question["tests"] = tests
-        
-        # Create a match for evaluation with ground truth
-        match = make_match_single([question], ["ground_truth"], {
-            "ground_truth": {question["question_id"]: {"choices": [{"turns": [question["ground_truth"]]}]}}
-        })[0]
+        try:
+            print(f"\nModel Evaluation ({model_name}):")
+            model_result = play_a_match_gt(model_match, output_file=None, debug=True)
+            print(model_result)
+            return {"ground_truth": gt_result, "model": model_result}
+        except Exception as e:
+            print(f"Error evaluating model {model_name} for question {question_id}: {str(e)}")
+            return {"ground_truth": gt_result, "model": None}
     
-    # Run evaluation
-    try:
-        result = play_a_match_gt(match, output_file=None, debug=True)
-        return result
-    except Exception as e:
-        print(f"Error evaluating question {question_id}: {str(e)}")
-        raise
+    return {"ground_truth": gt_result}
 
 
 def save_edit(question_ids: list[str]):
