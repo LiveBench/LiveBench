@@ -419,6 +419,22 @@ def filter_questions(questions, answer_file, resume=False, retry_failures=False)
     from livebench.model.completions import API_ERROR_OUTPUT
     reorg_answer_file(answer_file)
     new_questions_ids = set([q["question_id"] for q in questions])
+    
+    # First check if the exact file exists
+    if not os.path.exists(answer_file):
+        # If not, try to find a case-insensitive match
+        answer_dir = os.path.dirname(answer_file)
+        answer_basename = os.path.basename(answer_file)
+        if answer_dir:
+            dir_files = os.listdir(answer_dir)
+        else:
+            dir_files = os.listdir('.')
+        
+        for file in dir_files:
+            if file.lower() == answer_basename.lower() and file != answer_basename:
+                answer_file = os.path.join(answer_dir if answer_dir else '.', file)
+                break
+    
     if not os.path.exists(answer_file):
         return questions
     with open(answer_file, "r") as fin:
