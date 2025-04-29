@@ -10,6 +10,9 @@ import time
 import libtmux
 import subprocess
 from dataclasses import dataclass
+import dotenv
+
+dotenv.load_dotenv()
 
 # Default benchmarks used when none specified
 DEFAULT_BENCHMARKS = [
@@ -244,7 +247,7 @@ def build_run_command(
     if api_base:
         gen_api_cmd += f" --api-base {api_base}"
     if api_key_name:
-        gen_api_cmd = f"export LIVEBENCH_API_KEY=${api_key_name} && {gen_api_cmd}"
+        gen_api_cmd = f"export LIVEBENCH_API_KEY={os.environ[api_key_name]} && {gen_api_cmd}"
     elif api_key:
         gen_api_cmd = f"export LIVEBENCH_API_KEY='{api_key}' && {gen_api_cmd}"
     if model_display_name:

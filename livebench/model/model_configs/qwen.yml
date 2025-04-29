@@ -38,7 +38,9 @@ api_kwargs:
 ---
 display_name: qwen2.5-max
 api_name:
-  alibaba: qwen-max-2025-01-25
+  https://dashscope-intl.aliyuncs.com/compatible-mode/v1: qwen-max-2025-01-25
+api_keys:
+  https://dashscope-intl.aliyuncs.com/compatible-mode/v1: ALIBABA_API_KEY
 ---
 display_name: qwen3-30b-a3b-thinking
 api_name:
@@ -63,3 +65,27 @@ api_kwargs:
     top_p: 0.8
     max_tokens: 32000
 prompt_prefix: "/no_think"
+---
+display_name: qwen3-235b-a22b-thinking
+api_name:
+  https://api.deepinfra.com/v1/openai: Qwen/Qwen3-235B-A22B
+api_keys:
+  https://api.deepinfra.com/v1/openai: DEEPINFRA_API_KEY
+api_kwargs:
+  default:
+    max_tokens: 38912
+    temperature: 0.6
+    top_p: 0.95
+prompt_prefix: "/think"
+---
+display_name: qwen3-32b-thinking
+api_name:
+  https://api.deepinfra.com/v1/openai: Qwen/Qwen3-32B
+api_keys:
+  https://api.deepinfra.com/v1/openai: DEEPINFRA_API_KEY
+api_kwargs:
+  default:
+    max_tokens: 38912
+    temperature: 0.6
+    top_p: 0.95
+prompt_prefix: "/think"

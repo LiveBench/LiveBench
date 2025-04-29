@@ -81,7 +81,6 @@ def chat_completion_openai(
             stream: Stream[ChatCompletionChunk] = client.chat.completions.create(
                 model=model,
                 messages=messages,
-                n=1,
                 stream=True,
                 stream_options={'include_usage': True},
                 **actual_api_kwargs
@@ -105,7 +104,6 @@ def chat_completion_openai(
             response: ChatCompletion = client.chat.completions.create(
                 model=model,
                 messages=messages,
-                n=1,
                 stream=False,
                 **actual_api_kwargs
             )
@@ -522,55 +520,6 @@ def chat_completion_mistral(model: str, messages: Conversation, temperature: flo
 
     return message.strip(), num_tokens
 
-
-@retry(
-    stop=stop_after_attempt(API_MAX_RETRY),
-    wait=wait_fixed(API_RETRY_SLEEP_MIN),
-    retry=retry_if_exception_type(Exception),
-    after=retry_log,
-    retry_error_callback=retry_fail
-)
-def chat_completion_cohere(model: str, messages: Conversation, temperature: float, max_tokens: int, model_api_kwargs: API_Kwargs | None = None, api_dict: dict[str, str] | None = None, stream: bool = False) -> tuple[str, int]:
-    if api_dict is not None and "api_key" in api_dict:
-        api_key = api_dict["api_key"]
-    else:
-        api_key = os.environ["CO_API_KEY"]
-
-    from cohere import OMIT, Client
-    co = Client(api_key=api_key)
-    
-    # Set up API kwargs
-    api_kwargs: API_Kwargs = {
-        'max_tokens': max_tokens,
-        'temperature': temperature
-    }
-    if model_api_kwargs is not None:
-        model_api_kwargs = {key: value for key, value in model_api_kwargs.items()}
-        api_kwargs.update(model_api_kwargs)
-
-    actual_api_kwargs = {key: (value if value is not None else OMIT) for key, value in api_kwargs.items()}
-    
-    actual_api_kwargs['max_tokens'] = min(max_tokens, 4000)
-
-    response = co.chat(
-        model=model,
-        max_tokens=safe_max_tokens,
-        temperature=temperature,
-        messages=messages,
-        **actual_api_kwargs
-    )
-            
-    if response is None:
-        raise Exception("No response returned from Cohere")
-    
-    message = response.text
-    if message is None:
-        raise Exception("No message returned from Cohere")
-    
-    num_tokens = response.meta.tokens.output_tokens if hasattr(response, 'meta') and hasattr(response.meta, 'tokens') and hasattr(response.meta.tokens, 'output_tokens') else None
-
-    return message.strip(), num_tokens
-
 def get_api_function(provider_name: str) -> ModelAPI:
     if provider_name == 'openai':
         return chat_completion_openai
@@ -580,8 +529,6 @@ def get_api_function(provider_name: str) -> ModelAPI:
         return chat_completion_anthropic
     elif provider_name == 'mistral':
         return chat_completion_mistral
-    elif provider_name == 'cohere':
-        return chat_completion_cohere
     elif provider_name == 'together':
         return chat_completion_together
     elif provider_name == 'google':
