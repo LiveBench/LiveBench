@@ -14,6 +14,10 @@ from typing import Optional
 
 from livebench.model.api_model_config import get_model_config
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 
 # Extract scores from judgments
 two_score_pattern = re.compile("\[\[(\d+\.?\d*),\s?(\d+\.?\d*)\]\]")

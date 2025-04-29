@@ -105,7 +105,10 @@ def get_answer(
 
         turns = []
         for j in range(len(question["turns"])):
-            messages.append({"role": "user", "content": question["turns"][j]})
+            prompt = question["turns"][j]
+            if model_config.prompt_prefix:
+                prompt = model_config.prompt_prefix + "\n" + prompt
+            messages.append({"role": "user", "content": prompt})
 
             output, num_tokens = get_api_function(provider)(
                 model=model_api_name,

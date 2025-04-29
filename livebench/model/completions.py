@@ -62,9 +62,6 @@ def chat_completion_openai(
     else:
         client = OpenAI(timeout=1000)
 
-    if 'o1' in model or 'o3' in model or 'o4' in model:
-        messages[0]['content'] = 'Formatting reenabled\n' + messages[0]['content']
-
     api_kwargs: API_Kwargs = {
         'temperature': temperature
     }

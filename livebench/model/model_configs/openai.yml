@@ -104,6 +104,7 @@ api_kwargs:
     temperature: null
     max_completion_tokens: null
     reasoning_effort: high
+prompt_prefix: "Formatting reenabled"
 ---
 display_name: o1-2024-12-17-low
 api_name:
@@ -115,6 +116,7 @@ api_kwargs:
     temperature: null
     max_completion_tokens: null
     reasoning_effort: low
+prompt_prefix: "Formatting reenabled"
 ---
 display_name: o1-2024-12-17-medium
 api_name:
@@ -126,6 +128,7 @@ api_kwargs:
     temperature: null
     max_completion_tokens: null
     reasoning_effort: medium
+prompt_prefix: "Formatting reenabled"
 ---
 display_name: o3-mini-2025-01-31-high
 api_name:
@@ -139,6 +142,7 @@ api_kwargs:
     temperature: null
     max_completion_tokens: null
     reasoning_effort: high
+prompt_prefix: "Formatting reenabled"
 ---
 display_name: o3-mini-2025-01-31-low
 api_name:
@@ -150,6 +154,7 @@ api_kwargs:
     temperature: null
     max_completion_tokens: null
     reasoning_effort: low
+prompt_prefix: "Formatting reenabled"
 ---
 display_name: o3-mini-2025-01-31-medium
 api_name:
@@ -161,6 +166,7 @@ api_kwargs:
     temperature: null
     max_completion_tokens: null
     reasoning_effort: medium
+prompt_prefix: "Formatting reenabled"
 ---
 display_name: o1-pro-2025-03-19
 api_name:
@@ -172,6 +178,7 @@ api_kwargs:
     temperature: null
     max_completion_tokens: null
     reasoning_effort: high
+prompt_prefix: "Formatting reenabled"
 ---
 display_name: gpt-4.1-2025-04-14
 api_name:
@@ -202,6 +209,7 @@ api_kwargs:
     temperature: null
     max_completion_tokens: null
     reasoning_effort: high
+prompt_prefix: "Formatting reenabled"
 ---
 display_name: o3-2025-04-16-medium
 api_name:
@@ -214,6 +222,7 @@ api_kwargs:
     temperature: null
     max_completion_tokens: null
     reasoning_effort: medium
+prompt_prefix: "Formatting reenabled"
 ---
 display_name: o4-mini-2025-04-16-high
 api_name:
@@ -225,6 +234,7 @@ api_kwargs:
     temperature: null
     max_completion_tokens: null
     reasoning_effort: high
+prompt_prefix: "Formatting reenabled"
 ---
 display_name: o4-mini-2025-04-16-medium
 api_name:
@@ -236,3 +246,4 @@ api_kwargs:
     temperature: null
     max_completion_tokens: null
     reasoning_effort: medium
+prompt_prefix: "Formatting reenabled"
