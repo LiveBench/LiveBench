@@ -226,7 +226,7 @@ def chat_completion_aws(model: str, messages: Conversation, temperature: float, 
         region_name = api_dict["region_name"]
     
     brt = boto3.client("bedrock-runtime", region_name=region_name)
-    user_messages = [text for role, text in messages if role == "user"]
+    user_messages = [m['content'] for m in messages if m['role'] == "user"]
     prompt = user_messages[0] if user_messages else ""
 
     # Set up API kwargs
@@ -586,5 +586,7 @@ def get_api_function(provider_name: str) -> ModelAPI:
         return chat_completion_together
     elif provider_name == 'google':
         return chat_completion_google_generativeai
+    elif provider_name == 'aws':
+        return chat_completion_aws
     else:
         return chat_completion_openai
