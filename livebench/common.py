@@ -3,20 +3,26 @@ Common data structures and utilities.
 """
 
 import dataclasses
-from datasets import load_dataset, Dataset
+
 from datetime import datetime
 import glob
 import json
 import os
 
 import re
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 from livebench.model.api_model_config import get_model_config
 
 from dotenv import load_dotenv
 
-load_dotenv()
+from rich.traceback import install
+install(show_locals=True)
+
+load_dotenv(override=True)
+
+if TYPE_CHECKING:
+    from datasets import Dataset
 
 
 # Extract scores from judgments
@@ -36,7 +42,7 @@ LIVE_BENCH_CATEGORIES = [
     "reasoning",
     "language",
 ]
-LIVE_BENCH_RELEASES = {"2024-07-26", "2024-06-24", "2024-08-31", "2024-11-25", "2025-04-02"}
+LIVE_BENCH_RELEASES = {"2024-07-26", "2024-06-24", "2024-08-31", "2024-11-25", "2025-04-02", "2025-04-25"}
 
 
 @dataclasses.dataclass
@@ -101,10 +107,11 @@ def get_categories_tasks(bench_name: str):
 
 def get_hf_dataset(dataset_name: str, split="test"):
     """Load a dataset from HuggingFace using the given split."""
+    from datasets import load_dataset
     return load_dataset(f"{LIVE_BENCH_HF_ORGANIZATION}/{dataset_name}", split=split)
 
 
-def get_tasks_from_hf_category(category: Dataset):
+def get_tasks_from_hf_category(category: 'Dataset'):
     """Retrieve the set of task names for a category."""
     return list(set(category["task"]))
 
@@ -137,7 +144,7 @@ def load_answers_judgments():
 
 
 def load_questions(
-    category: Dataset,
+    category: 'Dataset',
     livebench_releases: set = LIVE_BENCH_RELEASES,
     livebench_release: Optional[str] = None,
     task_name: Optional[str] = None,
@@ -412,6 +419,22 @@ def filter_questions(questions, answer_file, resume=False, retry_failures=False)
     from livebench.model.completions import API_ERROR_OUTPUT
     reorg_answer_file(answer_file)
     new_questions_ids = set([q["question_id"] for q in questions])
+    
+    # First check if the exact file exists
+    if not os.path.exists(answer_file):
+        # If not, try to find a case-insensitive match
+        answer_dir = os.path.dirname(answer_file)
+        answer_basename = os.path.basename(answer_file)
+        if answer_dir:
+            dir_files = os.listdir(answer_dir)
+        else:
+            dir_files = os.listdir('.')
+        
+        for file in dir_files:
+            if file.lower() == answer_basename.lower() and file != answer_basename:
+                answer_file = os.path.join(answer_dir if answer_dir else '.', file)
+                break
+    
     if not os.path.exists(answer_file):
         return questions
     with open(answer_file, "r") as fin:

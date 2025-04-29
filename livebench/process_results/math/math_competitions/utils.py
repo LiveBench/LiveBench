@@ -26,7 +26,9 @@ def mathcontest_process_results(ground_truth: str, llm_answer: str, question_tex
         llm_answer = llm_answer.replace("\\\\fbox{", "\\\\boxed{")
         last_boxed = last_boxed_only_string(llm_answer)
         if last_boxed:
-            parsed_answer = remove_boxed(last_boxed).replace('\\text{', '').replace('}', '').replace('\\', '').lower()
+            last_boxed_res = remove_boxed(last_boxed).replace('\\text{', '').replace('}', '').replace('\\', '').lower()
+            if last_boxed_res in {'a', 'b', 'c', 'd', 'e'}:
+                parsed_answer = last_boxed_res
             if parsed_answer == ground_truth.lower():
                 score = 1
 
@@ -35,6 +37,12 @@ def mathcontest_process_results(ground_truth: str, llm_answer: str, question_tex
         value = extract_answer(question_text, ground_truth)
         length_to_check = 20 + len(value)
         if value in llm_answer[-length_to_check:]:
+            score = 1
+
+    allow_last_line = True
+    if score == 0 and allow_last_line:
+        last_line = llm_answer.split('\n')[-1]
+        if last_line.strip().replace('*', '').lower() == ground_truth.lower():
             score = 1
 
     if debug and score == 0:

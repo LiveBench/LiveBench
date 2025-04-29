@@ -320,7 +320,7 @@ def display_result_single(args):
     df_1 = df[["model", "score", "task"]]
     df_1 = df_1.groupby(["model", "task"]).mean()
     df_1 = pd.pivot_table(df_1, index=['model'], values = "score", columns=["task"], aggfunc="sum")
-    if args.show_average:
+    if args.show_average_row:
         df_1.loc['average'] = df_1.mean()
     df_1 = df_1.round(3)
     df_1 = df_1.dropna(inplace=False)
@@ -335,12 +335,21 @@ def display_result_single(args):
 
     df_1 = df_1.dropna(inplace=False)
 
-    df_1['average'] = df_1.mean(axis=1)
-    first_col = df_1.pop('average')
-    df_1.insert(0, 'average', first_col)
-    df_1 = df_1.sort_values(by="average", ascending=False)
+    # Only show average column if there are multiple data columns and not explicitly skipped
+    if not args.skip_average_column and len(df_1.columns) > 1:
+        df_1['average'] = df_1.mean(axis=1)
+        first_col = df_1.pop('average')
+        df_1.insert(0, 'average', first_col)
+        sort_by = "average"
+    else:
+        sort_by = df_1.columns[0] if len(df_1.columns) > 0 else None
+
+    # Sort if we have a column to sort by
+    if sort_by is not None:
+        df_1 = df_1.sort_values(by=sort_by, ascending=False)
+
     df_1 = df_1.round(1)
-    if args.show_average:
+    if args.show_average_row:
         df_1.loc['average'] = df_1.mean()
     with pd.option_context('display.max_rows', None):
         print(df_1)
@@ -383,7 +392,7 @@ if __name__ == "__main__":
         help="Livebench release to use. Provide a single date option. Will handle excluding deprecated questions for selected release."
     )
     parser.add_argument(
-        "--show-average",
+        "--show-average-row",
         default=False,
         help="Show the average score for each task",
         action='store_true'
@@ -404,6 +413,12 @@ if __name__ == "__main__":
         "--verbose",
         default=False,
         help="Display debug information",
+        action='store_true'
+    )
+    parser.add_argument(
+        "--skip-average-column",
+        default=False,
+        help="Skip displaying the average column in results",
         action='store_true'
     )
     args = parser.parse_args()

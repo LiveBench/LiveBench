@@ -59,6 +59,10 @@ display_name: learnlm-1.5-pro-experimental
 api_name:
   google: learnlm-1.5-pro-experimental
 ---
+display_name: learnlm-2.0-flash-experimental
+api_name:
+  google: learnlm-2.0-flash-experimental
+---
 display_name: gemini-exp-1206
 api_name:
   google: gemini-exp-1206

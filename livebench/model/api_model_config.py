@@ -38,13 +38,13 @@ def get_model_config(model_name: str) -> ModelConfig:
     model_configs = load_all_configs()
     matches: list[ModelConfig] = []
     for model_config in model_configs.values():
-        if model_name == model_config.display_name or (model_config.aliases and model_name in model_config.aliases):
+        if model_name.lower() == model_config.display_name.lower() or (model_config.aliases and model_name.lower() in [alias.lower() for alias in model_config.aliases]):
             matches.append(model_config)
     if len(matches) > 1:
         raise ValueError(f"Multiple model configs found for {model_name}")
     elif len(matches) == 0:
         return ModelConfig(
-            display_name=model_name,
+            display_name=model_name.lower(),
             api_name={
                 'local': model_name
             },

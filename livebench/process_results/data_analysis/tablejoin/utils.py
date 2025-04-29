@@ -6,6 +6,10 @@ import ast
 from livebench.process_results.util import last_boxed_only_string, remove_boxed
 
 def clean_llm_output(s):
+    pattern_solution = r'<solution>(.*?)</solution>'
+    matches = re.findall(pattern_solution, s, re.DOTALL)
+    if len(matches) > 0:
+        return clean_llm_output(matches[-1].strip())
     try:
         match_d = literal_eval(s)
     except:

@@ -1,7 +1,8 @@
-from livebench.model.model_adapter import (
-    load_model,
-    get_conversation_template,
-    add_model_args,
-)
-from livebench.model.api_model_config import ModelConfig, get_model_config
-from livebench.model.completions import get_api_function
+from .api_model_config import ModelConfig, get_model_config
+from .completions import get_api_function
+
+__all__ = [
+    "ModelConfig",
+    "get_model_config",
+    "get_api_function",
+]
