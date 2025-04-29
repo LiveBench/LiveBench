@@ -469,15 +469,19 @@ def process_single_question(question_id, model_id, model_answers, include_judgme
                     ground_truth = question_content['code_prompt'] + '\n' + ground_truth
                 if not model_debug:
                     model_debug = get_debug_output(question_content, model_id, model_answer_obj)
-                model_mistake_explanation = get_mistake_explanation(
-                    question_text=question_text,
-                    ground_truth_answer=ground_truth,
-                    model_answer=str(model_answer),
-                    test_suite=question_content['tests'] if 'tests' in question_content else None,
-                    debug_output=model_debug
-                )
-                if 'Mistake Type' in model_mistake_explanation:
-                    mistake_type = model_mistake_explanation.split('Mistake Type: ')[1].split('\n')[0].strip()
+                if 'stat timeout' in model_debug:
+                    model_mistake_explanation = "TIMEOUT"
+                    mistake_type = "MODEL MISTAKE"
+                else:
+                    model_mistake_explanation = get_mistake_explanation(
+                        question_text=question_text,
+                        ground_truth_answer=ground_truth,
+                        model_answer=str(model_answer),
+                        test_suite=question_content['tests'] if 'tests' in question_content else None,
+                        debug_output=model_debug
+                    )
+                    if 'Mistake Type' in model_mistake_explanation:
+                        mistake_type = model_mistake_explanation.split('Mistake Type: ')[1].split('\n')[0].strip()
                     
     
     # Collect data for writing to file
@@ -780,7 +784,7 @@ def display_model_comparison(model1, model2, model1_answer, model2_answer, model
             table.add_row(model1_answer)
         
         # If include_judgment_debug is set, add debug output
-        if include_judgment_debug and (model1_debug or model2_debug):
+        if include_judgment_debug and model1_debug:
             # Add a horizontal border between rows
             table.add_section()
             

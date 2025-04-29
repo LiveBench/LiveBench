@@ -70,12 +70,12 @@ def save_jsonl(file_path, questions):
 def main():
     # Paths to the input and output files
     bcb_gen_path = "data/live_bench/coding_3/BCB_generation/question.jsonl"
-    bcb_gen_original_path = "data/live_bench/coding_3/BCB_generation/question_edited_9.jsonl"
+    bcb_gen_original_path = "data/live_bench/coding_3/BCB_generation/question_edited_10.jsonl"
     bcb_comp_path = "data/live_bench/coding_3/BCB_completion/question.jsonl"
     output_path = "data/live_bench/coding_3/BCB_completion/question_edited.jsonl"
     
     # Path string for generating question IDs
-    path_string = "live_bench/coding_3/BCB_completion_edited"
+    path_string = "live_bench/coding_3/BCB_completion_edited_5"
     
     # Load all questions
     bcb_gen_questions = load_jsonl(bcb_gen_path)
