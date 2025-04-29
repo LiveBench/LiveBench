@@ -465,7 +465,7 @@ def process_single_question(question_id, model_id, model_answers, include_judgme
             elif include_mistake_explanations:
                 question_text = str(question_content['turns'][0]) if 'turns' in question_content and len(question_content['turns']) > 0 else ""
                 ground_truth = str(question_content.get("ground_truth", ""))
-                if question_content['task'] in ['BCB_generation', 'BCB_completion']:
+                if question_content['task'] in ['code_generation', 'code_completion']:
                     ground_truth = question_content['code_prompt'] + '\n' + ground_truth
                 if not model_debug:
                     model_debug = get_debug_output(question_content, model_id, model_answer_obj)
@@ -692,7 +692,7 @@ def display_model_comparison(model1, model2, model1_answer, model2_answer, model
     has_ground_truth = question_content and "ground_truth" in question_content
     ground_truth = question_content.get("ground_truth", None) if has_ground_truth else None
 
-    if question_content['task'] in ['BCB_generation', 'BCB_completion'] and not ground_truth.startswith(question_content['code_prompt']):
+    if question_content['task'] in ['code_generation', 'code_completion'] and not ground_truth.startswith(question_content['code_prompt']):
         ground_truth = question_content['code_prompt'] + '\n' + ground_truth
     
     # Escape rich markup in text to prevent formatting interpretation

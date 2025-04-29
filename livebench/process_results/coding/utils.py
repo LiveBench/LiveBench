@@ -9,7 +9,7 @@ import base64
 import re
 from enum import Enum
 
-from livebench.bcb_runner.eval import untrusted_check, PASS, FAIL, TIMEOUT
+from livebench.code_runner.eval import untrusted_check, PASS, FAIL, TIMEOUT
 from livebench.lcb_runner.utils.extraction_utils import extract_code
 from livebench.lcb_runner.evaluation.compute_code_generation_metrics import codegen_metrics
 
@@ -103,7 +103,7 @@ def LCB_generation_process_results(question: dict, llm_answer: str, debug=False)
             print('metadata', metadata)
         return 0
 
-def BCB_generation_process_results(question: dict, llm_answer: str, debug=False) -> int:
+def code_generation_process_results(question: dict, llm_answer: str, debug=False) -> int:
     extracted_code = extract_code(model_output=llm_answer, lmstyle=None)
 
     if 'partial_solution' in question and (not question['partial_solution'] is None) and (len(question['partial_solution']) > 0) and not extracted_code.startswith(question['partial_solution']):

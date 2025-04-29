@@ -69,28 +69,28 @@ def save_jsonl(file_path, questions):
 
 def main():
     # Paths to the input and output files
-    bcb_gen_path = "data/live_bench/coding_3/BCB_generation/question.jsonl"
-    bcb_gen_original_path = "data/live_bench/coding_3/BCB_generation/question_edited_10.jsonl"
-    bcb_comp_path = "data/live_bench/coding_3/BCB_completion/question.jsonl"
-    output_path = "data/live_bench/coding_3/BCB_completion/question_edited.jsonl"
+    code_gen_path = "data/live_bench/coding_3/code_generation/question.jsonl"
+    code_gen_original_path = "data/live_bench/coding_3/code_generation/question_edited_12.jsonl"
+    code_comp_path = "data/live_bench/coding_3/code_completion/question.jsonl"
+    output_path = "data/live_bench/coding_3/code_completion/question_edited.jsonl"
     
     # Path string for generating question IDs
-    path_string = "live_bench/coding_3/BCB_completion_edited_5"
+    path_string = "live_bench/coding_3/code_completion_edited_1"
     
     # Load all questions
-    bcb_gen_questions = load_jsonl(bcb_gen_path)
-    bcb_gen_original_questions = load_jsonl(bcb_gen_original_path)
-    bcb_comp_questions = load_jsonl(bcb_comp_path)
+    code_gen_questions = load_jsonl(code_gen_path)
+    code_gen_original_questions = load_jsonl(code_gen_original_path)
+    code_comp_questions = load_jsonl(code_comp_path)
     
     # Create a mapping for easy lookup
-    gen_questions_by_title = {q["question_title"]: q for q in bcb_gen_questions}
-    gen_original_questions_by_title = {q["question_title"]: q for q in bcb_gen_original_questions}
+    gen_questions_by_title = {q["question_title"]: q for q in code_gen_questions}
+    gen_original_questions_by_title = {q["question_title"]: q for q in code_gen_original_questions}
     
     # Track what's changed to understand the edits
     changes_summary = {"tests": 0, "prompt": 0, "ground_truth_valid": 0, "ground_truth_regenerate": 0, "no_changes": 0}
     updated_questions = []
 
-    for i, comp_question in enumerate(bcb_comp_questions):
+    for i, comp_question in enumerate(code_comp_questions):
         question_title = comp_question["question_title"]
         
         # Skip if this question doesn't exist in the generation set
@@ -179,7 +179,7 @@ def main():
     print(f"  Ground truth with valid partial solution: {changes_summary['ground_truth_valid']}")
     print(f"  Ground truth with regenerated partial solution: {changes_summary['ground_truth_regenerate']}")
     print(f"  No changes: {changes_summary['no_changes']}")
-    print(f"  Total questions processed: {len(bcb_comp_questions)}")
+    print(f"  Total questions processed: {len(code_comp_questions)}")
     print(f"  Total questions saved: {len(updated_questions)}")
     print(f"Updated questions saved to {output_path}")
 

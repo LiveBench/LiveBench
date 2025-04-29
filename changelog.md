@@ -1,5 +1,9 @@
 ## Changelog
 
+### 2025-04-25
+ - Completely new coding questions focused on evaluating usage of real-world libraries in realistic scenarios. Questions are no longer sourced from LiveCodeBench. The tasks themselves are the same; we still have a full code generation task and a code completion task.
+ - Refeshed data analysis tasks, specifically for the tablejoin and tablereformat tasks. The cta task has been retired.
+
 ### 2025-04-02
  - Refreshed coding questions (coding_completion and LCB_generation) with *much* newer questions from LiveCodeBench. The previous questions were likely heavily contaminated for newer models. LiveCodeBench also increases question difficulty over time.
  - Refreshed typos and plot_unscrambling questions with newer ArXiv papers and movie plots from Wikipedia, respectively. Issues in the typos question generation script were also fixed, so that all questions can be fairly evaluated

@@ -43,7 +43,7 @@ def prepare_edit(question_ids: list[str]):
             # Extract prompt, ground truth, and tests
             prompt = question.get("turns", [""])[0]
             
-            if "BCB_generation" in question_file_path or "BCB_completion" in question_file_path:
+            if "code_generation" in question_file_path or "code_completion" in question_file_path:
                 ground_truth = question.get("ground_truth", "")
                 code_prompt = question.get("code_prompt", "")
                 if not ground_truth.startswith(code_prompt):
