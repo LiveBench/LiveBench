@@ -1,0 +1,8 @@
+display_name: phi-4-reasoning-plus
+api_name:
+  deepinfra: microsoft/phi-4-reasoning-plus
+api_kwargs:
+  default:
+    max_tokens: 30000
+    temperature: 0.8
+    top_p: 0.95
