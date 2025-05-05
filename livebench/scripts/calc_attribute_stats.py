@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 import json
-import glob
-import sys
 import os
 import argparse
+import importlib.util
 
-def calc_attribute_stats(file_prefixes, attribute_name):
+from livebench.common import load_questions_jsonl, LIVE_BENCH_RELEASES
+
+def calc_attribute_stats(file_prefixes, attribute_name, livebench_release=None):
     # Track stats by task
     stats_by_task = {}
     # Overall stats
@@ -23,6 +24,7 @@ def calc_attribute_stats(file_prefixes, attribute_name):
 
     print(f"Looking for files matching prefixes: {file_prefixes}")
     print(f"Starting from directory: {os.getcwd()}")
+    print(f"Using livebench release: {livebench_release}")
 
     # Walk through directory tree, following symlinks
     for root, dirs, files in os.walk('.', followlinks=True):
@@ -52,6 +54,19 @@ def calc_attribute_stats(file_prefixes, attribute_name):
                     'total_value': 0,
                     'value_count': 0
                 }
+            
+            # Load questions using common.py's load_questions_jsonl
+            question_file = os.path.join(os.path.dirname(os.path.dirname(filepath)), "question.jsonl")
+            if os.path.exists(question_file):
+                questions = load_questions_jsonl(
+                    question_file=question_file,
+                    livebench_releases=LIVE_BENCH_RELEASES,
+                    livebench_release=livebench_release
+                )
+                valid_question_ids = {q["question_id"] for q in questions}
+                print(f"Loaded {len(questions)} valid questions from {question_file}")
+            else:
+                raise ValueError(f"Warning: question.jsonl not found in {os.path.dirname(filepath)}")
 
             # Read each line in the file
             with open(filepath, 'r') as f:
@@ -59,6 +74,10 @@ def calc_attribute_stats(file_prefixes, attribute_name):
                     try:
                         # Parse JSON object
                         obj = json.loads(line.strip())
+
+                        # Skip if not in valid question ids
+                        if valid_question_ids is not None and obj["question_id"] not in valid_question_ids:
+                            continue
 
                         # Check if attribute exists
                         if attribute_name not in obj:
@@ -107,12 +126,14 @@ def calc_attribute_stats(file_prefixes, attribute_name):
             print("Subdirectories:", dirs)
         return None
 
-    # Calculate averages for each task
+    # Calculate averages for each task and filter out tasks with no valid questions
+    filtered_stats_by_task = {}
     for task, stats in stats_by_task.items():
         if stats['value_count'] > 0:
             stats['average_value'] = stats['total_value'] / stats['value_count']
+            filtered_stats_by_task[task] = stats
         else:
-            stats['average_value'] = 0
+            print(f"Skipping task '{task}' with no valid questions")
     
     # Calculate overall average
     if overall_stats['value_count'] > 0:
@@ -120,7 +141,7 @@ def calc_attribute_stats(file_prefixes, attribute_name):
     else:
         overall_stats['average_value'] = 0
 
-    return stats_by_task, overall_stats
+    return filtered_stats_by_task, overall_stats
 
 def main():
     # Set up argument parser
@@ -131,18 +152,26 @@ def main():
                         help='Name of the attribute to analyze')
     parser.add_argument('--stat', choices=['max', 'avg', 'all'], default='all',
                       help='Which statistics to display: max, avg, or all (default: all)')
+    parser.add_argument('--livebench-release-option', dest='livebench_release', 
+                        default=max(LIVE_BENCH_RELEASES),
+                        help='Livebench release to filter questions by')
     
     args = parser.parse_args()
     
     print(f"File prefixes: {args.file_prefixes}")
     print(f"Attribute name: {args.attribute_name}")
     print(f"Statistics mode: {args.stat}")
+    print(f"Livebench release: {args.livebench_release}")
 
-    res = calc_attribute_stats(args.file_prefixes, args.attribute_name)
+    res = calc_attribute_stats(args.file_prefixes, args.attribute_name, args.livebench_release)
 
     if res is not None:
         stats_by_task, overall_stats = res
         
+        if not stats_by_task:
+            print("\nNo tasks with valid questions found!")
+            return
+            
         # Print stats by task in table format
         print("\n===== Statistics by Task =====")
         
@@ -204,15 +233,18 @@ def main():
             
         # Print overall stats
         print("\n===== Overall Statistics =====")
-        if args.stat in ['max', 'all']:
-            print(f"Maximum value of '{args.attribute_name}' across all files: {overall_stats['max_value']} (appeared {overall_stats['max_count']} times)")
-            if overall_stats['max_value_question']:
-                print(f"Question with max value: {overall_stats['max_value_question']['question_id']}")
-        
-        if args.stat in ['avg', 'all']:
-            print(f"Average value of '{args.attribute_name}' across all files: {overall_stats['average_value']:.4f}")
-            print(f"Total value of '{args.attribute_name}' across all files: {overall_stats['total_value']}")
-            print(f"Number of values across all files: {overall_stats['value_count']}")
+        if overall_stats['value_count'] == 0:
+            print("No valid data found across all tasks.")
+        else:
+            if args.stat in ['max', 'all']:
+                print(f"Maximum value of '{args.attribute_name}' across all files: {overall_stats['max_value']} (appeared {overall_stats['max_count']} times)")
+                if overall_stats['max_value_question']:
+                    print(f"Question with max value: {overall_stats['max_value_question']['question_id']}")
+            
+            if args.stat in ['avg', 'all']:
+                print(f"Average value of '{args.attribute_name}' across all files: {overall_stats['average_value']:.4f}")
+                print(f"Total value of '{args.attribute_name}' across all files: {overall_stats['total_value']}")
+                print(f"Number of values across all files: {overall_stats['value_count']}")
 
 if __name__ == "__main__":
     main()
