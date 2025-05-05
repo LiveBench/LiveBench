@@ -17,7 +17,6 @@ dotenv.load_dotenv()
 # Default benchmarks used when none specified
 DEFAULT_BENCHMARKS = [
     "live_bench/coding",
-    "live_bench/coding_2",
     "live_bench/data_analysis", 
     "live_bench/instruction_following",
     "live_bench/language",
