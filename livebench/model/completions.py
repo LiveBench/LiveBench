@@ -76,6 +76,7 @@ def chat_completion_openai(
         api_kwargs['max_tokens'] = max_tokens if 'gpt' not in model else None
 
     actual_api_kwargs = {key: (value if value is not None else NOT_GIVEN) for key, value in api_kwargs.items()}
+
     try:
         if stream:
             stream: Stream[ChatCompletionChunk] = client.chat.completions.create(
@@ -520,6 +521,64 @@ def chat_completion_mistral(model: str, messages: Conversation, temperature: flo
 
     return message.strip(), num_tokens
 
+@retry(
+    stop=stop_after_attempt(API_MAX_RETRY),
+    wait=wait_fixed(API_RETRY_SLEEP_MIN),
+    retry=retry_if_exception_type(Exception),
+    after=retry_log,
+    retry_error_callback=retry_fail
+)
+def chat_completion_deepinfra(model: str, messages: Conversation, temperature: float, max_tokens: int, model_api_kwargs: API_Kwargs | None = None, api_dict: dict[str, str] | None = None, stream: bool = False) -> tuple[str, int]:
+    from openai import OpenAI, NOT_GIVEN
+
+    if api_dict is not None and "api_key" in api_dict:
+        api_key = api_dict["api_key"]
+    else:
+        api_key = os.environ["DEEPINFRA_API_KEY"]
+
+    client = OpenAI(api_key=api_key, base_url="https://api.deepinfra.com/v1/openai", timeout=httpx.Timeout(timeout=2400.0, connect=10.0))
+
+    api_kwargs: API_Kwargs = {
+        'max_tokens': max_tokens,
+        'temperature': temperature
+    }
+
+    if model_api_kwargs is not None:
+        model_api_kwargs = {key: value for key, value in model_api_kwargs.items()}
+        api_kwargs.update(model_api_kwargs)
+
+    actual_api_kwargs = {key: (value if value is not None else NOT_GIVEN) for key, value in api_kwargs.items()}
+
+    ai_message = {'role': 'assistant', 'content': ''}
+    total_tokens = 0
+    # DeepInfra hard caps at 16384 tokens in a single request
+    # so we need to resubmit the request until we get a 'stop' finish reason
+    # or reach our actual max tokens
+    while total_tokens < actual_api_kwargs['max_tokens']:
+        actual_api_kwargs['max_tokens'] = actual_api_kwargs['max_tokens'] - total_tokens
+        response = client.chat.completions.create(
+            model=model,
+            messages=messages + [ai_message],
+            stream=False,
+            **actual_api_kwargs
+        )
+
+        if response is None:
+            raise Exception("No response returned from DeepInfra")
+        elif response.choices is None:
+            print(response)
+            raise Exception("No choices returned from DeepInfra")
+
+        ai_message['content'] += response.choices[0].message.content
+        total_tokens += response.usage.completion_tokens
+
+        if response.choices[0].finish_reason != 'length':
+            break
+        elif total_tokens < actual_api_kwargs['max_tokens']:
+            print(f"Continuing DeepInfra request for more tokens, have {total_tokens} and requested {actual_api_kwargs['max_tokens']}")
+
+    return ai_message['content'], total_tokens
+
 def get_api_function(provider_name: str) -> ModelAPI:
     if provider_name == 'openai':
         return chat_completion_openai
@@ -535,5 +594,7 @@ def get_api_function(provider_name: str) -> ModelAPI:
         return chat_completion_google_generativeai
     elif provider_name == 'aws':
         return chat_completion_aws
+    elif provider_name == 'deepinfra':
+        return chat_completion_deepinfra
     else:
         return chat_completion_openai

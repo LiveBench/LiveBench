@@ -44,9 +44,7 @@ api_keys:
 ---
 display_name: qwen3-30b-a3b-thinking
 api_name:
-  https://api.deepinfra.com/v1/openai: Qwen/Qwen3-30B-A3B
-api_keys:
-  https://api.deepinfra.com/v1/openai: DEEPINFRA_API_KEY
+  deepinfra: Qwen/Qwen3-30B-A3B
 api_kwargs:
   default:
     max_tokens: 38912
@@ -56,9 +54,7 @@ prompt_prefix: "/think"
 ---
 display_name: qwen3-30b-a3b
 api_name:
-  https://api.deepinfra.com/v1/openai: Qwen/Qwen3-30B-A3B
-api_keys:
-  https://api.deepinfra.com/v1/openai: DEEPINFRA_API_KEY
+  deepinfra: Qwen/Qwen3-30B-A3B
 api_kwargs:
   default:
     temperature: 0.7
@@ -68,9 +64,9 @@ prompt_prefix: "/no_think"
 ---
 display_name: qwen3-235b-a22b-thinking
 api_name:
-  https://api.deepinfra.com/v1/openai: Qwen/Qwen3-235B-A22B
-api_keys:
-  https://api.deepinfra.com/v1/openai: DEEPINFRA_API_KEY
+  deepinfra: Qwen/Qwen3-235B-A22B
+  together: Qwen/Qwen3-235B-A22B-fp8-tput
+default_provider: together
 api_kwargs:
   default:
     max_tokens: 38912
@@ -80,9 +76,17 @@ prompt_prefix: "/think"
 ---
 display_name: qwen3-32b-thinking
 api_name:
-  https://api.deepinfra.com/v1/openai: Qwen/Qwen3-32B
-api_keys:
-  https://api.deepinfra.com/v1/openai: DEEPINFRA_API_KEY
+  deepinfra: Qwen/Qwen3-32B
+api_kwargs:
+  default:
+    max_tokens: 38912
+    temperature: 0.6
+    top_p: 0.95
+prompt_prefix: "/think"
+---
+display_name: qwen3-14b-thinking
+api_name:
+  deepinfra: Qwen/Qwen3-14B
 api_kwargs:
   default:
     max_tokens: 38912
