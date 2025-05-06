@@ -1,17 +1,17 @@
 {
     "mode": "evaluation",
-    "workdir": "./data/workdir",
+    "workdir": "agentic_code_runner/data/workdir",
     "patch_files": [
-        "./data/patches/claude_3_5_sonnet_patch.jsonl"
+        "agentic_code_runner/data/patches/claude_3_5_sonnet_patch.jsonl"
     ],
     "dataset_files": [
-        "./data/multi_swe_bench_mini.jsonl"
+        "agentic_code_runner/data/multi_swe_bench_mini.jsonl"
     ],
     "force_build": false,
-    "output_dir": "./data/dataset",
+    "output_dir": "agentic_code_runner/data/dataset",
     "specifics": [],
     "skips": [],
-    "repo_dir": "./data/repos",
+    "repo_dir": "agentic_code_runner/data/repos",
     "need_clone": true,
     "global_env": [],
     "clear_env": true,
@@ -19,6 +19,6 @@
     "max_workers": 2,
     "max_workers_build_image": 2,
     "max_workers_run_instance": 2,
-    "log_dir": "./data/logs",
+    "log_dir": "agentic_code_runner/data/logs",
     "log_level": "DEBUG"
 }
