@@ -25,8 +25,8 @@ from tenacity import (
     wait_random_exponential,
 )
 
-from sweagent import REPO_ROOT
-from sweagent.exceptions import (
+from livebench.agentic_code_runner.sweagent.agent import REPO_ROOT
+from livebench.agentic_code_runner.sweagent.agent.exceptions import (
     ContentPolicyViolationError,
     ContextWindowExceededError,
     CostLimitExceededError,
@@ -36,9 +36,9 @@ from sweagent.exceptions import (
     ModelConfigurationError,
     TotalCostLimitExceededError,
 )
-from sweagent.tools.tools import ToolConfig
-from sweagent.types import History, HistoryItem
-from sweagent.utils.log import get_logger
+from livebench.agentic_code_runner.sweagent.agent.tools.tools import ToolConfig
+from livebench.agentic_code_runner.sweagent.agent.types import History, HistoryItem
+from livebench.agentic_code_runner.sweagent.agent.utils.log import get_logger
 
 try:
     import readline  # noqa: F401

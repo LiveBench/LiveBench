@@ -16,9 +16,9 @@ from dataclasses import dataclass, field
 
 from dataclasses_json import dataclass_json
 
-from multi_swe_bench.harness.pull_request import PullRequest
-from multi_swe_bench.harness.report import Report
-from multi_swe_bench.harness.test_result import Test, TestResult
+from livebench.agentic_code_runner.eval.harness.pull_request import PullRequest
+from livebench.agentic_code_runner.eval.harness.report import Report
+from livebench.agentic_code_runner.eval.harness.test_result import Test, TestResult
 
 
 @dataclass_json

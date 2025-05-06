@@ -1,10 +1,10 @@
 from typing import TYPE_CHECKING
 
-from sweagent.types import AgentInfo, StepOutput, Trajectory
+from livebench.agentic_code_runner.sweagent.agent.types import AgentInfo, StepOutput, Trajectory
 
 if TYPE_CHECKING:
     # avoid circular import
-    from sweagent.agent.agents import DefaultAgent
+    from livebench.agentic_code_runner.sweagent.agent.agent.agents import DefaultAgent
 
 
 class AbstractAgentHook:

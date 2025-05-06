@@ -15,8 +15,8 @@
 from dataclasses import dataclass
 from typing import Optional, Union
 
-from multi_swe_bench.harness.pull_request import PullRequest
-from multi_swe_bench.harness.test_result import get_modified_files
+from livebench.agentic_code_runner.eval.harness.pull_request import PullRequest
+from livebench.agentic_code_runner.eval.harness.test_result import get_modified_files
 
 
 @dataclass

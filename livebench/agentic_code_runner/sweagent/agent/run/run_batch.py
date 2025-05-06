@@ -47,22 +47,21 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from rich.live import Live
 from swerex.deployment.hooks.status import SetStatusDeploymentHook
 
-from sweagent import TRAJECTORY_DIR
-from sweagent.agent.agents import AgentConfig, get_agent_from_config
-from sweagent.agent.hooks.status import SetStatusAgentHook
-from sweagent.environment.hooks.status import SetStatusEnvironmentHook
-from sweagent.environment.swe_env import SWEEnv
-from sweagent.exceptions import ModelConfigurationError, TotalCostLimitExceededError
-from sweagent.run._progress import RunBatchProgressManager
-from sweagent.run.batch_instances import BatchInstance, BatchInstanceSourceConfig, SWEBenchInstances
-from sweagent.run.common import BasicCLI, ConfigHelper, save_predictions
-from sweagent.run.hooks.abstract import CombinedRunHooks, RunHook
-from sweagent.run.hooks.apply_patch import SaveApplyPatchHook
-from sweagent.run.merge_predictions import merge_predictions
-from sweagent.run.run_single import RunSingleConfig
-from sweagent.types import AgentRunResult
-from sweagent.utils.config import load_environment_variables
-from sweagent.utils.log import (
+from livebench.agentic_code_runner.sweagent.agent import TRAJECTORY_DIR
+from livebench.agentic_code_runner.sweagent.agent.agent.agents import AgentConfig, get_agent_from_config
+from livebench.agentic_code_runner.sweagent.agent.agent.hooks.status import SetStatusAgentHook
+from livebench.agentic_code_runner.sweagent.agent.environment.hooks.status import SetStatusEnvironmentHook
+from livebench.agentic_code_runner.sweagent.agent.environment.swe_env import SWEEnv
+from livebench.agentic_code_runner.sweagent.agent.exceptions import ModelConfigurationError, TotalCostLimitExceededError
+from livebench.agentic_code_runner.sweagent.agent.run._progress import RunBatchProgressManager
+from livebench.agentic_code_runner.sweagent.agent.run.batch_instances import BatchInstance, BatchInstanceSourceConfig
+from livebench.agentic_code_runner.sweagent.agent.run.common import BasicCLI, ConfigHelper, save_predictions
+from livebench.agentic_code_runner.sweagent.agent.run.hooks.abstract import CombinedRunHooks, RunHook
+from livebench.agentic_code_runner.sweagent.agent.run.merge_predictions import merge_predictions
+from livebench.agentic_code_runner.sweagent.agent.run.run_single import RunSingleConfig
+from livebench.agentic_code_runner.sweagent.agent.types import AgentRunResult
+from livebench.agentic_code_runner.sweagent.agent.utils.config import load_environment_variables
+from livebench.agentic_code_runner.sweagent.agent.utils.log import (
     add_file_handler,
     add_logger_names_to_stream_handlers,
     get_logger,
@@ -118,15 +117,6 @@ class RunBatchConfig(BaseSettings, cli_implicit_flags=False):
 
     @model_validator(mode="after")
     def evaluate_and_redo_existing(self) -> Self:
-        if not isinstance(self.instances, SWEBenchInstances):
-            return self
-        if self.instances.evaluate and self.redo_existing:
-            msg = (
-                "Cannot evaluate and redo existing at the same time. This would cause invalid results, because "
-                "after the first merge_preds gives you a preds.json, this file would be submitted to SB-CLI, causing"
-                "evaluation of old instances, which could then not be overwritten by the new ones."
-            )
-            raise ValueError(msg)
         return self
 
 
@@ -177,7 +167,7 @@ class RunBatch:
         self._chooks = CombinedRunHooks()
         self._redo_existing = redo_existing
         self._num_workers = min(num_workers, len(instances))
-        for hook in hooks or [SaveApplyPatchHook(show_success_message=False)]:
+        for hook in hooks or []:
             self.add_hook(hook)
         self._progress_manager = RunBatchProgressManager(
             num_instances=len(instances), yaml_report_path=output_dir / "run_batch_exit_statuses.yaml"
@@ -220,17 +210,6 @@ class RunBatch:
             progress_bar=config.progress_bar,
             random_delay_multiplier=config.random_delay_multiplier,
         )
-        if isinstance(config.instances, SWEBenchInstances) and config.instances.evaluate:
-            from sweagent.run.hooks.swe_bench_evaluate import SweBenchEvaluate
-
-            rb.add_hook(
-                SweBenchEvaluate(
-                    output_dir=config.output_dir,
-                    subset=config.instances.subset,
-                    split=config.instances.split,
-                    continuous_submission_every=30,
-                )
-            )
         return rb
 
     def add_hook(self, hook: RunHook) -> None:
