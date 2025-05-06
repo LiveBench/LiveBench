@@ -6,8 +6,8 @@ from typing import Any
 
 from dotenv import load_dotenv
 
-from sweagent import REPO_ROOT
-from sweagent.utils.log import get_logger
+from livebench.agentic_code_runner.sweagent.agent import REPO_ROOT
+from livebench.agentic_code_runner.sweagent.agent.utils.log import get_logger
 
 logger = get_logger("swea-config", emoji="🔧")
 

@@ -36,9 +36,9 @@ from typing import Literal
 from jinja2 import Template
 from pydantic import BaseModel
 
-from sweagent.exceptions import FormatError, FunctionCallingFormatError
-from sweagent.tools.commands import Command
-from sweagent.tools.utils import _should_quote
+from livebench.agentic_code_runner.sweagent.agent.exceptions import FormatError, FunctionCallingFormatError
+from livebench.agentic_code_runner.sweagent.agent.tools.commands import Command
+from livebench.agentic_code_runner.sweagent.agent.tools.utils import _should_quote
 
 
 class AbstractParseFunction(ABC):

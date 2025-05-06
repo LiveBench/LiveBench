@@ -13,18 +13,18 @@ import numpy as np
 from jinja2 import Template
 from pydantic import BaseModel, ConfigDict
 
-from sweagent.agent.history_processors import _set_cache_control
-from sweagent.agent.models import (
+from livebench.agentic_code_runner.sweagent.agent.agent.history_processors import _set_cache_control
+from livebench.agentic_code_runner.sweagent.agent.agent.models import (
     AbstractModel,
     InstanceStats,
     ModelConfig,
     get_model,
 )
-from sweagent.agent.problem_statement import ProblemStatement
-from sweagent.tools.parsing import ActionParser
-from sweagent.tools.tools import ToolConfig
-from sweagent.types import AgentInfo, Trajectory, TrajectoryStep
-from sweagent.utils.log import get_logger
+from livebench.agentic_code_runner.sweagent.agent.agent.problem_statement import ProblemStatement
+from livebench.agentic_code_runner.sweagent.agent.tools.parsing import ActionParser
+from livebench.agentic_code_runner.sweagent.agent.tools.tools import ToolConfig
+from livebench.agentic_code_runner.sweagent.agent.types import AgentInfo, Trajectory, TrajectoryStep
+from livebench.agentic_code_runner.sweagent.agent.utils.log import get_logger
 
 
 class ReviewSubmission(BaseModel):

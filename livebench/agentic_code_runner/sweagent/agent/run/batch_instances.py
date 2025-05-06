@@ -13,11 +13,11 @@ from swerex.deployment.config import (
 )
 from typing_extensions import Self
 
-from sweagent.agent.problem_statement import ProblemStatementConfig, TextProblemStatement
-from sweagent.environment.repo import GithubRepoConfig, LocalRepoConfig, PreExistingRepoConfig
-from sweagent.environment.swe_env import EnvironmentConfig
-from sweagent.utils.files import load_file
-from sweagent.utils.log import get_logger
+from livebench.agentic_code_runner.sweagent.agent.agent.problem_statement import ProblemStatementConfig, TextProblemStatement
+from livebench.agentic_code_runner.sweagent.agent.environment.repo import LocalRepoConfig
+from livebench.agentic_code_runner.sweagent.agent.environment.swe_env import EnvironmentConfig
+from livebench.agentic_code_runner.sweagent.agent.utils.files import load_file
+from livebench.agentic_code_runner.sweagent.agent.utils.log import get_logger
 
 logger = get_logger("swea-config", emoji="🔧")
 
@@ -113,10 +113,6 @@ class SimpleBatchInstance(BaseModel):
         )
         if not self.repo_name:
             repo = None
-        elif "github" in self.repo_name:
-            repo = GithubRepoConfig(github_url=self.repo_name, base_commit=self.base_commit)
-        elif "/" not in self.repo_name:
-            repo = PreExistingRepoConfig(repo_name=self.repo_name, base_commit=self.base_commit)
         else:
             repo = LocalRepoConfig(path=Path(self.repo_name), base_commit=self.base_commit)
         if isinstance(deployment, LocalDeploymentConfig):
@@ -205,117 +201,6 @@ class InstancesFromFile(BaseModel, AbstractInstanceSource):
     def id(self) -> str:
         return self.path.stem
 
-
-class InstancesFromHuggingFace(BaseModel, AbstractInstanceSource):
-    """Load instances from HuggingFace."""
-
-    dataset_name: str
-    """Name of the HuggingFace dataset. Same as when using `datasets.load_dataset`."""
-    split: str = "dev"
-    filter: str = ".*"
-    """Regular expression to filter the instances by instance id."""
-    slice: str = ""
-    """Select only a slice of the instances (after filtering by `filter`).
-    Possible values are stop or start:stop or start:stop:step.
-    (i.e., it behaves exactly like python's list slicing `list[slice]`).
-    """
-    shuffle: bool = False
-    """Shuffle the instances (before filtering and slicing)."""
-
-    deployment: DeploymentConfig = Field(
-        default_factory=lambda: DockerDeploymentConfig(image="python:3.11"),
-    )
-    """Deployment configuration. Note that the `image_name` option is overwritten by the images specified in the task instances.
-    """
-    type: Literal["huggingface"] = "huggingface"
-    """Discriminator for (de)serialization/CLI. Do not change."""
-
-    def get_instance_configs(self) -> list[BatchInstance]:
-        from datasets import load_dataset
-
-        ds: list[dict[str, Any]] = load_dataset(self.dataset_name, split=self.split)  # type: ignore
-        simple_instances: list[SimpleBatchInstance] = [SimpleBatchInstance.model_validate(instance) for instance in ds]
-        instances = [instance.to_full_batch_instance(self.deployment) for instance in simple_instances]
-        return _filter_batch_items(instances, filter_=self.filter, slice_=self.slice, shuffle=self.shuffle)
-
-    @property
-    def id(self) -> str:
-        ds_name = "".join(l for l in self.dataset_name if l.isalnum() or l in ["-", "_"])
-        return f"{ds_name}_{self.split}"
-
-
-class SWEBenchInstances(BaseModel, AbstractInstanceSource):
-    """Load instances from SWE-bench."""
-
-    subset: Literal["lite", "verified", "full", "multimodal", "multilingual"] = "lite"
-    """Subset of swe-bench to use"""
-
-    # IMPORTANT: Do not call this `path`, because then if people do not specify instance.type,
-    # it might be resolved to ExpertInstancesFromFile or something like that.
-    path_override: str | Path | None = None
-    """Allow to specify a different huggingface dataset name or path to a huggingface
-    dataset. This will override the automatic path set by `subset`.
-    """
-
-    split: Literal["dev", "test"] = "dev"
-
-    deployment: DeploymentConfig = Field(
-        default_factory=lambda: DockerDeploymentConfig(image="python:3.11"),
-    )
-    """Deployment configuration. Note that the image_name option is overwritten by the images specified in the task instances.
-    """
-
-    type: Literal["swe_bench"] = "swe_bench"
-    """Discriminator for (de)serialization/CLI. Do not change."""
-
-    filter: str = ".*"
-    """Regular expression to filter the instances by instance id."""
-    slice: str = ""
-    """Select only a slice of the instances (after filtering by `filter`).
-    Possible values are stop or start:stop or start:stop:step.
-    (i.e., it behaves exactly like python's list slicing `list[slice]`).
-    """
-    shuffle: bool = False
-    """Shuffle the instances (before filtering and slicing)."""
-
-    evaluate: bool = False
-    """Run sb-cli to evaluate"""
-
-    def _get_dataset_path(self) -> str:
-        if self.path_override is not None:
-            return str(self.path_override)
-        dataset_mapping = {
-            "full": "princeton-nlp/SWE-Bench",
-            "verified": "princeton-nlp/SWE-Bench_Verified",
-            "lite": "princeton-nlp/SWE-Bench_Lite",
-            "multimodal": "princeton-nlp/SWE-Bench_Multimodal",
-            "multilingual": "swe-bench/SWE-Bench_Multilingual",
-        }
-
-        if self.subset not in dataset_mapping:
-            msg = f"Unsupported subset: {self.subset}"
-            raise ValueError(msg)
-
-        return dataset_mapping[self.subset]
-
-    def get_instance_configs(self) -> list[BatchInstance]:
-        from datasets import load_dataset
-
-        ds: list[dict[str, Any]] = load_dataset(self._get_dataset_path(), split=self.split)  # type: ignore
-
-        if isinstance(self.deployment, DockerDeploymentConfig):
-            self.deployment.platform = "linux/amd64"
-
-        instances = [
-            SimpleBatchInstance.from_swe_bench(instance).to_full_batch_instance(self.deployment) for instance in ds
-        ]
-        return _filter_batch_items(instances, filter_=self.filter, slice_=self.slice, shuffle=self.shuffle)
-
-    @property
-    def id(self) -> str:
-        return f"swe_bench_{self.subset}_{self.split}"
-
-
 class ExpertInstancesFromFile(BaseModel, AbstractInstanceSource):
     """Load instances from a file. The difference to `InstancesFromFile` is that the instances are configured as full
     `EnvironmentInstanceConfig` objects, i.e., we could specify separate deployment configurations etc.
@@ -345,54 +230,6 @@ class ExpertInstancesFromFile(BaseModel, AbstractInstanceSource):
         return self.path.stem
 
 
-class SWESmithInstances(BaseModel, AbstractInstanceSource):
-    """Load instances from SWE-smith."""
-
-    path: Path
-
-    deployment: DeploymentConfig = Field(
-        default_factory=lambda: DockerDeploymentConfig(image="python:3.11"),
-    )
-    """Deployment configuration. Note that the image_name option is overwritten by the images specified in the task instances.
-    """
-
-    filter: str = ".*"
-    """Regular expression to filter the instances by instance id."""
-    slice: str = ""
-    """Select only a slice of the instances (after filtering by `filter`).
-    Possible values are stop or start:stop or start:stop:step.
-    (i.e., it behaves exactly like python's list slicing `list[slice]`).
-    """
-    shuffle: bool = False
-    """Shuffle the instances (before filtering and slicing)."""
-
-    type: Literal["swesmith"] = "swesmith"
-    """Discriminator for (de)serialization/CLI. Do not change."""
-
-    def get_instance_configs(self) -> list[BatchInstance]:
-        def convert_instance_dict(instance_dict: dict[str, Any]) -> dict[str, Any]:
-            instance_dict["id"] = instance_dict["instance_id"]
-            # todo: The base_commit is currently incorrect
-            instance_dict["base_commit"] = instance_dict["id"]
-            instance_dict["problem_statement"] = instance_dict.get("problem_statement", "")
-            instance_dict["repo_name"] = "testbed"
-            instance_dict["extra_fields"] = {"fail_to_pass": instance_dict["FAIL_TO_PASS"]}
-            return instance_dict
-
-        instance_dicts = load_file(self.path)
-        instances = [
-            SimpleBatchInstance.model_validate(convert_instance_dict(instance_dict)).to_full_batch_instance(
-                self.deployment
-            )
-            for instance_dict in instance_dicts
-        ]
-        return _filter_batch_items(instances, filter_=self.filter, slice_=self.slice, shuffle=self.shuffle)
-
-    @property
-    def id(self) -> str:
-        return f"swesmith_{self.path.stem}"
-
-
 BatchInstanceSourceConfig = (
-    InstancesFromHuggingFace | InstancesFromFile | SWEBenchInstances | ExpertInstancesFromFile | SWESmithInstances
+    InstancesFromFile | ExpertInstancesFromFile
 )

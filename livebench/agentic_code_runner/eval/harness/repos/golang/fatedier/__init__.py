@@ -1,1 +1,1 @@
-from multi_swe_bench.harness.repos.golang.fatedier.frp import *
+from livebench.agentic_code_runner.eval.harness.repos.golang.fatedier.frp import *

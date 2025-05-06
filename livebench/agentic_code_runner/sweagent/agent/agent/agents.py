@@ -17,11 +17,11 @@ from tenacity import RetryError
 from typing_extensions import Self
 from unidiff import UnidiffParseError
 
-from sweagent import __version__, get_agent_commit_hash, get_rex_commit_hash, get_rex_version
-from sweagent.agent.action_sampler import AbstractActionSampler, ActionSamplerConfig
-from sweagent.agent.history_processors import DefaultHistoryProcessor, HistoryProcessor
-from sweagent.agent.hooks.abstract import AbstractAgentHook, CombinedAgentHook
-from sweagent.agent.models import (
+from livebench.agentic_code_runner.sweagent.agent import __version__, get_agent_commit_hash, get_rex_commit_hash, get_rex_version
+from livebench.agentic_code_runner.sweagent.agent.agent.action_sampler import AbstractActionSampler, ActionSamplerConfig
+from livebench.agentic_code_runner.sweagent.agent.agent.history_processors import DefaultHistoryProcessor, HistoryProcessor
+from livebench.agentic_code_runner.sweagent.agent.agent.hooks.abstract import AbstractAgentHook, CombinedAgentHook
+from livebench.agentic_code_runner.sweagent.agent.agent.models import (
     AbstractModel,
     HumanModel,
     HumanThoughtModel,
@@ -29,32 +29,32 @@ from sweagent.agent.models import (
     ModelConfig,
     get_model,
 )
-from sweagent.agent.problem_statement import ProblemStatement, ProblemStatementConfig
-from sweagent.agent.reviewer import (
+from livebench.agentic_code_runner.sweagent.agent.agent.problem_statement import ProblemStatement, ProblemStatementConfig
+from livebench.agentic_code_runner.sweagent.agent.agent.reviewer import (
     ChooserRetryLoop,
     RetryLoopConfig,
     ReviewSubmission,
     ScoreRetryLoop,
     get_retry_loop_from_config,
 )
-from sweagent.environment.swe_env import SWEEnv
-from sweagent.exceptions import (
+from livebench.agentic_code_runner.sweagent.agent.environment.swe_env import SWEEnv
+from livebench.agentic_code_runner.sweagent.agent.exceptions import (
     ContentPolicyViolationError,
     ContextWindowExceededError,
     CostLimitExceededError,
     FormatError,
     TotalCostLimitExceededError,
 )
-from sweagent.tools.parsing import (
+from livebench.agentic_code_runner.sweagent.agent.tools.parsing import (
     ActionOnlyParser,
     ThoughtActionParser,
 )
-from sweagent.tools.tools import ToolConfig, ToolHandler
-from sweagent.types import AgentInfo, AgentRunResult, StepOutput, Trajectory, TrajectoryStep
-from sweagent.utils.config import _convert_paths_to_abspath, _strip_abspath_from_dict
-from sweagent.utils.jinja_warnings import _warn_probably_wrong_jinja_syntax
-from sweagent.utils.log import get_logger
-from sweagent.utils.patch_formatter import PatchFormatter
+from livebench.agentic_code_runner.sweagent.agent.tools.tools import ToolConfig, ToolHandler
+from livebench.agentic_code_runner.sweagent.agent.types import AgentInfo, AgentRunResult, StepOutput, Trajectory, TrajectoryStep
+from livebench.agentic_code_runner.sweagent.agent.utils.config import _convert_paths_to_abspath, _strip_abspath_from_dict
+from livebench.agentic_code_runner.sweagent.agent.utils.jinja_warnings import _warn_probably_wrong_jinja_syntax
+from livebench.agentic_code_runner.sweagent.agent.utils.log import get_logger
+from livebench.agentic_code_runner.sweagent.agent.utils.patch_formatter import PatchFormatter
 
 
 class TemplateConfig(BaseModel):
@@ -495,7 +495,7 @@ class DefaultAgent(AbstractAgent):
     @replay_config.setter
     def replay_config(self, value: BaseModel):
         # Do import here to avoid circular dependency
-        from sweagent.run.run_single import RunSingleConfig
+        from livebench.agentic_code_runner.sweagent.agent.run.run_single import RunSingleConfig
 
         self._replay_config = RunSingleConfig.model_validate(_strip_abspath_from_dict(value.model_dump()))
 

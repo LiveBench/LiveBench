@@ -1,1 +1,1 @@
-from multi_swe_bench.harness.repos.javascript.sveltejs.svelte import *
+from livebench.agentic_code_runner.eval.harness.repos.javascript.sveltejs.svelte import *

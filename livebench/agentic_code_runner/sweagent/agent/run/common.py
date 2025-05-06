@@ -15,10 +15,10 @@ from pydantic_settings import BaseSettings, CliApp, SettingsError
 from rich import print as rich_print
 from rich.panel import Panel
 
-from sweagent import CONFIG_DIR
-from sweagent.types import AgentInfo, AgentRunResult
-from sweagent.utils.log import get_logger
-from sweagent.utils.serialization import merge_nested_dicts
+from livebench.agentic_code_runner.sweagent.agent import CONFIG_DIR
+from livebench.agentic_code_runner.sweagent.agent.types import AgentInfo, AgentRunResult
+from livebench.agentic_code_runner.sweagent.agent.utils.log import get_logger
+from livebench.agentic_code_runner.sweagent.agent.utils.serialization import merge_nested_dicts
 
 
 def _shorten_strings(data, *, max_length=30):
@@ -369,11 +369,3 @@ def save_predictions(traj_dir: Path, instance_id: str, result: AgentRunResult):
         "model_patch": result.info.get("submission"),
     }
     output_file.write_text(json.dumps(datum))
-
-
-def _is_promising_patch(info: AgentInfo) -> bool:
-    """Do we actually believe that the patch will solve the issue?
-    Or are we just submitting the last patch we generated before hitting an error?
-    """
-    # The exit status can also be `submitted (exit_cost)` etc.
-    return info.get("exit_status") == "submitted" and info.get("submission") is not None

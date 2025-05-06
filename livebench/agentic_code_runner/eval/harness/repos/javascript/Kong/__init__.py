@@ -1,1 +1,1 @@
-from multi_swe_bench.harness.repos.javascript.Kong.insomnia import *
+from livebench.agentic_code_runner.eval.harness.repos.javascript.Kong.insomnia import *

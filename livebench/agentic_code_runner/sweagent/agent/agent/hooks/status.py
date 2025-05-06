@@ -1,7 +1,7 @@
 from collections.abc import Callable
 
-from sweagent.agent.hooks.abstract import AbstractAgentHook
-from sweagent.types import AgentInfo, StepOutput
+from livebench.agentic_code_runner.sweagent.agent.agent.hooks.abstract import AbstractAgentHook
+from livebench.agentic_code_runner.sweagent.agent.types import AgentInfo, StepOutput
 
 
 class SetStatusAgentHook(AbstractAgentHook):

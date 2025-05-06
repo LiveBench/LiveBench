@@ -5,8 +5,8 @@ from pathlib import Path
 import yaml
 from pydantic import BaseModel, Field, PrivateAttr, model_validator
 
-from sweagent.tools.commands import Command
-from sweagent.utils.config import _convert_path_to_abspath
+from livebench.agentic_code_runner.sweagent.agent.tools.commands import Command
+from livebench.agentic_code_runner.sweagent.agent.utils.config import _convert_path_to_abspath
 
 
 class BundleConfig(BaseModel):

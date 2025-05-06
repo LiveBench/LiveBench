@@ -1,9 +1,9 @@
 from typing import Optional
 
-from multi_swe_bench.harness.image import Config, Image, SWEImageDefault
-from multi_swe_bench.harness.instance import Instance, TestResult
-from multi_swe_bench.harness.pull_request import PullRequest
-from multi_swe_bench.harness.test_result import TestStatus, mapping_to_testresult
+from livebench.agentic_code_runner.eval.harness.image import Config, Image, SWEImageDefault
+from livebench.agentic_code_runner.eval.harness.instance import Instance, TestResult
+from livebench.agentic_code_runner.eval.harness.pull_request import PullRequest
+from livebench.agentic_code_runner.eval.harness.test_result import TestStatus, mapping_to_testresult
 
 
 @Instance.register("matplotlib", "matplotlib")
