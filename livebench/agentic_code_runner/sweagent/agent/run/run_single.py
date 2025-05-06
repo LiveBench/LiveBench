@@ -36,6 +36,7 @@ import yaml
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from livebench.agentic_code_runner.sweagent.agent import TRAJECTORY_DIR
 from livebench.agentic_code_runner.sweagent.agent.agent.agents import AbstractAgent, AgentConfig, get_agent_from_config
 from livebench.agentic_code_runner.sweagent.agent.agent.problem_statement import (
     EmptyProblemStatement,
@@ -71,13 +72,13 @@ class RunSingleConfig(BaseSettings, cli_implicit_flags=False):
             user_id = getpass.getuser()
             problem_id = self.problem_statement.id
             try:
-                model_id = self.agent.model.id  # type: ignore[attr-defined]
+                model_id = self.agent.model.id.replace("/", "_")  # type: ignore[attr-defined]
             except AttributeError:
                 model_id = "unknown_model"
             config_file = getattr(self, "_config_files", ["no_config"])[0]
             if isinstance(config_file, Path):
                 config_file = config_file.stem
-            self.output_dir = Path.cwd() / "trajectories" / user_id / f"{config_file}__{model_id}___{problem_id}"
+            self.output_dir = TRAJECTORY_DIR / user_id / f"{config_file}__{model_id}___{problem_id}"
 
     @classmethod
     def _get_auto_correct(cls) -> list[ACS]:

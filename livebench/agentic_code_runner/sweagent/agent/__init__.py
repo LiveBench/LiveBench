@@ -43,7 +43,7 @@ assert CONFIG_DIR.is_dir(), CONFIG_DIR
 TOOLS_DIR = Path(os.getenv("SWE_AGENT_TOOLS_DIR", PACKAGE_DIR.parent / "tools"))
 assert TOOLS_DIR.is_dir(), TOOLS_DIR
 
-TRAJECTORY_DIR = Path(os.getenv("SWE_AGENT_TRAJECTORY_DIR", PACKAGE_DIR.parent / "trajectories"))
+TRAJECTORY_DIR = Path(os.getenv("SWE_AGENT_TRAJECTORY_DIR", PACKAGE_DIR.parent.parent / "data/trajectories"))
 assert TRAJECTORY_DIR.is_dir(), TRAJECTORY_DIR
 
 

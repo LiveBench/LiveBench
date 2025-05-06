@@ -106,7 +106,7 @@ class RunBatchConfig(BaseSettings, cli_implicit_flags=False):
             user_id = getpass.getuser()
             source_id = self.instances.id
             try:
-                model_id = self.agent.model.id  # type: ignore[attr-defined]
+                model_id = self.agent.model.id.replace("/", "_")  # type: ignore[attr-defined]
             except AttributeError:
                 model_id = "unknown"
             config_file = getattr(self, "_config_files", ["no_config"])[0]

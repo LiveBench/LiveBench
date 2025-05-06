@@ -180,7 +180,7 @@ class GenericAPIModelConfig(PydanticBaseModel):
 
     @property
     def id(self) -> str:
-        return f"{self.name}__t-{self.temperature:.2f}__p-{self.top_p:.2f}__c-{self.per_instance_cost_limit:.2f}"
+        return f"{self.name}"
 
 
 class ReplayModelConfig(GenericAPIModelConfig):
