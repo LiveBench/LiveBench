@@ -1,6 +1,6 @@
-from sweagent.agent.problem_statement import ProblemStatement, ProblemStatementConfig
-from sweagent.environment.swe_env import SWEEnv
-from sweagent.types import AgentRunResult
+from livebench.agentic_code_runner.sweagent.agent.agent.problem_statement import ProblemStatement, ProblemStatementConfig
+from livebench.agentic_code_runner.sweagent.agent.environment.swe_env import SWEEnv
+from livebench.agentic_code_runner.sweagent.agent.types import AgentRunResult
 
 
 class RunHook:
