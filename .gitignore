@@ -42,4 +42,4 @@ core
 livebench/answer_inspections
 livebench/question_edit
 
-livebench/agentic_code_runner/sweagent/trajectories
+trajectories
