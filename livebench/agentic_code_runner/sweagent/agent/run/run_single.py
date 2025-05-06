@@ -148,7 +148,6 @@ class RunSingle:
             problem_statement=config.problem_statement,
             output_dir=config.output_dir,
         )
-        self.add_hook(SaveApplyPatchHook(apply_patch_locally=config.actions.apply_patch_locally))
         return self
 
     def add_hook(self, hook: RunHook) -> None:
