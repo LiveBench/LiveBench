@@ -24,7 +24,7 @@ from functools import cached_property
 
 from pydantic import BaseModel, field_validator, model_validator
 
-from sweagent.utils.jinja_warnings import _warn_probably_wrong_jinja_syntax
+from livebench.agentic_code_runner.sweagent.agent.utils.jinja_warnings import _warn_probably_wrong_jinja_syntax
 
 ARGUMENT_NAME_PATTERN = r"[a-zA-Z_][a-zA-Z0-9_-]+"
 

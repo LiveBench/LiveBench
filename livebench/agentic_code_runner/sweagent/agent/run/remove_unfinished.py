@@ -4,8 +4,8 @@ import argparse
 import shutil
 from pathlib import Path
 
-from sweagent.utils.files import load_file
-from sweagent.utils.log import get_logger
+from livebench.agentic_code_runner.sweagent.agent.utils.files import load_file
+from livebench.agentic_code_runner.sweagent.agent.utils.log import get_logger
 
 logger = get_logger("remove_unfinished")
 

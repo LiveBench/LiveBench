@@ -17,7 +17,7 @@ import shutil
 import stat
 from pathlib import Path
 
-from multi_swe_bench.harness.image import Image
+from livebench.agentic_code_runner.eval.harness.image import Image
 
 
 def copy_source_code(source_code_dir: Path, image: Image, dst_dir: Path):

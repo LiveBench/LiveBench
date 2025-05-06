@@ -7,7 +7,7 @@ from typing import Annotated, Literal, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from sweagent.types import History, HistoryItem
+from livebench.agentic_code_runner.sweagent.agent.types import History, HistoryItem
 
 
 class AbstractHistoryProcessor(Protocol):

@@ -10,7 +10,7 @@ import swerex.utils.log as log_swerex
 from git import Repo
 from packaging import version
 
-from sweagent.utils.log import get_logger
+from livebench.agentic_code_runner.sweagent.agent.utils.log import get_logger
 
 __version__ = "1.0.1"
 PYTHON_MINIMUM_VERSION = (3, 11)

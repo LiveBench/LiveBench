@@ -16,9 +16,9 @@ from swerex.runtime.abstract import (
 )
 from swerex.runtime.abstract import Command as RexCommand
 
-from sweagent.environment.hooks.abstract import CombinedEnvHooks, EnvHook
-from sweagent.environment.repo import Repo, RepoConfig
-from sweagent.utils.log import get_logger
+from livebench.agentic_code_runner.sweagent.agent.environment.hooks.abstract import CombinedEnvHooks, EnvHook
+from livebench.agentic_code_runner.sweagent.agent.environment.repo import Repo, RepoConfig
+from livebench.agentic_code_runner.sweagent.agent.utils.log import get_logger
 
 
 class EnvironmentConfig(BaseModel):
@@ -124,9 +124,6 @@ class SWEEnv:
             return
 
         raise Exception(f"Repo not present: found {folders} but expected {self.repo.repo_name}")
-
-        # self._chook.on_copy_repo_started(repo=self.repo)
-        # self.repo.copy(self.deployment)
 
     def hard_reset(self):
         """Resets the environment and deployment, i.e., completely restarts the

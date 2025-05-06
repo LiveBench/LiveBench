@@ -1,4 +1,4 @@
-from sweagent.utils.log import get_logger
+from livebench.agentic_code_runner.sweagent.agent.utils.log import get_logger
 
 
 def _warn_probably_wrong_jinja_syntax(template: str | None) -> None:

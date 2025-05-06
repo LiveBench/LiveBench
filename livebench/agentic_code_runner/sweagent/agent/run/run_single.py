@@ -36,33 +36,18 @@ import yaml
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from sweagent.agent.agents import AbstractAgent, AgentConfig, get_agent_from_config
-from sweagent.agent.problem_statement import (
+from livebench.agentic_code_runner.sweagent.agent.agent.agents import AbstractAgent, AgentConfig, get_agent_from_config
+from livebench.agentic_code_runner.sweagent.agent.agent.problem_statement import (
     EmptyProblemStatement,
     ProblemStatement,
     ProblemStatementConfig,
 )
-from sweagent.environment.swe_env import EnvironmentConfig, SWEEnv
-from sweagent.run.common import AutoCorrectSuggestion as ACS
-from sweagent.run.common import BasicCLI, ConfigHelper, save_predictions
-from sweagent.run.hooks.abstract import CombinedRunHooks, RunHook
-from sweagent.run.hooks.apply_patch import SaveApplyPatchHook
-from sweagent.run.hooks.open_pr import OpenPRConfig, OpenPRHook
-from sweagent.utils.config import load_environment_variables
-from sweagent.utils.log import add_file_handler, get_logger
-
-
-class RunSingleActionConfig(BaseModel):
-    """Run real-life actions (opening PRs, etc.) if we can solve the issue."""
-
-    # Open a PR with the patch if we can solve the issue
-    open_pr: bool = False
-    pr_config: OpenPRConfig = Field(default_factory=OpenPRConfig)
-    # When working with local repository: Apply patch
-    apply_patch_locally: bool = False
-
-    # pydantic config
-    model_config = ConfigDict(extra="forbid")
+from livebench.agentic_code_runner.sweagent.agent.environment.swe_env import EnvironmentConfig, SWEEnv
+from livebench.agentic_code_runner.sweagent.agent.run.common import AutoCorrectSuggestion as ACS
+from livebench.agentic_code_runner.sweagent.agent.run.common import BasicCLI, ConfigHelper, save_predictions
+from livebench.agentic_code_runner.sweagent.agent.run.hooks.abstract import CombinedRunHooks, RunHook
+from livebench.agentic_code_runner.sweagent.agent.utils.config import load_environment_variables
+from livebench.agentic_code_runner.sweagent.agent.utils.log import add_file_handler, get_logger
 
 
 class RunSingleConfig(BaseSettings, cli_implicit_flags=False):
@@ -72,8 +57,6 @@ class RunSingleConfig(BaseSettings, cli_implicit_flags=False):
         default_factory=EmptyProblemStatement, description="Problem statement options."
     )
     output_dir: Path = Field(default=Path("DEFAULT"), description="Output directory.")
-
-    actions: RunSingleActionConfig = Field(default_factory=RunSingleActionConfig)
 
     env_var_path: Path | None = None
     """Path to a .env file to load environment variables from."""
@@ -126,7 +109,6 @@ class RunSingle:
         *,
         output_dir: Path = Path("."),
         hooks: list[RunHook] | None = None,
-        actions: RunSingleActionConfig | None = None,
     ):
         """Note: When initializing this class, make sure to add the hooks that are required by your actions.
         See `from_config` for an example.
@@ -144,9 +126,6 @@ class RunSingle:
         self.agent = agent
         self.output_dir = output_dir
         self._hooks = []
-        if actions is not None:
-            actions = RunSingleActionConfig()
-        self.actions = actions
         self._chooks = CombinedRunHooks()
         self.problem_statement = problem_statement
         for hook in hooks or []:
@@ -168,12 +147,8 @@ class RunSingle:
             agent=agent,
             problem_statement=config.problem_statement,
             output_dir=config.output_dir,
-            actions=config.actions,
         )
         self.add_hook(SaveApplyPatchHook(apply_patch_locally=config.actions.apply_patch_locally))
-        if config.actions.open_pr:
-            self.logger.debug("Adding OpenPRHook")
-            self.add_hook(OpenPRHook(config.actions.pr_config))
         return self
 
     def add_hook(self, hook: RunHook) -> None:
