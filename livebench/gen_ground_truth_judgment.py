@@ -164,13 +164,11 @@ def play_a_match_gt(match: MatchSingle, output_file: str | None = None, debug=Fa
     if not category:
         raise NotImplementedError(f"A category must be assigned to each task")
     question_id = question["question_id"]
-    turn = 1
     result = {
         "question_id": question_id,
         "task": task,
         "model": model,
         "score": score,
-        "turn": turn,
         "tstamp": time.time(),
         "category": category,
     }
@@ -352,9 +350,30 @@ def gen_judgments(
                     os.makedirs(os.path.dirname(output_file), exist_ok=True)
                     with open(output_file, "a") as fout:
                         fout.write(json.dumps(result) + "\n")
+    elif "agentic_coding" in bench_name:
+        for model_id in models: # TODO: parallelize at the model level too
+            eval_result = agentic_coding_process_results(questions, model_answers[model_id], debug=debug, max_workers=parallel)
+            for question_id in eval_result:
+                model_answer = model_answers[model_id][question_id]
+                result = {
+                    "question_id": question_id,
+                    "task": "agentic_coding",
+                    "model": model_id,
+                    "score": eval_result['question_id'],
+                    "tstamp": time.time(),
+                    "category": "coding",
+                }
+                if "answer_id" in model_answer:
+                    result["answer_id"] = model_answer["answer_id"]
+                
+                if output_file:
+                    os.makedirs(os.path.dirname(output_file), exist_ok=True)
+                    with open(output_file, "a") as fout:
+                        fout.write(json.dumps(result) + "\n")
     else:
         # Play matches
-        if parallel == 1:
+        # parallel doesn't work well with the livecodebench eval
+        if parallel == 1 or bench_name == "live_bench/coding/coding_completion" or bench_name == "live_bench/coding/LCB_generation":
             for match in tqdm(matches):
                 results = play_a_match_func(match, output_file=output_file, debug=debug)
         else:

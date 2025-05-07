@@ -14,6 +14,8 @@ from livebench.lcb_runner.evaluation.compute_code_generation_metrics import code
 
 import shutil
 
+import shortuuid
+
 # from LiveCodebench, modified
 
 class TestType(Enum):
@@ -147,27 +149,28 @@ def code_generation_process_results(question: dict, llm_answer: str, debug=False
         return 0
     
 # python agentic_code_runner/eval/harness/run_evaluation.py --config agentic_code_runner/eval/config.json
-def agentic_coding_process_results(question: dict, answer: dict, debug=False) -> int:
+def agentic_coding_process_results(questions: list[dict], answers: list[dict], debug=False, max_workers=1) -> dict[str, int]:
+
+    eval_id = shortuuid.uuid()
 
     config_path = Path(LIVE_BENCH_ROOT_PATH / 'agentic_code_runner/eval/config.json')
     config_path.parent.mkdir(parents=True, exist_ok=True)
-    model_name = answer['model_id']
-    instance_id = question['instance_id']
-    patch_path = Path(LIVE_BENCH_ROOT_PATH / f'agentic_code_runner/data/patches/{model_name}_{instance_id}_patch.jsonl')
+    model_name = answers[0]['model_id']
+    patch_path = Path(LIVE_BENCH_ROOT_PATH / f'agentic_code_runner/data/patches/{model_name}_{eval_id}_patch.jsonl')
     patch_path.parent.mkdir(parents=True, exist_ok=True)
 
-    dataset_path = Path(LIVE_BENCH_ROOT_PATH / f'agentic_code_runner/data/dataset/{instance_id}.jsonl')
+    dataset_path = Path(LIVE_BENCH_ROOT_PATH / f'agentic_code_runner/data/dataset/{eval_id}.jsonl')
     dataset_path.parent.mkdir(parents=True, exist_ok=True)
 
-    workdir_path = Path(LIVE_BENCH_ROOT_PATH / f'agentic_code_runner/data/workdir/{model_name}_{instance_id}')
+    workdir_path = Path(LIVE_BENCH_ROOT_PATH / f'agentic_code_runner/data/workdir/{model_name}_{eval_id}')
     shutil.rmtree(workdir_path, ignore_errors=True)
     workdir_path.mkdir(parents=True, exist_ok=True)
 
-    report_path = Path(LIVE_BENCH_ROOT_PATH / f'agentic_code_runner/data/report/final_report.json')
+    report_path = Path(LIVE_BENCH_ROOT_PATH / f'agentic_code_runner/data/report/{model_name}_{eval_id}_report.json')
     shutil.rmtree(report_path.parent, ignore_errors=True)
     report_path.parent.mkdir(parents=True, exist_ok=True)
 
-    log_path = Path(LIVE_BENCH_ROOT_PATH / f'agentic_code_runner/data/logs/{model_name}_{instance_id}/')
+    log_path = Path(LIVE_BENCH_ROOT_PATH / f'agentic_code_runner/data/logs/{model_name}_{eval_id}/')
     shutil.rmtree(log_path, ignore_errors=True)
     log_path.mkdir(parents=True, exist_ok=True)
 
@@ -175,15 +178,19 @@ def agentic_coding_process_results(question: dict, answer: dict, debug=False) ->
     repo_path.mkdir(parents=True, exist_ok=True)
 
     with open(patch_path, 'w') as f:
-        answer_obj = {
-            "org": question['org'],
-            "repo": question['repo'],
-            "number": question['number'],
-            "fix_patch": answer['turns'][0]
-        }
-        json.dump(answer_obj, f)
+        for question, answer in zip(questions, answers):
+            answer_obj = {
+                "org": question['org'],
+                "repo": question['repo'],
+                "number": question['number'],
+                "fix_patch": answer['turns'][0]
+            }
+            json.dump(answer_obj, f)
+            f.write('\n')
     with open(dataset_path, 'w') as f:
-        json.dump(question, f)
+        for question in questions:
+            json.dump(question, f)
+            f.write('\n')
 
     config = {
         "mode": "evaluation",
@@ -199,9 +206,9 @@ def agentic_coding_process_results(question: dict, answer: dict, debug=False) ->
         "global_env": [],
         "clear_env": True,
         "stop_on_error": True,
-        "max_workers": 1,
-        "max_workers_build_image": 1,
-        "max_workers_run_instance": 1,
+        "max_workers": max_workers,
+        "max_workers_build_image": max_workers,
+        "max_workers_run_instance": max_workers,
         "log_dir": f"{log_path.as_posix()}",
         "log_level": "DEBUG" if debug else "INFO"
     }
@@ -223,18 +230,29 @@ def agentic_coding_process_results(question: dict, answer: dict, debug=False) ->
 
     report_path = Path(LIVE_BENCH_ROOT_PATH / f'agentic_code_runner/data/report/final_report.json')
     if not report_path.exists():
-        print(f"Report not found for instance {instance_id} for model {model_name}")
+        print(f"Report not found for eval {eval_id} for model {model_name}")
         return 0
     report = json.load(open(report_path))
     
     total_instances = report['total_instances']
     resolved_instances = report['resolved_instances']
+
+    result = {}
+    for instance_id in report['submitted_ids']:
+        question = [q for q in questions if q['instance_id'].replace('__', '/').replace('-', ':pr-') == instance_id][0]
+        question_id = question['question_id']
+        result[question_id] = 1 if instance_id in report['resolved_ids'] else 0
+        if debug and result[question_id] == 0:
+            if instance_id in report['unresolved_ids']:
+                print(f"INCORRECT, {model_name} {question_id} ({instance_id})")
+            elif instance_id in report['incomplete_ids']:
+                print(f"INCOMPLETE, {model_name} {question_id} ({instance_id})")
+            elif instance_id in report['empty_patch_ids']:
+                print(f"EMPTY PATCH, {model_name} {question_id} ({instance_id})")
+            elif instance_id in report['error_ids']:
+                print(f"ERROR, {model_name} {question_id} ({instance_id})")
     
-    if resolved_instances == total_instances:
-        return 1
-    else:
-        if debug:
-            print(f"INCORRECT, {model_name} {instance_id}")
-            for k in report:
-                print(f"{k}: {report[k]}")
-        return 0
+    assert len(result) == total_instances
+    assert resolved_instances == sum(result.values())
+
+    return result
