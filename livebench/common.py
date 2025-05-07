@@ -9,6 +9,7 @@ import glob
 import json
 import os
 
+from pathlib import Path
 import re
 from typing import Optional, TYPE_CHECKING
 
@@ -43,6 +44,8 @@ LIVE_BENCH_CATEGORIES = [
     "language",
 ]
 LIVE_BENCH_RELEASES = {"2024-07-26", "2024-06-24", "2024-08-31", "2024-11-25", "2025-04-02", "2025-04-25"}
+
+LIVE_BENCH_ROOT_PATH = Path(__file__).parent
 
 
 @dataclasses.dataclass

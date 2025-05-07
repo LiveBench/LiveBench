@@ -1,17 +1,18 @@
 import json
-import numpy as np
+from pathlib import Path
 from dataclasses import dataclass
-from datetime import datetime
 import pickle
-import copy
 import zlib
 import base64
-import re
 from enum import Enum
+import subprocess
 
-from livebench.code_runner.eval import untrusted_check, PASS, FAIL, TIMEOUT
+from livebench.common import LIVE_BENCH_ROOT_PATH
+from livebench.code_runner.eval import untrusted_check, PASS
 from livebench.lcb_runner.utils.extraction_utils import extract_code
 from livebench.lcb_runner.evaluation.compute_code_generation_metrics import codegen_metrics
+
+import shutil
 
 # from LiveCodebench, modified
 
@@ -27,9 +28,6 @@ class Test:
 
     def __post_init__(self):
         self.testtype = TestType(self.testtype)
-        # if self.testtype == TestType.FUNCTIONAL:
-        #     self.input = json.loads(self.input)
-        #     self.output = json.loads(self.output)
 
 def LCB_generation_process_results(question: dict, llm_answer: str, debug=False) -> int:
 
@@ -37,10 +35,6 @@ def LCB_generation_process_results(question: dict, llm_answer: str, debug=False)
 
     # if this is a completion question, check that the completion is present.
     if 'partial_solution' in question and (not question['partial_solution'] is None) and (len(question['partial_solution']) > 0) and not extracted_answer.startswith(question['partial_solution']):
-        # if len(llm_answer) < len(question['partial_solution']):
-        #     return 0
-        # if llm_answer[:len(question['partial_solution'])] != question['partial_solution']:
-        #     return 0
         full_solution = question['partial_solution'] + '\n' + extracted_answer
     else:
         full_solution = extracted_answer
@@ -152,4 +146,95 @@ def code_generation_process_results(question: dict, llm_answer: str, debug=False
                 
         return 0
     
+# python agentic_code_runner/eval/harness/run_evaluation.py --config agentic_code_runner/eval/config.json
+def agentic_coding_process_results(question: dict, answer: dict, debug=False) -> int:
+
+    config_path = Path(LIVE_BENCH_ROOT_PATH / 'agentic_code_runner/eval/config.json')
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    model_name = answer['model_id']
+    instance_id = question['instance_id']
+    patch_path = Path(LIVE_BENCH_ROOT_PATH / f'agentic_code_runner/data/patches/{model_name}_{instance_id}_patch.jsonl')
+    patch_path.parent.mkdir(parents=True, exist_ok=True)
+
+    dataset_path = Path(LIVE_BENCH_ROOT_PATH / f'agentic_code_runner/data/dataset/{instance_id}.jsonl')
+    dataset_path.parent.mkdir(parents=True, exist_ok=True)
+
+    workdir_path = Path(LIVE_BENCH_ROOT_PATH / f'agentic_code_runner/data/workdir/{model_name}_{instance_id}')
+    shutil.rmtree(workdir_path, ignore_errors=True)
+    workdir_path.mkdir(parents=True, exist_ok=True)
+
+    report_path = Path(LIVE_BENCH_ROOT_PATH / f'agentic_code_runner/data/report/final_report.json')
+    shutil.rmtree(report_path.parent, ignore_errors=True)
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+
+    log_path = Path(LIVE_BENCH_ROOT_PATH / f'agentic_code_runner/data/logs/{model_name}_{instance_id}/')
+    shutil.rmtree(log_path, ignore_errors=True)
+    log_path.mkdir(parents=True, exist_ok=True)
+
+    repo_path = Path(LIVE_BENCH_ROOT_PATH / f'agentic_code_runner/data/repos')
+    repo_path.mkdir(parents=True, exist_ok=True)
+
+    with open(patch_path, 'w') as f:
+        answer_obj = {
+            "org": question['org'],
+            "repo": question['repo'],
+            "number": question['number'],
+            "fix_patch": answer['turns'][0]
+        }
+        json.dump(answer_obj, f)
+    with open(dataset_path, 'w') as f:
+        json.dump(question, f)
+
+    config = {
+        "mode": "evaluation",
+        "workdir": f"{workdir_path.as_posix()}",
+        "patch_files": [patch_path.as_posix()],
+        "dataset_files": [dataset_path.as_posix()],
+        "force_build": False,
+        "output_dir": f"{report_path.parent.as_posix()}",
+        "specifics": [],
+        "skips": [],
+        "repo_dir": f"{repo_path.as_posix()}",
+        "need_clone": True,
+        "global_env": [],
+        "clear_env": True,
+        "stop_on_error": True,
+        "max_workers": 1,
+        "max_workers_build_image": 1,
+        "max_workers_run_instance": 1,
+        "log_dir": f"{log_path.as_posix()}",
+        "log_level": "DEBUG" if debug else "INFO"
+    }
+    with open(config_path, 'w') as f:
+        json.dump(config, f)
+
+    try:
+        res = subprocess.run(['python', LIVE_BENCH_ROOT_PATH / 'agentic_code_runner/eval/harness/run_evaluation.py', '--config', config_path.as_posix()])
+        if res.returncode != 0:
+            print(f"Error running MSWEB evaluation: {res.returncode}")
+            return 0
+    except Exception as e:
+        print(f"Error running MSWEB evaluation: {e}")
+        return 0
+    finally:
+        config_path.unlink(missing_ok=True)
+        patch_path.unlink(missing_ok=True)
+        dataset_path.unlink(missing_ok=True)
+
+    report_path = Path(LIVE_BENCH_ROOT_PATH / f'agentic_code_runner/data/report/final_report.json')
+    if not report_path.exists():
+        print(f"Report not found for instance {instance_id} for model {model_name}")
+        return 0
+    report = json.load(open(report_path))
     
+    total_instances = report['total_instances']
+    resolved_instances = report['resolved_instances']
+    
+    if resolved_instances == total_instances:
+        return 1
+    else:
+        if debug:
+            print(f"INCORRECT, {model_name} {instance_id}")
+            for k in report:
+                print(f"{k}: {report[k]}")
+        return 0
