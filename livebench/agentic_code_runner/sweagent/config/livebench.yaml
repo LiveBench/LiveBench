@@ -67,6 +67,8 @@ agent:
   history_processors:
     - type: last_n_observations
       n: 5
+  model:
+    per_instance_call_limit: 50
 env:
   deployment:
     type: docker
