@@ -6,7 +6,7 @@ import re
 import math
 from pandas.api.types import is_string_dtype
 from pandas.api.types import is_numeric_dtype
-
+from livebench.types import TableReformatQuestion
 
 def read_df_func(df_type, df_str):
     if df_type == "json":
@@ -140,20 +140,26 @@ def remove_initial_phrase(text):
     modified_text = re.sub(pattern, '', text, flags=re.IGNORECASE)
     return modified_text.strip()
 
-def table_process_results(input_command: str, ground_truth: str, llm_answer: str, version: str = "v1", debug=False) -> int:
-    if version == "v1":  
+def table_process_results(question: TableReformatQuestion, llm_answer: str, debug=False) -> int:
+    input_command = question.turns[0]
+    version = None
+    if 'Please convert the Input Table from ' in input_command:
         input_format = input_command.split("Please convert the Input Table from ")[1].split(" format")[0].lower()
         output_format = input_command.split("Please convert the Input Table from ")[1].split("format to ")[1].split(" format")[0].lower()
-    else:
+        version = "v1"
+    elif "Source Format" in input_command and "Target Format" in input_command:
         command_lines = input_command.split('\n')
         input_format_lines = [line for line in command_lines if "Source Format" in line]
         input_format = input_format_lines[-1].split("Source Format: ")[1].strip().lower()
         output_format_lines = [line for line in command_lines if "Target Format" in line]
         output_format = output_format_lines[-1].split("Target Format: ")[1].strip().lower()
+        version = "v2"
+    else:
+        raise ValueError(f"Unsupported input command: {input_command}")
 
     df_read_func = read_df_func if version == "v1" else read_df_func_v2
     
-    gt_df = df_read_func(output_format, ground_truth)
+    gt_df = df_read_func(output_format, question.ground_truth)
     
     llm_clean = clean_llm_output(llm_answer)
     # if there's an initial phrase before the table, remove it and try to score again
@@ -170,7 +176,7 @@ def table_process_results(input_command: str, ground_truth: str, llm_answer: str
             llm_df = read_jsonl_table_from_text(llm_clean, gt_df.columns)
         if llm_df is None:
             print('Could not read the LLM output')
-            print('GROUND TRUTH\n', ground_truth)
+            print('GROUND TRUTH\n', question.ground_truth)
             print('END OF OUTPUT\n', llm_answer[-min(3000, len(llm_answer)):])
             return 0
     score = check_table_reformat(output_format, llm_df, gt_df, debug)

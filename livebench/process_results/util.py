@@ -1,6 +1,8 @@
 
 
-from typing import Optional
+from typing import Optional, Protocol, TypeVar, Generic
+
+from LiveBench.livebench.types.question import Question
 
 
 def last_boxed_only_string(string: str) -> Optional[str]:
@@ -46,3 +48,10 @@ def remove_boxed(s: str) -> str:
     assert s[-1] == "}"
 
     return s[len(left) : -1]
+
+
+Q = TypeVar("Q", bound=Question, contravariant=True)
+
+class AnswerEvaluator(Protocol, Generic[Q]):
+    def __call__(self, question: Q, llm_answer: str, debug: bool) -> int:
+        ...

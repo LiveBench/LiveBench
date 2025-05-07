@@ -1,6 +1,6 @@
 import re
 from livebench.process_results.util import last_boxed_only_string, remove_boxed
-
+from livebench.types import CTAQuestion
 
 def clean_text(text):
     text = text.lower().strip()    
@@ -8,7 +8,7 @@ def clean_text(text):
     return text
 
 
-def cta_process_results(ground_truth: str, llm_answer: str, debug=False) -> int:
+def cta_process_results(question: CTAQuestion, llm_answer: str, debug=False) -> int:
 
     parsed_answer = llm_answer
 
@@ -17,14 +17,14 @@ def cta_process_results(ground_truth: str, llm_answer: str, debug=False) -> int:
         parsed_answer = remove_boxed(parsed_answer)
         parsed_answer = parsed_answer.replace('\\text{', '').replace('}', '').replace('\\', '')
 
-    if clean_text(ground_truth) == clean_text(parsed_answer):
+    if clean_text(question.ground_truth) == clean_text(parsed_answer):
         return 1
-    elif clean_text(ground_truth) == clean_text(parsed_answer)[-len(clean_text(ground_truth)):]:
+    elif clean_text(question.ground_truth) == clean_text(parsed_answer)[-len(clean_text(question.ground_truth)):]:
         return 1
     else:
         if debug:
             print('INCORRECT')
-            print('GROUND TRUTH', ground_truth)
+            print('GROUND TRUTH', question.ground_truth)
             print('SOLUTION', parsed_answer)
             if parsed_answer != llm_answer:
                 print('END OF OUTPUT', llm_answer[-100:])
