@@ -13,6 +13,7 @@ import glob
 import shortuuid
 import tqdm
 
+from livebench.agentic_code_runner.sweagent.run_inference import run_agentic_coding_inference
 from livebench.common import (
     LIVE_BENCH_RELEASES,
     reorg_answer_file,
@@ -28,14 +29,15 @@ from livebench.model import ModelConfig, get_model_config, get_api_function
 
 def get_answer(
     question: dict,
-    model_config: ModelConfig,
-    num_choices: int,
+    model_api_name: str,
+    provider: str,
+    force_temperature: float | None,
     max_tokens: int,
-    answer_file: str,
+    num_choices: int,
+    api_kwargs: dict[str, str] | None = None,
     api_dict: dict[str, str] | None = None,
     stream: bool = False,
-    force_temperature: float | None = None,
-    model_provider_override: str | None = None,
+    answer_file: str | None = None,
     model_display_name_override: str | None = None
 ):
     """
@@ -50,54 +52,18 @@ def get_answer(
         answer_file: The path to the file in which to write answers
         api_dict: A dictionary specifying the base API URL and key for model requests
     """
+
     assert (
         force_temperature is not None and "required_temperature" in question.keys()
     ) is False
-    
     if force_temperature is not None:
-        temperature = args.force_temperature
+        temperature = force_temperature
     elif "required_temperature" in question.keys():
         temperature = question["required_temperature"]
     else:
         temperature = 0
 
-    provider = model_provider_override
-    if provider is None and api_dict is not None:
-        assert 'api_base' in api_dict, "Missing API base for model"
-        provider = 'local'
-    if provider is None:
-        provider = model_config.default_provider
-    if provider is None:
-        provider = list(model_config.api_name.keys())[0]
-
-    if 'https' in provider:
-        # provider name is a base URL
-        if api_dict is None:
-            api_dict = {
-                'api_base': provider,   
-            }
-            if model_config.api_keys and os.environ.get(model_config.api_keys[provider]):
-                api_dict['api_key'] = os.environ.get(model_config.api_keys[provider])
     
-    if provider is None:
-        raise ValueError(f"Missing provider for model {model_config.display_name}")
-
-    api_kwargs = None
-    if model_config.api_kwargs:
-        api_kwargs = {}
-        if model_config.api_kwargs.get('default'):
-            # pull default kwargs for model
-            api_kwargs = model_config.api_kwargs['default']
-        if provider in model_config.api_kwargs:
-            # update with local-specific kwargs
-            api_kwargs.update(model_config.api_kwargs[provider])
-
-    if provider == 'local':
-        assert api_dict is not None, "Missing API dict for local model"
-        assert 'api_base' in api_dict, "Missing API base for local model"
-
-    model_api_name = model_config.api_name[provider] if provider in model_config.api_name else model_config.display_name
-
     choices = []
     total_num_tokens = 0
     for i in range(num_choices):
@@ -141,9 +107,10 @@ def get_answer(
         }
     }
 
-    os.makedirs(os.path.dirname(answer_file), exist_ok=True)
-    with open(answer_file, "a") as fout:
-        fout.write(json.dumps(ans) + "\n")
+    if answer_file is not None:
+        os.makedirs(os.path.dirname(answer_file), exist_ok=True)
+        with open(answer_file, "a") as fout:
+            fout.write(json.dumps(ans) + "\n")
 
 
 def run_questions(
@@ -156,8 +123,10 @@ def run_questions(
     stream: bool,
     force_temperature: float | None,
     model_provider_override: str | None,
+    bench_name: str,
     model_display_name_override: str | None = None,
     api_dict: dict[str, str] | None = None,
+    
 ):
     """
     Perform inference on a list of questions. Output answers to answer_file.
@@ -171,22 +140,74 @@ def run_questions(
         parallel: The number of workers to use to make concurrent API requests
         api_dict: A dictionary specifying the base API URL and key for model requests
     """
-    if parallel == 1:
+
+    provider = model_provider_override
+    if provider is None and api_dict is not None:
+        assert 'api_base' in api_dict, "Missing API base for model"
+        provider = 'local'
+    if provider is None:
+        provider = model_config.default_provider
+    if provider is None:
+        provider = list(model_config.api_name.keys())[0]
+
+    if 'https' in provider:
+        # provider name is a base URL
+        if api_dict is None:
+            api_dict = {
+                'api_base': provider,   
+            }
+            if model_config.api_keys and os.environ.get(model_config.api_keys[provider]):
+                api_dict['api_key'] = os.environ.get(model_config.api_keys[provider])
+    
+    if provider is None:
+        raise ValueError(f"Missing provider for model {model_config.display_name}")
+
+    api_kwargs = None
+    if model_config.api_kwargs:
+        api_kwargs = {}
+        if model_config.api_kwargs.get('default'):
+            # pull default kwargs for model
+            api_kwargs = model_config.api_kwargs['default']
+        if provider in model_config.api_kwargs:
+            # update with local-specific kwargs
+            api_kwargs.update(model_config.api_kwargs[provider])
+
+    if provider == 'local':
+        assert api_dict is not None, "Missing API dict for local model"
+        assert 'api_base' in api_dict, "Missing API base for local model"
+
+    model_api_name = model_config.api_name[provider] if provider in model_config.api_name else model_config.display_name
+   
+    print('Evaluating ', len(questions), ' questions in ', bench_name, ' with model ', model_api_name)
+   
+    if bench_name == "live_bench/coding/agentic_coding":
+        run_agentic_coding_inference(
+            questions=questions,
+            model_api_name=model_api_name,
+            provider=provider,
+            force_temperature=force_temperature,
+            num_choices=num_choices,
+            api_kwargs=api_kwargs,
+            api_dict=api_dict,
+            stream=stream,
+            model_display_name_override=model_display_name_override,
+            answer_file=answer_file
+        )
+    elif parallel == 1:
         for question in tqdm.tqdm(questions):
             get_answer(
-                question,
-                model_config,
-                num_choices,
-                max_tokens,
-                answer_file,
+                question=question,
+                model_api_name=model_api_name,
+                provider=provider,
+                force_temperature=force_temperature,
+                max_tokens=max_tokens,
+                num_choices=num_choices,
+                api_kwargs=api_kwargs,
                 api_dict=api_dict,
                 stream=stream,
-                force_temperature=force_temperature,
-                model_provider_override=model_provider_override,
                 model_display_name_override=model_display_name_override,
+                answer_file=answer_file
             )
-        if len(questions) > 0:
-            reorg_answer_file(answer_file)
     else:
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=parallel) as executor:
@@ -194,16 +215,17 @@ def run_questions(
             for question in questions:
                 future = executor.submit(
                     get_answer,
-                    question,
-                    model_config,
-                    num_choices,
-                    max_tokens,
-                    answer_file,
+                    question=question,
+                    model_api_name=model_api_name,
+                    provider=provider,
+                    force_temperature=force_temperature,
+                    max_tokens=max_tokens,
+                    num_choices=num_choices,
+                    api_kwargs=api_kwargs,
                     api_dict=api_dict,
                     stream=stream,
-                    force_temperature=force_temperature,
-                    model_provider_override=model_provider_override,
-                    model_display_name_override=model_display_name_override
+                    model_display_name_override=model_display_name_override,
+                    answer_file=answer_file
                 )
                 futures.append(future)
 
@@ -211,8 +233,8 @@ def run_questions(
                 concurrent.futures.as_completed(futures), total=len(futures)
             ):
                 future.result()
-        if len(questions) > 0:
-            reorg_answer_file(answer_file)
+    if len(questions) > 0:
+        reorg_answer_file(answer_file)
 
 
 if __name__ == "__main__":
@@ -371,7 +393,8 @@ if __name__ == "__main__":
                     stream=args.stream,
                     force_temperature=args.force_temperature,
                     model_provider_override=args.model_provider_override,
-                    model_display_name_override=model_display_name
+                    model_display_name_override=model_display_name,
+                    bench_name=task_full_name
                 )
 
     elif args.question_source == "jsonl":
@@ -415,7 +438,8 @@ if __name__ == "__main__":
                 api_dict=api_dict,
                 stream=args.stream,
                 force_temperature=args.force_temperature,
-                model_provider_override=args.model_provider_override
+                model_provider_override=args.model_provider_override,
+                bench_name=bench_name
             )
 
     else:
