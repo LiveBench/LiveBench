@@ -29,7 +29,7 @@ from livebench.process_results.math.AMPS_Hard.utils import amps_hard_process_res
 from livebench.process_results.writing.plot_unscrambling.utils import plot_unscrambling_process_results
 from livebench.process_results.writing.typos.utils import typos_process_results
 from livebench.process_results.writing.connections.utils import get_connections_puzzle_evaluator
-from livebench.process_results.coding.utils import LCB_generation_process_results, code_generation_process_results
+from livebench.process_results.coding.utils import LCB_generation_process_results, code_generation_process_results, agentic_coding_process_results
 from livebench.process_results.instruction_following.utils import instruction_following_process_results
 from livebench.process_results.reasoning.web_of_lies_v3.utils import web_of_lies_v3_process_results
 from livebench.common import (
@@ -79,8 +79,8 @@ def play_a_match_gt(match: MatchSingle, output_file: str | None = None, debug=Fa
         match.model,
         match.answer,
     )
-    coding_test_case_tasks = ["coding_completion", "LCB_generation", "code_generation", "code_completion"]
-    if "ground_truth" not in question and "reference" not in question and question["task"] not in coding_test_case_tasks and question["category"] != "instruction_following":
+    coding_test_case_tasks = ["coding_completion", "LCB_generation", "code_generation", "code_completion", "agentic_coding"]
+    if "ground_truth" not in question and question["task"] not in coding_test_case_tasks and question["category"] != "instruction_following":
         # aside from coding and instruction following tasks, all questions should contain the ground truth answer
         raise ValueError("Questions must have ground_truth to run gen_ground_truth_judgment.")
 
@@ -153,6 +153,8 @@ def play_a_match_gt(match: MatchSingle, output_file: str | None = None, debug=Fa
                 score = LCB_generation_process_results(question, llm_answer, debug)
             elif task_or_subtask == "code_generation" or task_or_subtask == "code_completion":
                 score = code_generation_process_results(question, llm_answer, debug)
+            elif task_or_subtask == "agentic_coding":
+                score = agentic_coding_process_results(question, answer, debug)
             category = "coding"
         else:
             raise NotImplementedError(f"This task ({task_or_subtask}) has not been implemented yet.")
