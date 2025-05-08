@@ -12,10 +12,6 @@ display_name: mistral-medium-23-12
 api_name:
   mistral: mistral-medium-23-12
 ---
-display_name: mistral-medium
-api_name:
-  mistral: mistral-medium
----
 display_name: mistral-small-2402
 api_name:
   mistral: mistral-small-2402
@@ -55,3 +51,9 @@ api_name:
   mistral: mistral-small-2503
 aliases:
   - mistral-small
+---
+display_name: mistral-medium-2505
+api_name:
+  mistral: mistral-medium-2505
+aliases:
+  - mistral-medium
