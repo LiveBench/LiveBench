@@ -577,6 +577,8 @@ class CliArgs:
             if isinstance(image.dependency(), str) and not isinstance(image, SWEImageDefault):  # if it's a base image (but not a swe-bench image)
                 f.write("\nRUN apt install -y python3 python3-dev python3-pip python3-venv")  # ensure python and pip are installed
                 f.write(f"\nRUN ln -s /home/{image.pr.repo} /{image.pr.repo}") # symlink so repo is at root (for swe-agent)
+            elif isinstance(image, SWEImageDefault):
+                f.write(f"\nRUN ln -s /testbed /{image.pr.repo}")
 
         for file in image.files():
             file_path = image_dir / file.dir / file.name

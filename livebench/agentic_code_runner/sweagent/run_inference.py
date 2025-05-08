@@ -6,6 +6,8 @@ import time
 import shortuuid
 
 from livebench.common import LIVE_BENCH_ROOT_PATH
+from livebench.agentic_code_runner.eval.utils import docker_util
+from livebench.process_results.coding.utils import agentic_coding_process_results
 
 # python agentic_code_runner/sweagent/agent/run/run.py run --agent.model.name anthropic/claude-3-5-sonnet-20241022 --env.deployment.image mswebench/ponylang_m_ponyc:pr-4583 --env.repo.path agentic_code_runner/data/repos/ponylang/ponyc --problem_statement.text "make a small change to some file in the repo (just add a meaningless comment somewhere)" --config agentic_code_runner/sweagent/config/livebench.yaml --problem_statement.id test --env_var_path .env
 def run_agentic_coding_inference(
@@ -40,6 +42,11 @@ def run_agentic_coding_inference(
     for question in questions:
         instance_id = question['instance_id']
         instance_image_id = f"mswebench/{instance_id.replace('__', '_m_').replace('-', ':pr-')}"
+        if not docker_util.exists(instance_image_id):
+            # run eval harness to build image
+            answers = [{'question_id': question['question_id'], 'turns': ['placeholder'], 'model_id': 'image_build'} for question in questions]
+            print(f"Building image for {instance_image_id}")
+            agentic_coding_process_results(questions, answers, debug=False, max_workers=1, only_build_image=True)
         repo = question['repo']
         org = question['org']
         repo_path = LIVE_BENCH_ROOT_PATH / f'agentic_code_runner/data/repos/{org}/{repo}'
@@ -74,7 +81,7 @@ def run_agentic_coding_inference(
             str(temperature),
         ]
 
-        print('Running command: ', ' '.join(cmd))
+        print('Running command: ', ' '.join([str(c) for c in cmd]))
 
         subprocess.run(cmd, check=True)
 
