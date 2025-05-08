@@ -149,7 +149,7 @@ def code_generation_process_results(question: dict, llm_answer: str, debug=False
         return 0
     
 # python agentic_code_runner/eval/harness/run_evaluation.py --config agentic_code_runner/eval/config.json
-def agentic_coding_process_results(questions: list[dict], answers: list[dict], debug=False, max_workers=1) -> dict[str, int]:
+def agentic_coding_process_results(questions: list[dict], answers: list[dict], debug=False, max_workers=1, only_build_image=False) -> dict[str, int]:
 
     eval_id = shortuuid.uuid()
 
@@ -178,7 +178,12 @@ def agentic_coding_process_results(questions: list[dict], answers: list[dict], d
     repo_path.mkdir(parents=True, exist_ok=True)
 
     with open(patch_path, 'w') as f:
-        for question, answer in zip(questions, answers):
+        for question in questions:
+            answer = [a for a in answers if a['question_id'] == question['question_id']]
+            if len(answer) == 0:
+                print(f"No answer found for question {question['question_id']}")
+                continue
+            answer = answer[0]
             answer_obj = {
                 "org": question['org'],
                 "repo": question['repo'],
@@ -193,7 +198,7 @@ def agentic_coding_process_results(questions: list[dict], answers: list[dict], d
             f.write('\n')
 
     config = {
-        "mode": "evaluation",
+        "mode": "evaluation" if not only_build_image else "image",
         "workdir": f"{workdir_path.as_posix()}",
         "patch_files": [patch_path.as_posix()],
         "dataset_files": [dataset_path.as_posix()],
@@ -219,19 +224,22 @@ def agentic_coding_process_results(questions: list[dict], answers: list[dict], d
         res = subprocess.run(['python', LIVE_BENCH_ROOT_PATH / 'agentic_code_runner/eval/harness/run_evaluation.py', '--config', config_path.as_posix()])
         if res.returncode != 0:
             print(f"Error running MSWEB evaluation: {res.returncode}")
-            return 0
+            return dict()
     except Exception as e:
         print(f"Error running MSWEB evaluation: {e}")
-        return 0
+        return dict()
     finally:
         config_path.unlink(missing_ok=True)
         patch_path.unlink(missing_ok=True)
         dataset_path.unlink(missing_ok=True)
 
+    if only_build_image:
+        return dict()
+
     report_path = Path(LIVE_BENCH_ROOT_PATH / f'agentic_code_runner/data/report/final_report.json')
     if not report_path.exists():
         print(f"Report not found for eval {eval_id} for model {model_name}")
-        return 0
+        return dict()
     report = json.load(open(report_path))
     
     total_instances = report['total_instances']
