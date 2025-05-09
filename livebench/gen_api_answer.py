@@ -187,11 +187,12 @@ def run_questions(
             provider=provider,
             force_temperature=force_temperature,
             num_choices=num_choices,
-            api_kwargs=api_kwargs,
+            model_api_kwargs=api_kwargs,
             api_dict=api_dict,
             stream=stream,
             model_display_name_override=model_display_name_override,
-            answer_file=answer_file
+            answer_file=answer_file,
+            parallel=parallel
         )
     elif parallel == 1:
         for question in tqdm.tqdm(questions):

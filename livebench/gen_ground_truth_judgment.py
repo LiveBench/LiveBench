@@ -352,19 +352,23 @@ def gen_judgments(
                         fout.write(json.dumps(result) + "\n")
     elif "agentic_coding" in bench_name:
         for model_id in models: # TODO: parallelize at the model level too
-            eval_result = agentic_coding_process_results(questions, model_answers[model_id], debug=debug, max_workers=parallel)
+            eval_result = agentic_coding_process_results(questions, list(model_answers[model_id].values()), debug=debug, max_workers=parallel)
             for question_id in eval_result:
                 model_answer = model_answers[model_id][question_id]
                 result = {
                     "question_id": question_id,
                     "task": "agentic_coding",
                     "model": model_id,
-                    "score": eval_result['question_id'],
+                    "score": eval_result[question_id],
                     "tstamp": time.time(),
                     "category": "coding",
                 }
                 if "answer_id" in model_answer:
                     result["answer_id"] = model_answer["answer_id"]
+
+                print(
+                    f"question: {question_id}, model: {model_id}, "
+                    f"score: {eval_result[question_id]}, ")
                 
                 if output_file:
                     os.makedirs(os.path.dirname(output_file), exist_ok=True)
