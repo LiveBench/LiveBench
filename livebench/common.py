@@ -18,7 +18,7 @@ from livebench.model.api_model_config import get_model_config
 from dotenv import load_dotenv
 
 from rich.traceback import install
-install(show_locals=True)
+install()
 
 load_dotenv(override=True)
 

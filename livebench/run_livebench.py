@@ -280,8 +280,10 @@ def build_run_command(
         gen_api_cmd += f" --num-choices {num_choices}"
     if question_begin is not None:
         gen_api_cmd += f" --question-begin {question_begin}"
+        gen_judge_cmd += f" --question-begin {question_begin}"
     if question_end is not None:
         gen_api_cmd += f" --question-end {question_end}"
+        gen_judge_cmd += f" --question-end {question_end}"
     if question_id:
         question_id_str = ' '.join(question_id)
         gen_api_cmd += f" --question-id {question_id_str}"

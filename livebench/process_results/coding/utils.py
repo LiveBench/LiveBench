@@ -188,7 +188,7 @@ def agentic_coding_process_results(questions: list[dict], answers: list[dict], d
                 "org": question['org'],
                 "repo": question['repo'],
                 "number": question['number'],
-                "fix_patch": answer['turns'][0]
+                "fix_patch": answer['choices'][0]['turns'][0]
             }
             json.dump(answer_obj, f)
             f.write('\n')
@@ -247,7 +247,7 @@ def agentic_coding_process_results(questions: list[dict], answers: list[dict], d
 
     result = {}
     for instance_id in report['submitted_ids']:
-        question = [q for q in questions if q['instance_id'].replace('__', '/').replace('-', ':pr-') == instance_id][0]
+        question = [q for q in questions if f"{q['org']}/{q['repo']}:pr-{q['number']}" == instance_id][0]
         question_id = question['question_id']
         result[question_id] = 1 if instance_id in report['resolved_ids'] else 0
         if debug and result[question_id] == 0:

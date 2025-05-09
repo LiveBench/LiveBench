@@ -6,6 +6,7 @@ from typing import Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field
 from swerex.deployment.abstract import AbstractDeployment
+from swerex.deployment.docker import DockerDeployment
 from swerex.deployment.config import DeploymentConfig, DockerDeploymentConfig, get_deployment
 from swerex.runtime.abstract import (
     BashAction,
@@ -20,12 +21,26 @@ from livebench.agentic_code_runner.sweagent.agent.environment.hooks.abstract imp
 from livebench.agentic_code_runner.sweagent.agent.environment.repo import Repo, RepoConfig
 from livebench.agentic_code_runner.sweagent.agent.utils.log import get_logger
 
+class UpdateDockerDeployment(DockerDeployment):
+    REMOTE_EXECUTABLE_NAME = 'swerex-remote'
+    PACKAGE_NAME = 'swe-rex'
+
+    def _get_swerex_start_cmd(self, token: str) -> list[str]:
+        rex_args = f"--auth-token {token}"
+        # install swe-rex globally rather than in a venv
+        cmd = f"{self.REMOTE_EXECUTABLE_NAME} {rex_args} || (pipx run {self.PACKAGE_NAME} {rex_args})"
+        return [
+            "/bin/sh",
+            "-c",
+            cmd,
+        ]
+
 
 class EnvironmentConfig(BaseModel):
     """Configure data sources and setup instructions for the environment in which we solve the tasks."""
 
     deployment: DeploymentConfig = Field(
-        default_factory=lambda: DockerDeploymentConfig(image="python:3.11", python_standalone_dir="/root"),
+        default_factory=lambda: DockerDeploymentConfig(image="python:3.11", python_standalone_dir=None),
         description="Deployment options.",
     )
     repo: RepoConfig | None = Field(
@@ -46,6 +61,22 @@ class EnvironmentConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     name: str = "main"
+
+
+SWE_BENCH_REPOS = [
+    "astropy_m_astropy",
+    "django_m_django",
+    "pallets_m_flask",
+    "matplotlib_m_matplotlib",
+    "pylint-dev_m_pylint",
+    "pytest-dev_m_pytest",
+    "psf_m_requests",
+    "scikit-learn_m_scikit-learn",
+    "mwaskom_m_seaborn",
+    "sphinx-doc_m_sphinx",
+    "sympy_m_sympy",
+    "pydata_m_xarray"
+]
 
 
 class SWEEnv:
@@ -89,8 +120,28 @@ class SWEEnv:
         """
         # Always copy config to avoid shared state between different instances
         config = config.model_copy(deep=True)
+
+        post_startup_commands = config.post_startup_commands
+
+        if not isinstance(config.deployment, DockerDeploymentConfig):
+            deployment = get_deployment(config.deployment)
+        else:
+            is_sweb = any(repo in config.deployment.image for repo in SWE_BENCH_REPOS)
+            if is_sweb:
+                deployment = get_deployment(config.deployment)
+            else:
+                # for non-sweb images, use the update deployment to install swe-rex
+                # because no venv will be activated in the container
+                deployment = UpdateDockerDeployment.from_config(config.deployment)
+                # we can activate a venv after the deployment is started so that other python packages can be installed
+                post_startup_commands += [
+                    "/usr/bin/python3 -m venv .venv",
+                    "source .venv/bin/activate",
+                    "echo '.venv' >> .gitignore",
+                ]
+                
         return cls(
-            deployment=get_deployment(config.deployment),
+            deployment=deployment,
             repo=config.repo,
             post_startup_commands=config.post_startup_commands,
             post_startup_command_timeout=config.post_startup_command_timeout,
@@ -160,7 +211,12 @@ class SWEEnv:
             #     f"git checkout {self.repo.base_commit}",
             #     "git clean -fdq",
             # ]
-            startup_commands = ['bash /home/prepare.sh', 'export ROOT=$(pwd -P)']
+            files = self.communicate(input="ls -1 /home", check="raise").split("\n")
+            if "prepare.sh" in files:
+                # SWE-Bench instances don't have a prepare.sh script, so don't try to run it
+                startup_commands = ['bash /home/prepare.sh', 'export ROOT=$(pwd -P)']
+            else:
+                startup_commands = ['export ROOT=$(pwd -P)']
             self.communicate(
                 input=" && ".join(startup_commands),
                 check="raise",
@@ -184,6 +240,8 @@ class SWEEnv:
         If cached_image is provided, it will use that image name instead of the default.
         """
         self._chook.on_start_deployment()
+        if isinstance(self.deployment, DockerDeployment):
+            self.deployment._config.python_standalone_dir = None
         asyncio.run(self.deployment.start())
         asyncio.run(self.deployment.runtime.create_session(CreateBashSessionRequest(startup_source=["/root/.bashrc"])))
         self.set_env_variables({"LANG": "C.UTF-8", "LC_ALL": "C.UTF-8"})
@@ -220,7 +278,7 @@ class SWEEnv:
         r = asyncio.run(
             self.deployment.runtime.run_in_session(BashAction(command=input, timeout=timeout, check=rex_check))
         )
-        output = r.output
+        output = r.output.replace("(.venv)", "")
         self.logger.log(logging.TRACE, "Output:\n%s", output)  # type: ignore
         if check != "ignore" and r.exit_code != 0:
             self.logger.error(f"{error_msg}:\n{output}")
