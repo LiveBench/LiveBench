@@ -1,13 +1,18 @@
+import getpass
 import json
 import os
+import shutil
 import subprocess
 import time
 
 import shortuuid
+import yaml
 
 from livebench.common import LIVE_BENCH_ROOT_PATH
 from livebench.agentic_code_runner.eval.utils import docker_util
 from livebench.process_results.coding.utils import agentic_coding_process_results
+
+from collections import defaultdict
 
 # python agentic_code_runner/sweagent/agent/run/run.py run --agent.model.name anthropic/claude-3-5-sonnet-20241022 --env.deployment.image mswebench/ponylang_m_ponyc:pr-4583 --env.repo.path agentic_code_runner/data/repos/ponylang/ponyc --problem_statement.text "make a small change to some file in the repo (just add a meaningless comment somewhere)" --config agentic_code_runner/sweagent/config/livebench.yaml --problem_statement.id test --env_var_path .env
 def run_agentic_coding_inference(
@@ -16,11 +21,12 @@ def run_agentic_coding_inference(
     provider: str,
     force_temperature: float | None,
     num_choices: int,
-    api_kwargs: dict[str, str] | None = None,
+    model_api_kwargs: dict[str, str] | None = None,
     api_dict: dict[str, str] | None = None,
     stream: bool = False,
     model_display_name_override: str | None = None,
-    answer_file: str | None = None
+    answer_file: str | None = None,
+    parallel: int = 1
 ):
     if force_temperature is not None:
         temperature = force_temperature
@@ -29,90 +35,205 @@ def run_agentic_coding_inference(
 
     if num_choices != 1:
         raise ValueError("num_choices must be 1 for agentic coding")
+    
+    # run_id = shortuuid.uuid()
+    run_id = 'Y4DKyzPgt3zf2tEPNpRqms'
 
-    agent_config_path = LIVE_BENCH_ROOT_PATH / 'agentic_code_runner/sweagent/config/livebench.yaml'
+    model_name = model_display_name_override if model_display_name_override else model_api_name
+
+    api_kwargs = {
+        'temperature': temperature
+    }
+
+    if model_api_kwargs is not None:
+        model_api_kwargs = {key: value for key, value in model_api_kwargs.items()}
+        api_kwargs.update(model_api_kwargs)
+
+    if 'max_tokens' in api_kwargs:
+        del api_kwargs['max_tokens']
+
+    all_traj_folder = LIVE_BENCH_ROOT_PATH / f"agentic_code_runner/data/trajectories" / run_id
+    all_traj_folder.mkdir(parents=True, exist_ok=True)
+
+    base_config_path = LIVE_BENCH_ROOT_PATH / 'agentic_code_runner/sweagent/config/livebench.yaml'
+    config = yaml.safe_load(open(base_config_path))
+    config['agent']['model'].update(api_kwargs)
+
+    config_path = all_traj_folder / 'config.yaml'
+    with open(config_path, 'w') as f:
+        yaml.dump(config, f)
+    
     agent_run_path = LIVE_BENCH_ROOT_PATH / 'agentic_code_runner/sweagent/agent/run/run.py'
 
-    all_traj_folder = LIVE_BENCH_ROOT_PATH / f"agentic_code_runner/data/trajectories/"
-    all_traj_folder.mkdir(parents=True, exist_ok=True)
+
+
+
 
     if answer_file is not None:
         os.makedirs(os.path.dirname(answer_file), exist_ok=True)
 
+    env_var_path = LIVE_BENCH_ROOT_PATH / '.env'
+
     for question in questions:
-        instance_id = question['instance_id']
-        instance_image_id = f"mswebench/{instance_id.replace('__', '_m_').replace('-', ':pr-')}"
+        instance_image_id = f"mswebench/{question['org']}_m_{question['repo']}:pr-{question['number']}"
         if not docker_util.exists(instance_image_id):
             # run eval harness to build image
-            answers = [{'question_id': question['question_id'], 'turns': ['placeholder'], 'model_id': 'image_build'} for question in questions]
+            answers = [{'question_id': question['question_id'], 'choices': [{'turns': ['placeholder']}], 'model_id': 'image_build'} for question in questions]
             print(f"Building image for {instance_image_id}")
-            agentic_coding_process_results(questions, answers, debug=False, max_workers=1, only_build_image=True)
-        repo = question['repo']
-        org = question['org']
-        repo_path = LIVE_BENCH_ROOT_PATH / f'agentic_code_runner/data/repos/{org}/{repo}'
+            agentic_coding_process_results(questions, answers, debug=False, max_workers=parallel, only_build_image=True)
+
         problem_statement_text = question['turns'][0]
         problem_statement_path = LIVE_BENCH_ROOT_PATH / f'agentic_code_runner/data/problem_statements/{question["question_id"]}'
         problem_statement_path.parent.mkdir(parents=True, exist_ok=True)
         with open(problem_statement_path, 'w') as f:
             f.write(problem_statement_text)
-        problem_statement_id = question['question_id']
 
-        env_var_path = LIVE_BENCH_ROOT_PATH / '.env'
+        traj_folder = all_traj_folder / str(question['question_id'])
+        # if traj_folder.exists():
+        #     shutil.rmtree(traj_folder)
+        traj_folder.mkdir(parents=True, exist_ok=True)
+
+    trajectories = defaultdict(dict)
+    preds = defaultdict(dict)
+
+    if parallel == 1:
+        for question in questions:
+            if (all_traj_folder / str(question['question_id'])).exists() and len(list((all_traj_folder / str(question['question_id'])).iterdir())) > 0:
+                continue
+            instance_image_id = f"mswebench/{question['org']}_m_{question['repo']}:pr-{question['number']}"
+            problem_statement_path = LIVE_BENCH_ROOT_PATH / f'agentic_code_runner/data/problem_statements/{question["question_id"]}'
+            repo = question['repo']
+            org = question['org']
+            repo_path = LIVE_BENCH_ROOT_PATH / f'agentic_code_runner/data/repos/{org}/{repo}'
+            cmd = [
+                'python',
+                agent_run_path,
+                'run',
+                '--agent.model.name',
+                provider + '/' + model_api_name,
+                '--env.deployment.image',
+                instance_image_id,
+                '--env.repo.path',
+                repo_path,
+                '--problem_statement.path',
+                problem_statement_path,
+                '--problem_statement.id',
+                str(question['question_id']),
+                '--env_var_path',
+                env_var_path,
+                '--config',
+                config_path,
+                '--env.deployment.type',
+                'docker',
+                '--env.deployment.python_standalone_dir',
+                'None',
+                '--env.repo.type',
+                'local',
+                '--output_dir',
+                all_traj_folder
+            ]
+
+            print('Running command: ', ' '.join([str(c) for c in cmd]))
+
+            subprocess.run(cmd, check=True)
+
+            traj_folder = all_traj_folder / str(question['question_id'])
+
+            pred_file = traj_folder / f"{question['question_id']}.pred"
+            traj_file = traj_folder / f"{question['question_id']}.traj"
+
+            if not pred_file.exists():
+                raise FileNotFoundError(f"Prediction file {pred_file} does not exist")
+            
+            if not traj_file.exists():
+                raise FileNotFoundError(f"Trajectory file {traj_file} does not exist")
+
+            trajectory = json.load(open(traj_file))
+            pred = json.load(open(pred_file))
+
+            trajectories[model_name][question['question_id']] = trajectory
+            preds[model_name][question['question_id']] = pred
+    else:
+        instances_path = LIVE_BENCH_ROOT_PATH / f'agentic_code_runner/data/instances/{model_name}.jsonl'
+        instances_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(instances_path, 'w') as f:
+            for question in questions:
+                instance_image_id = f"mswebench/{question['org']}_m_{question['repo']}:pr-{question['number']}"
+                instance_obj = {
+                    'instance_id': str(question['question_id']),
+                    'image_name': instance_image_id,
+                    'problem_statement': question['turns'][0],
+                    'repo_name': question['repo'],
+                    'env': {
+                        'deployment': {
+                            'type': 'docker',
+                            'python_standalone_dir': None
+                        },
+                    }
+                }
+                f.write(json.dumps(instance_obj) + '\n')
 
         cmd = [
             'python',
             agent_run_path,
-            'run',
-            '--agent.model.name',
-            provider + '/' + model_api_name,
-            '--env.deployment.image',
-            instance_image_id,
-            '--env.repo.path',
-            repo_path,
-            '--problem_statement.path',
-            problem_statement_path,
-            '--problem_statement.id',
-            str(problem_statement_id),
+            'run-batch',
+            '--instances.type',
+            'file',
+            '--instances.path',
+            instances_path,
+            '--config',
+            config_path,
             '--env_var_path',
             env_var_path,
-            '--config',
-            agent_config_path,
-            '--agent.model.temperature',
-            str(temperature),
+            '--num_workers',
+            str(parallel),
+            '--redo_existing',
+            'true',
+            '--output_dir',
+            all_traj_folder
         ]
 
         print('Running command: ', ' '.join([str(c) for c in cmd]))
 
         subprocess.run(cmd, check=True)
 
-        traj_folder = all_traj_folder / f"{agent_config_path.stem}__{provider}_{model_api_name}__{problem_statement_id}/{problem_statement_id}"
+        traj_folder = all_traj_folder
 
-        pred_file = traj_folder / f"{problem_statement_id}.pred"
-        traj_file = traj_folder / f"{problem_statement_id}.traj"
+        for question in questions:
+            question_traj_folder = traj_folder / str(question['question_id'])
+            pred_file = question_traj_folder / f"{question['question_id']}.pred"
+            traj_file = question_traj_folder / f"{question['question_id']}.traj"
 
-        if not pred_file.exists():
-            raise FileNotFoundError(f"Prediction file {pred_file} does not exist")
-        
-        if not traj_file.exists():
-            raise FileNotFoundError(f"Trajectory file {traj_file} does not exist")
+            if not pred_file.exists():
+                raise FileNotFoundError(f"Prediction file {pred_file} does not exist")
 
-        final_answer = json.load(open(pred_file))['model_patch']
+            if not traj_file.exists():
+                raise FileNotFoundError(f"Trajectory file {traj_file} does not exist")
+
+            trajectory = json.load(open(traj_file))
+            pred = json.load(open(pred_file))
+
+            trajectories[model_name][question['question_id']] = trajectory
+            preds[model_name][question['question_id']] = pred
+            
+    for question in questions:
+        final_answer = preds[model_name][question['question_id']]['model_patch']
         if final_answer is None:
             final_answer = ""
 
-        run_info = json.load(open(traj_file))
+        run_info = trajectories[model_name][question['question_id']]
         history = json.dumps(run_info['history'], indent=4)
 
-        total_output_tokens = run_info['model_stats']['tokens_received']
-        total_input_tokens = run_info['model_stats']['tokens_sent']
-        cost = run_info['model_stats']['cost']
-        api_calls = run_info['model_stats']['api_calls']
+        total_output_tokens = run_info['info']['model_stats']['tokens_received']
+        total_input_tokens = run_info['info']['model_stats']['tokens_sent']
+        cost = run_info['info']['model_stats']['instance_cost']
+        api_calls = run_info['info']['model_stats']['api_calls']
         
         ans = {
-            'question_id': problem_statement_id,
+            'question_id': question['question_id'],
             'answer_id': shortuuid.uuid(),
-            'model_id': model_display_name_override if model_display_name_override else model_api_name,
-            'choices': [final_answer],
+            'model_id': model_name,
+            'choices': [{'turns': [final_answer]}],
             'tstamp': time.time(),
             'total_output_tokens': total_output_tokens,
             'total_input_tokens': total_input_tokens,
