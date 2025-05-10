@@ -62,6 +62,9 @@ def chat_completion_openai(
     else:
         client = OpenAI(timeout=1000)
 
+    # OpenAI's completion API does not include an explicit system prompt parameter.
+    # It is handled as a message with the system role. 
+
     api_kwargs: API_Kwargs = {
         'temperature': temperature
     }
@@ -157,10 +160,20 @@ def chat_completion_openai_responses(model: str, messages: Conversation, tempera
     else:
         client = OpenAI(timeout=2400)
 
-    messages = [message for message in messages if message['role'] == 'user']
+    # Extract system messages (if any) and concatenate them
+    system_messages = [message['content'] for message in messages if message['role'] == 'system']
+    system_content = "\n".join(system_messages) if system_messages else ''
+    
+    # Extract user messages
+    user_messages = [message for message in messages if message['role'] == 'user']
+    
     developer_message = ''
     if 'o1' in model or 'o3' in model:
         developer_message = 'Formatting reenabled\n'
+    
+    # If system content is available, add it to developer_message
+    if system_content:
+        developer_message = system_content + "\n" + developer_message
 
     api_kwargs: API_Kwargs = {
         'max_completion_tokens': max_tokens if 'gpt' in model else None,
@@ -179,7 +192,7 @@ def chat_completion_openai_responses(model: str, messages: Conversation, tempera
         reasoning = {'effort': api_kwargs['reasoning_effort']}
         del api_kwargs['reasoning_effort']
 
-    input = '\n'.join([message['content'] for message in messages])
+    input = '\n'.join([message['content'] for message in user_messages])
 
     output_text = ""
     output_tokens = None
@@ -225,8 +238,14 @@ def chat_completion_aws(model: str, messages: Conversation, temperature: float, 
         region_name = api_dict["region_name"]
     
     brt = boto3.client("bedrock-runtime", region_name=region_name)
+    
+    # Extract system messages and concatenate them if multiple exist
+    system_messages = [message['content'] for message in messages if message['role'] == 'system']
+    system_content = "\n".join(system_messages) if system_messages else ""
+    
+    # Extract user messages and concatenate them if multiple exist
     user_messages = [m['content'] for m in messages if m['role'] == "user"]
-    prompt = user_messages[0] if user_messages else ""
+    user_content = "\n".join(user_messages) if user_messages else ""
 
     # Set up API kwargs
     inference_config = {
@@ -241,13 +260,17 @@ def chat_completion_aws(model: str, messages: Conversation, temperature: float, 
         if 'temperature' in model_api_kwargs:
             inference_config['temperature'] = model_api_kwargs['temperature']
 
+    api_call = {
+        "modelId": model,
+        "messages": [{"role": "user", "content": [{"text": user_content}]}],
+        "inferenceConfig": inference_config,
+    }
+    
+    if system_content:
+        api_call["system"] = [{"text": system_content}]
    
     # Make the API call
-    response = brt.converse(
-        modelId=model,
-        messages=[{"role": "user", "content": [{"text": prompt}]}],
-        inferenceConfig=inference_config,
-    )
+    response = brt.converse(**api_call)
     
     if response is None:
         raise Exception("No response returned from AWS Bedrock")
@@ -292,10 +315,15 @@ def chat_completion_google_generativeai(
     
     client = genai.Client(api_key=api_key)
 
-    if any(message['role'] == 'system' for message in messages):
-        system = [types.Part.from_text(text=message['content']) for message in messages if message['role'] == "system"][0]
+    # Extract all system messages and concatenate them if multiple exist
+    system_messages = [message['content'] for message in messages if message['role'] == "system"]
+    if system_messages:
+        system_content = "\n".join(system_messages)
+        system = types.Part.from_text(text=system_content)
     else:
         system = None
+    
+    # Filter out system messages for regular messages array
     messages: list[types.Content] = [types.Content(role=message['role'], parts=[types.Part.from_text(text=message['content'])]) for message in messages if message['role'] != 'system']
 
     safety_settings = [
@@ -359,8 +387,8 @@ def chat_completion_together(model: str, messages: Conversation, temperature: fl
         api_key = os.environ["TOGETHER_API_KEY"]
     client = Together(api_key=api_key)
 
-
-    messages = [message for message in messages if message['role'] == 'user']
+    # Together's API does not include an explicit system prompt parameter.
+    # It is handled as a message with the system role. 
 
     api_kwargs: API_Kwargs = {'max_tokens': max_tokens, 'temperature': temperature}
     if model_api_kwargs is not None:
@@ -403,10 +431,22 @@ def chat_completion_anthropic(model: str, messages: Conversation, temperature: f
     from anthropic import NOT_GIVEN, Anthropic
     c = Anthropic(api_key=api_key)
 
+    # Extract system messages and concatenate them if multiple exist
+    system_messages = [message['content'] for message in messages if message['role'] == 'system']
+    system_content = "\n".join(system_messages) if system_messages else None
+    
+    # Filter out system messages for the messages array
+    messages = [message for message in messages if message['role'] != 'system']
+
     api_kwargs: API_Kwargs = {
         'max_tokens': max_tokens,
-        'temperature': temperature
+        'temperature': temperature,
+        'system': system_content
     }
+    
+    # Remove system parameter if it's None to avoid API errors
+    if system_content is None:
+        del api_kwargs['system']
 
     if model_api_kwargs is not None:
         model_api_kwargs = {key: value for key, value in model_api_kwargs.items()}
@@ -502,6 +542,9 @@ def chat_completion_mistral(model: str, messages: Conversation, temperature: flo
 
     actual_api_kwargs = {key: (value if value is not None else UNSET) for key, value in api_kwargs.items()}
 
+    # Mistral API does not include an explicit system prompt parameter.
+    # It is handled as a message with the system role. 
+
     chat_response = client.chat.complete(
         model=model,
         messages=messages,
@@ -537,6 +580,9 @@ def chat_completion_deepinfra(model: str, messages: Conversation, temperature: f
         api_key = os.environ["DEEPINFRA_API_KEY"]
 
     client = OpenAI(api_key=api_key, base_url="https://api.deepinfra.com/v1/openai", timeout=httpx.Timeout(timeout=2400.0, connect=10.0))
+
+    # OpenAI's completion API does not include an explicit system prompt parameter.
+    # It is handled as a message with the system role. 
 
     api_kwargs: API_Kwargs = {
         'max_tokens': max_tokens,
