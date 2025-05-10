@@ -36,7 +36,8 @@ def get_answer(
     stream: bool = False,
     force_temperature: float | None = None,
     model_provider_override: str | None = None,
-    model_display_name_override: str | None = None
+    model_display_name_override: str | None = None,
+    system_prompt: str | None = None
 ):
     """
     Perform inference for a single question.
@@ -102,6 +103,10 @@ def get_answer(
     total_num_tokens = 0
     for i in range(num_choices):
         messages = []
+        
+        # Add system prompt if provided
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
 
         turns = []
         for j in range(len(question["turns"])):
@@ -158,6 +163,7 @@ def run_questions(
     model_provider_override: str | None,
     model_display_name_override: str | None = None,
     api_dict: dict[str, str] | None = None,
+    system_prompt: str | None = None,
 ):
     """
     Perform inference on a list of questions. Output answers to answer_file.
@@ -184,6 +190,7 @@ def run_questions(
                 force_temperature=force_temperature,
                 model_provider_override=model_provider_override,
                 model_display_name_override=model_display_name_override,
+                system_prompt=system_prompt
             )
         if len(questions) > 0:
             reorg_answer_file(answer_file)
@@ -203,7 +210,8 @@ def run_questions(
                     stream=stream,
                     force_temperature=force_temperature,
                     model_provider_override=model_provider_override,
-                    model_display_name_override=model_display_name_override
+                    model_display_name_override=model_display_name_override,
+                    system_prompt=system_prompt
                 )
                 futures.append(future)
 
@@ -308,6 +316,12 @@ if __name__ == "__main__":
         default=None,
         help="Override the provider for the model. If not provided, will be inferred from --model.",
     )
+    parser.add_argument(
+        "--system-prompt",
+        type=str,
+        default=None,
+        help="System prompt to pass to the API",
+    )
     args = parser.parse_args()
 
 
@@ -371,7 +385,8 @@ if __name__ == "__main__":
                     stream=args.stream,
                     force_temperature=args.force_temperature,
                     model_provider_override=args.model_provider_override,
-                    model_display_name_override=model_display_name
+                    model_display_name_override=model_display_name,
+                    system_prompt=args.system_prompt
                 )
 
     elif args.question_source == "jsonl":
@@ -415,7 +430,8 @@ if __name__ == "__main__":
                 api_dict=api_dict,
                 stream=args.stream,
                 force_temperature=args.force_temperature,
-                model_provider_override=args.model_provider_override
+                model_provider_override=args.model_provider_override,
+                system_prompt=args.system_prompt
             )
 
     else:
