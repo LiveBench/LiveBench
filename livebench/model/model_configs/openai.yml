@@ -226,14 +226,19 @@ prompt_prefix: "Formatting reenabled"
 ---
 display_name: o4-mini-2025-04-16-high
 api_name:
-  openai: o4-mini-2025-04-16
+  openai_responses: o4-mini-2025-04-16
 aliases:
   - o4-mini-high
 api_kwargs:
   default:
     temperature: null
     max_completion_tokens: null
+  openai:
     reasoning_effort: high
+  openai_responses:
+    reasoning:
+      effort: high
+      summary: auto
 prompt_prefix: "Formatting reenabled"
 ---
 display_name: o4-mini-2025-04-16-medium

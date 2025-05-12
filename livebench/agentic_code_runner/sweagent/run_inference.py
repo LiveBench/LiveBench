@@ -11,6 +11,7 @@ import yaml
 from livebench.common import LIVE_BENCH_ROOT_PATH
 from livebench.agentic_code_runner.eval.utils import docker_util
 from livebench.process_results.coding.utils import agentic_coding_process_results
+from livebench.model.completions import API_ERROR_OUTPUT
 
 from collections import defaultdict
 
@@ -36,8 +37,7 @@ def run_agentic_coding_inference(
     if num_choices != 1:
         raise ValueError("num_choices must be 1 for agentic coding")
     
-    # run_id = shortuuid.uuid()
-    run_id = 'Y4DKyzPgt3zf2tEPNpRqms'
+    run_id = shortuuid.uuid()
 
     model_name = model_display_name_override if model_display_name_override else model_api_name
 
@@ -52,22 +52,42 @@ def run_agentic_coding_inference(
     if 'max_tokens' in api_kwargs:
         del api_kwargs['max_tokens']
 
+    if 'max_completion_tokens' in api_kwargs:
+        del api_kwargs['max_completion_tokens']
+
+    orig_api_kwargs = api_kwargs.copy()
+
     all_traj_folder = LIVE_BENCH_ROOT_PATH / f"agentic_code_runner/data/trajectories" / run_id
     all_traj_folder.mkdir(parents=True, exist_ok=True)
 
     base_config_path = LIVE_BENCH_ROOT_PATH / 'agentic_code_runner/sweagent/config/livebench.yaml'
     config = yaml.safe_load(open(base_config_path))
-    config['agent']['model'].update(api_kwargs)
+
+    if 'temperature' in api_kwargs:
+        if api_kwargs['temperature'] is not None:
+            config['agent']['model']['temperature'] = api_kwargs['temperature']
+        else:
+            config['agent']['model']['temperature'] = 1
+        del api_kwargs['temperature']
+
+    if 'top_p' in api_kwargs:
+        if api_kwargs['top_p'] is not None:
+            config['agent']['model']['top_p'] = api_kwargs['top_p']
+        else:
+            config['agent']['model']['top_p'] = None
+        del api_kwargs['top_p']
+
+    config['agent']['model']['completion_kwargs'] = api_kwargs
+
+    if provider == 'openai_responses':
+        config['agent']['model']['api_type'] = 'responses'
+        provider = 'openai'
 
     config_path = all_traj_folder / 'config.yaml'
     with open(config_path, 'w') as f:
         yaml.dump(config, f)
     
     agent_run_path = LIVE_BENCH_ROOT_PATH / 'agentic_code_runner/sweagent/agent/run/run.py'
-
-
-
-
 
     if answer_file is not None:
         os.makedirs(os.path.dirname(answer_file), exist_ok=True)
@@ -93,12 +113,10 @@ def run_agentic_coding_inference(
         #     shutil.rmtree(traj_folder)
         traj_folder.mkdir(parents=True, exist_ok=True)
 
-    trajectories = defaultdict(dict)
-    preds = defaultdict(dict)
-
     if parallel == 1:
         for question in questions:
-            if (all_traj_folder / str(question['question_id'])).exists() and len(list((all_traj_folder / str(question['question_id'])).iterdir())) > 0:
+            if (all_traj_folder / str(question['question_id'])).exists() and f"{question['question_id']}.pred" in os.listdir(all_traj_folder / str(question['question_id'])):
+                print(f"Skipping {question['question_id']} because it already exists")
                 continue
             instance_image_id = f"mswebench/{question['org']}_m_{question['repo']}:pr-{question['number']}"
             problem_statement_path = LIVE_BENCH_ROOT_PATH / f'agentic_code_runner/data/problem_statements/{question["question_id"]}'
@@ -136,23 +154,6 @@ def run_agentic_coding_inference(
             print('Running command: ', ' '.join([str(c) for c in cmd]))
 
             subprocess.run(cmd, check=True)
-
-            traj_folder = all_traj_folder / str(question['question_id'])
-
-            pred_file = traj_folder / f"{question['question_id']}.pred"
-            traj_file = traj_folder / f"{question['question_id']}.traj"
-
-            if not pred_file.exists():
-                raise FileNotFoundError(f"Prediction file {pred_file} does not exist")
-            
-            if not traj_file.exists():
-                raise FileNotFoundError(f"Trajectory file {traj_file} does not exist")
-
-            trajectory = json.load(open(traj_file))
-            pred = json.load(open(pred_file))
-
-            trajectories[model_name][question['question_id']] = trajectory
-            preds[model_name][question['question_id']] = pred
     else:
         instances_path = LIVE_BENCH_ROOT_PATH / f'agentic_code_runner/data/instances/{model_name}.jsonl'
         instances_path.parent.mkdir(parents=True, exist_ok=True)
@@ -196,56 +197,59 @@ def run_agentic_coding_inference(
         print('Running command: ', ' '.join([str(c) for c in cmd]))
 
         subprocess.run(cmd, check=True)
-
-        traj_folder = all_traj_folder
-
-        for question in questions:
-            question_traj_folder = traj_folder / str(question['question_id'])
-            pred_file = question_traj_folder / f"{question['question_id']}.pred"
-            traj_file = question_traj_folder / f"{question['question_id']}.traj"
-
-            if not pred_file.exists():
-                raise FileNotFoundError(f"Prediction file {pred_file} does not exist")
-
-            if not traj_file.exists():
-                raise FileNotFoundError(f"Trajectory file {traj_file} does not exist")
-
-            trajectory = json.load(open(traj_file))
-            pred = json.load(open(pred_file))
-
-            trajectories[model_name][question['question_id']] = trajectory
-            preds[model_name][question['question_id']] = pred
             
     for question in questions:
-        final_answer = preds[model_name][question['question_id']]['model_patch']
-        if final_answer is None:
-            final_answer = ""
-
-        run_info = trajectories[model_name][question['question_id']]
-        history = json.dumps(run_info['history'], indent=4)
-
-        total_output_tokens = run_info['info']['model_stats']['tokens_received']
-        total_input_tokens = run_info['info']['model_stats']['tokens_sent']
-        cost = run_info['info']['model_stats']['instance_cost']
-        api_calls = run_info['info']['model_stats']['api_calls']
         
         ans = {
             'question_id': question['question_id'],
             'answer_id': shortuuid.uuid(),
             'model_id': model_name,
-            'choices': [{'turns': [final_answer]}],
             'tstamp': time.time(),
-            'total_output_tokens': total_output_tokens,
-            'total_input_tokens': total_input_tokens,
-            'cost': cost,
-            'api_calls': api_calls,
-            'history': history,
             'api_info': {
                 'provider': provider if provider != 'local' else api_dict['api_base'],
                 'api_name': model_api_name,
-                'api_kwargs': api_kwargs
+                'api_kwargs': orig_api_kwargs
             }
         }
+
+        trajectories = defaultdict(dict)
+        preds = defaultdict(dict)
+
+        traj_folder = all_traj_folder / str(question['question_id'])
+
+        pred_file = traj_folder / f"{question['question_id']}.pred"
+        traj_file = traj_folder / f"{question['question_id']}.traj"
+
+        if not pred_file.exists() or not traj_file.exists():
+            print(f"Prediction file {pred_file} or trajectory file {traj_file} does not exist")
+            ans['choices'] = [{'turns': API_ERROR_OUTPUT}]
+        else:
+            trajectory = json.load(open(traj_file))
+            pred = json.load(open(pred_file))
+
+            trajectories[model_name][question['question_id']] = trajectory
+            preds[model_name][question['question_id']] = pred
+
+            final_answer = preds[model_name][question['question_id']]['model_patch']
+            if final_answer is None:
+                final_answer = ""
+
+            run_info = trajectories[model_name][question['question_id']]
+            history = json.dumps(run_info['history'], indent=4)
+
+            total_output_tokens = run_info['info']['model_stats']['tokens_received']
+            total_input_tokens = run_info['info']['model_stats']['tokens_sent']
+            cost = run_info['info']['model_stats']['instance_cost']
+            api_calls = run_info['info']['model_stats']['api_calls']
+            
+            ans.update({
+                'total_output_tokens': total_output_tokens,
+                'total_input_tokens': total_input_tokens,
+                'cost': cost,
+                'api_calls': api_calls,
+                'history': history,
+                'choices': [{'turns': [final_answer]}]
+            })
 
         if answer_file is not None:
             with open(answer_file, "a") as fout:
