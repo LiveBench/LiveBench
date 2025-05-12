@@ -675,6 +675,7 @@ class DefaultAgent(AbstractAgent):
                 "agent": self.name,
                 "tool_calls": step.tool_calls,
                 "message_type": "action",
+                "reasoning": step.reasoning,
             },
         )
 
@@ -989,10 +990,17 @@ class DefaultAgent(AbstractAgent):
             else:
                 output = self.model.query(history)  # type: ignore
             step.output = output["message"]
+            if output.get("reasoning") is not None:
+                step.reasoning = output["reasoning"]
             # todo: Can't I override the parser in __init__?
             step.thought, step.action = self.tools.parse_actions(output)
             if output.get("tool_calls") is not None:
-                step.tool_call_ids = [call["id"] for call in output["tool_calls"]]
+                step.tool_call_ids = []
+                for call in output["tool_calls"]:
+                    if 'call_id' in call:
+                        step.tool_call_ids.append(call["call_id"])
+                    else:
+                        step.tool_call_ids.append(call["id"])
                 step.tool_calls = output["tool_calls"]
             self.logger.info(f"💭 THOUGHT\n{step.thought}\n\n🎬 ACTION\n{step.action.strip()}")
             self._chook.on_actions_generated(step=step)
@@ -1173,6 +1181,7 @@ class DefaultAgent(AbstractAgent):
                 "state": step.state,
                 "messages": self.messages,
                 "extra_info": step.extra_info,
+                "reasoning": step.reasoning,
             },
         )
         self.trajectory.append(trajectory_step)

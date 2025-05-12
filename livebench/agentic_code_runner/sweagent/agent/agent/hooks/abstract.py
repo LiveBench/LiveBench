@@ -46,6 +46,7 @@ class AbstractAgentHook:
         action: str = "",
         tool_calls: list[dict[str, str]] | None = None,
         tool_call_ids: list[str] | None = None,
+        reasoning: list[dict[str, str]] | None = None,
     ): ...
 
     def on_setup_done(self): ...
@@ -116,6 +117,7 @@ class CombinedAgentHook(AbstractAgentHook):
         action: str = "",
         tool_calls: list[dict[str, str]] | None = None,
         tool_call_ids: list[str] | None = None,
+        reasoning: list[dict[str, str]] | None = None,
     ):
         for hook in self.hooks:
             hook.on_query_message_added(
@@ -128,6 +130,7 @@ class CombinedAgentHook(AbstractAgentHook):
                 action=action,
                 tool_calls=tool_calls,
                 tool_call_ids=tool_call_ids,
+                reasoning=reasoning,
             )
 
     def on_setup_done(self):

@@ -16,6 +16,7 @@ class StepOutput(BaseModel):
     thought: str = ""
     action: str = ""
     output: str = ""
+    reasoning: list[dict[str, str | list[dict[str, str]]]] = []
     observation: str = ""
     execution_time: float = 0.0
     done: bool = False
@@ -31,7 +32,7 @@ class StepOutput(BaseModel):
         """Used for formatting (error) prompt templates"""
         out = {}
         for k, v in self.model_dump().items():
-            if k in ("tool_calls", "tool_call_ids", "state"):
+            if k in ("tool_calls", "tool_call_ids", "state", "reasoning"):
                 continue
             out[k] = v
         out |= self.state
@@ -47,7 +48,7 @@ class TrajectoryStep(TypedDict):
     execution_time: float
     messages: list[dict[str, Any]]
     extra_info: dict[str, Any]
-
+    reasoning: list[dict[str, str | list[dict[str, str]]]]
 
 # required fields go here
 class _HistoryItem(TypedDict):
@@ -66,6 +67,7 @@ class HistoryItem(_HistoryItem, total=False):
     tool_call_ids: list[str] | None
     tags: list[str]
     cache_control: dict[str, Any] | None
+    reasoning: list[dict[str, str | list[dict[str, str]]]] | None
     """HistoryProcessors can add these tags to enable special processing"""
 
 

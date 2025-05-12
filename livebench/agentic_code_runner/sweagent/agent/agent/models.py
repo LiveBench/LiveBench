@@ -14,6 +14,7 @@ from typing import Annotated, Any, Literal
 
 import litellm
 import litellm.types.utils
+import litellm.types.llms.openai
 from pydantic import BaseModel as PydanticBaseModel
 from pydantic import ConfigDict, Field, SecretStr
 from swerex.exceptions import SwerexException
@@ -136,6 +137,13 @@ class GenericAPIModelConfig(PydanticBaseModel):
     Use this for local models or if you want to set a custom max output token limit.
     If this value is exceeded, a `ContextWindowExceededError` will be raised.
     Set this to 0 to disable this check.
+    """
+
+    api_type: Literal["completion", "responses"] = "completion"
+    """The type of API to use.
+    - `completion`: Use the completion API.
+    - `responses`: Use the responses API.
+    This is only used for LiteLLM models or other OpenAI-compatible APIs.
     """
 
     # pydantic
@@ -654,10 +662,9 @@ class LiteLLMModel(AbstractModel):
         with GLOBAL_STATS_LOCK:
             GLOBAL_STATS.last_query_timestamp = time.time()
 
-    def _single_query(
-        self, messages: list[dict[str, str]], n: int | None = None, temperature: float | None = None
-    ) -> list[dict]:
-        self._sleep()
+    def _single_query_completion(
+        self, messages: list[dict[str, str]], n: int | None = None, temperature: float | None = None, completion_kwargs: dict[str, Any] = {}, extra_args: dict[str, Any] = {}
+    ) -> tuple[list[dict], int, int, float]:
         input_tokens: int = litellm.utils.token_counter(messages=messages, model=self.config.name)
         if self.model_max_input_tokens is None:
             msg = (
@@ -668,16 +675,6 @@ class LiteLLMModel(AbstractModel):
         elif input_tokens > self.model_max_input_tokens > 0:
             msg = f"Input tokens {input_tokens} exceed max tokens {self.model_max_input_tokens}"
             raise ContextWindowExceededError(msg)
-        extra_args = {}
-        if self.config.api_base:
-            # Not assigned a default value in litellm, so only pass this if it's set
-            extra_args["api_base"] = self.config.api_base
-        if self.tools.use_function_calling:
-            extra_args["tools"] = self.tools.tools
-        # We need to always set max_tokens for anthropic models
-        completion_kwargs = self.config.completion_kwargs
-        if self.lm_provider == "anthropic":
-            completion_kwargs["max_tokens"] = self.model_max_output_tokens
         try:
             response: litellm.types.utils.ModelResponse = litellm.completion(  # type: ignore
                 model=self.config.name,
@@ -717,9 +714,20 @@ class LiteLLMModel(AbstractModel):
         n_choices = n if n is not None else 1
         outputs = []
         output_tokens = 0
+        got_actual_output_tokens = False
+        if response.usage is not None:
+            if response.usage.completion_tokens is not None:
+                # use the actual amount of output tokens used rather than the estimate if available
+                output_tokens = response.usage.completion_tokens
+                got_actual_output_tokens = True
+            if response.usage.prompt_tokens is not None:
+                # override with the actual amount of input tokens used rather than the estimate
+                input_tokens = response.usage.prompt_tokens
         for i in range(n_choices):
             output = choices[i].message.content or ""
-            output_tokens += litellm.utils.token_counter(text=output, model=self.config.name)
+            if not got_actual_output_tokens:
+                # fallback to estimate if actual amount is not available
+                output_tokens += litellm.utils.token_counter(text=output, model=self.config.name)
             output_dict = {"message": output}
             if self.tools.use_function_calling:
                 if response.choices[i].message.tool_calls:  # type: ignore
@@ -728,6 +736,183 @@ class LiteLLMModel(AbstractModel):
                     tool_calls = []
                 output_dict["tool_calls"] = tool_calls
             outputs.append(output_dict)
+        return outputs, input_tokens, output_tokens, cost
+
+    def _single_query_responses(
+        self, messages: list[dict[str, str]], n: int | None = None, temperature: float | None = None, completion_kwargs: dict[str, Any] = {}, extra_args: dict[str, Any] = {}
+    ) -> tuple[list[dict], int, int, float]:
+        input_tokens: int = litellm.utils.token_counter(messages=[{k: v for k, v in message.items() if k != 'reasoning'} for message in messages], model=self.config.name)
+        if self.model_max_input_tokens is None:
+            msg = (
+                f"No max input tokens found for model {self.config.name!r}. "
+                "If you are using a local model, you can set `max_input_token` in the model config to override this."
+            )
+            self.logger.warning(msg)
+        elif input_tokens > self.model_max_input_tokens > 0:
+            msg = f"Input tokens {input_tokens} exceed max tokens {self.model_max_input_tokens}"
+            raise ContextWindowExceededError(msg)
+        if n is not None:
+            self.logger.warning(f"Responses API does not support n > 1, ignoring n={n}")
+        system_messages = [message for message in messages if message["role"] == "system"]
+        messages = [message for message in messages if message["role"] != "system"]
+        actual_messages = []
+        for message in messages:
+            if message['role'] == 'user':
+                actual_messages.append(message)
+            elif message['role'] == 'assistant':
+                if message.get('reasoning', None) is not None:
+                    for reasoning in message['reasoning']:
+                        msg = {
+                            'type': 'reasoning',
+                            'summary': reasoning['summary'],
+                            'encrypted_content': reasoning['encrypted_content'],
+                            'id': reasoning['id']
+                        }
+                        actual_messages.append(msg)
+                if message.get('tool_calls', None) is not None:
+                    for tool_call in message['tool_calls']:
+                        msg = {
+                            'type': 'function_call',
+                            'id': tool_call['id'],
+                            'call_id': tool_call['call_id'],
+                            'name': tool_call['function']['name'],
+                            'arguments': tool_call['function']['arguments']
+                        }
+                        actual_messages.append(msg)
+                if message['content'] != '':
+                    msg = {
+                        'role': 'assistant',
+                        'content': message['content']
+                    }
+                    actual_messages.append(msg)
+
+            elif message['role'] == 'tool':
+                msg = {
+                    'type': 'function_call_output',
+                    'call_id': message['tool_call_id'],
+                    'output': message['content']
+                }
+                actual_messages.append(msg)
+                
+        if 'reasoning' in completion_kwargs:
+            completion_kwargs['reasoning'].update({'summary': 'auto'}) # always get reasoning summary
+        if 'tools' in extra_args:
+            new_tools = []
+            for tool in extra_args['tools']:
+                new_tool_obj = {
+                    'type': 'function',
+                    'name': tool['function']['name'],
+                    'description': tool['function']['description'],
+                    'parameters': tool['function']['parameters'],
+                }
+                new_tools.append(new_tool_obj)
+            extra_args['tools'] = new_tools
+        try:
+            response: litellm.types.llms.openai.ResponsesAPIResponse = litellm.responses(
+                model=self.config.name,
+                input=actual_messages,
+                instructions=system_messages[0]['content'] if system_messages else None,
+                temperature=self.config.temperature if temperature is None else temperature,
+                top_p=self.config.top_p,
+                api_version=self.config.api_version,
+                api_key=self.config.choose_api_key(),
+                fallbacks=self.config.fallbacks,
+                store=False,
+                include=['reasoning.encrypted_content'],
+                parallel_tool_calls=False,
+                **completion_kwargs,
+                **extra_args,
+            )
+        except litellm.exceptions.ContextWindowExceededError as e:
+            raise ContextWindowExceededError from e
+        except litellm.exceptions.ContentPolicyViolationError as e:
+            raise ContentPolicyViolationError from e
+        except litellm.exceptions.BadRequestError as e:
+            if "is longer than the model's context length" in str(e):
+                raise ContextWindowExceededError from e
+            raise
+        self.logger.info(f"Response: {response}")
+        try:
+            cost = litellm.cost_calculator.completion_cost(response)
+        except Exception as e:
+            self.logger.debug(f"Error calculating cost: {e}, setting cost to 0.")
+            if self.config.per_instance_cost_limit > 0 or self.config.total_cost_limit > 0:
+                msg = (
+                    f"Error calculating cost: {e} for your model {self.config.name}. If this is ok "
+                    "(local models, etc.), please make sure you set `per_instance_cost_limit` and "
+                    "`total_cost_limit` to 0 to disable this safety check."
+                )
+                self.logger.error(msg)
+                raise ModelConfigurationError(msg)
+            cost = 0
+        
+        got_actual_output_tokens = False
+        output_tokens = 0
+        if response.usage is not None:
+            input_tokens = response.usage.input_tokens
+            output_tokens = response.usage.output_tokens
+            got_actual_output_tokens = True
+
+        output = {
+            'message': '',
+        }
+
+        for output_item in response.output:
+            if output_item.type == 'message':
+                output['message'] += output_item.content[0].text
+                if not got_actual_output_tokens:
+                    output_tokens += litellm.utils.token_counter(text=output_item.content[0].text, model=self.config.name)
+            elif output_item.type == 'function_call':
+                if not self.tools.use_function_calling:
+                    raise ValueError("Received function call but function calling is not enabled for this model")
+                tool_call = output_item.to_dict()
+                tool_call['function'] = {
+                    'name': tool_call['name'],
+                    'arguments': tool_call['arguments']
+                }
+                del tool_call['name']
+                del tool_call['arguments']
+                if 'tool_calls' not in output:
+                    output['tool_calls'] = []
+                output['tool_calls'].append(tool_call)
+            elif output_item.type == 'reasoning':
+                if 'reasoning' not in output:
+                    output['reasoning'] = []
+                output['reasoning'].append(output_item.to_dict())
+            else:
+                raise ValueError(f"Invalid output item type: {output_item.type}")
+
+        if output['message'] == '' and len(output['reasoning']) > 0:
+            summary_text = ''
+            for reasoning in output['reasoning']:
+                if reasoning.get('summary') is not None and len(reasoning['summary']) > 0:
+                    for summary in reasoning['summary']:
+                        summary_text += summary['text']
+            output['message'] = summary_text
+
+        return [output], input_tokens, output_tokens, cost
+        
+    def _single_query(
+        self, messages: list[dict[str, str]], n: int | None = None, temperature: float | None = None
+    ) -> list[dict]:
+        self._sleep()
+        extra_args = {}
+        if self.config.api_base:
+            # Not assigned a default value in litellm, so only pass this if it's set
+            extra_args["api_base"] = self.config.api_base
+        if self.tools.use_function_calling:
+            extra_args["tools"] = self.tools.tools
+        # We need to always set max_tokens for anthropic models
+        completion_kwargs = self.config.completion_kwargs
+        if self.lm_provider == "anthropic":
+            completion_kwargs["max_tokens"] = self.model_max_output_tokens
+        self.logger.debug(f"completion_kwargs: {completion_kwargs}")
+        if self.config.api_type == "completion":
+            outputs, input_tokens, output_tokens, cost = self._single_query_completion(messages, n=n, temperature=temperature, completion_kwargs=completion_kwargs, extra_args=extra_args)
+        elif self.config.api_type == "responses":
+            outputs, input_tokens, output_tokens, cost = self._single_query_responses(messages, n=n, temperature=temperature, completion_kwargs=completion_kwargs, extra_args=extra_args)
+        else:
+            raise ValueError(f"Invalid API type: {self.config.api_type}")
         self._update_stats(input_tokens=input_tokens, output_tokens=output_tokens, cost=cost)
         return outputs
 
@@ -750,6 +935,7 @@ class LiteLLMModel(AbstractModel):
             if attempt.retry_state.outcome is not None and attempt.retry_state.outcome.exception() is not None:
                 exception = attempt.retry_state.outcome.exception()
                 exception_info = f" due to {exception.__class__.__name__}: {str(exception)}"
+                self.logger.warning("Traceback:", exc_info=exception)
 
             self.logger.warning(
                 f"Retrying LM query: attempt {attempt.retry_state.attempt_number} "
@@ -811,6 +997,8 @@ class LiteLLMModel(AbstractModel):
                 message = {"role": role, "content": history_item["content"], "tool_calls": tool_calls}
             else:
                 message = {"role": role, "content": history_item["content"]}
+            if 'reasoning' in history_item:
+                message['reasoning'] = history_item['reasoning']
             if "cache_control" in history_item:
                 message["cache_control"] = history_item["cache_control"]
             messages.append(message)
