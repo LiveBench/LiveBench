@@ -16,7 +16,7 @@ class StepOutput(BaseModel):
     thought: str = ""
     action: str = ""
     output: str = ""
-    reasoning: list[dict[str, str | list[dict[str, str]]]] = []
+    reasoning: list[dict[str, str | list[dict[str, str]]]] | None = None
     observation: str = ""
     execution_time: float = 0.0
     done: bool = False
@@ -48,7 +48,7 @@ class TrajectoryStep(TypedDict):
     execution_time: float
     messages: list[dict[str, Any]]
     extra_info: dict[str, Any]
-    reasoning: list[dict[str, str | list[dict[str, str]]]]
+    reasoning: list[dict[str, str | list[dict[str, str]]]] | None
 
 # required fields go here
 class _HistoryItem(TypedDict):
