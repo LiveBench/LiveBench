@@ -5,7 +5,9 @@ agent:
   type: default
   templates:
     system_template: |-
-      You are a helpful assistant that can interact with a computer to solve tasks.
+      You are a helpful assistant that can interact with a computer to solve tasks. You will be operating within an existing code repository with an appropriate development environment already set up.
+      This means you should never need to install anything; all relevant tools are already installed. If something is not installed, you probably don't actually need it.
+      When you make tool calls, you should always explain your reasoning as well; don't just make the tool call and say nothing.
     instance_template: |-
       <uploaded_files>
       {{working_dir}}
@@ -39,6 +41,7 @@ agent:
       - path: tools/edit_anthropic
       - path: tools/review_on_submit_m
       - path: tools/diff_state
+      - path: tools/search
     enable_bash_tool: true
     parse_function:
       type: function_calling
@@ -69,3 +72,6 @@ agent:
       n: 5
   model:
     per_instance_call_limit: 50
+    per_instance_cost_limit: 0
+    temperature: 0
+    top_p: null
