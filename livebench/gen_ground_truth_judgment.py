@@ -353,7 +353,7 @@ def gen_judgments(
     elif "agentic_coding" in bench_name:
         for model_id in models: # TODO: parallelize at the model level too
             eval_result = agentic_coding_process_results(questions, list(model_answers[model_id].values()), debug=debug, max_workers=parallel)
-            for question_id in eval_result:
+            for question_id in sorted(eval_result.keys()):
                 model_answer = model_answers[model_id][question_id]
                 result = {
                     "question_id": question_id,
