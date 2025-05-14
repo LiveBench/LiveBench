@@ -169,7 +169,7 @@ def run_questions(
             # pull default kwargs for model
             api_kwargs = model_config.api_kwargs['default']
         if provider in model_config.api_kwargs:
-            # update with local-specific kwargs
+            # update with provider-specific kwargs
             api_kwargs.update(model_config.api_kwargs[provider])
 
     if provider == 'local':
@@ -181,6 +181,9 @@ def run_questions(
     print('Evaluating ', len(questions), ' questions in ', bench_name, ' with model ', model_api_name)
    
     if bench_name == "live_bench/coding/agentic_coding":
+        if model_config.litellm_provider and provider in model_config.litellm_provider:
+            provider = model_config.litellm_provider[provider]
+
         run_agentic_coding_inference(
             questions=questions,
             model_api_name=model_api_name,

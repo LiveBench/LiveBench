@@ -133,6 +133,8 @@ prompt_prefix: "Formatting reenabled"
 display_name: o3-mini-2025-01-31-high
 api_name:
   openai: o3-mini-2025-01-31
+  openai_responses: o3-mini-2025-01-31
+default_provider: openai_responses
 aliases:
   - o3-mini-high
   - o3-mini
@@ -141,31 +143,50 @@ api_kwargs:
   default:
     temperature: null
     max_completion_tokens: null
+  openai:
     reasoning_effort: high
+  openai_responses:
+    reasoning:
+      effort: high
+      summary: auto
 prompt_prefix: "Formatting reenabled"
 ---
 display_name: o3-mini-2025-01-31-low
 api_name:
   openai: o3-mini-2025-01-31
+  openai_responses: o3-mini-2025-01-31
+default_provider: openai_responses
 aliases:
   - o3-mini-low
 api_kwargs:
   default:
     temperature: null
     max_completion_tokens: null
+  openai:
     reasoning_effort: low
+  openai_responses:
+    reasoning:
+      effort: low
+      summary: auto
 prompt_prefix: "Formatting reenabled"
 ---
 display_name: o3-mini-2025-01-31-medium
 api_name:
   openai: o3-mini-2025-01-31
+  openai_responses: o3-mini-2025-01-31
+default_provider: openai_responses
 aliases:
   - o3-mini-medium
 api_kwargs:
   default:
     temperature: null
     max_completion_tokens: null
+  openai:
     reasoning_effort: medium
+  openai_responses:
+    reasoning:
+      effort: medium
+      summary: auto
 prompt_prefix: "Formatting reenabled"
 ---
 display_name: o1-pro-2025-03-19
@@ -201,6 +222,8 @@ aliases:
 display_name: o3-2025-04-16-high
 api_name:
   openai: o3-2025-04-16
+  openai_responses: o3-2025-04-16
+default_provider: openai_responses
 aliases:
   - o3-high
   - o3-2025-04-16-high
@@ -208,12 +231,19 @@ api_kwargs:
   default:
     temperature: null
     max_completion_tokens: null
+  openai:
     reasoning_effort: high
+  openai_responses:
+    reasoning:
+      effort: high
+      summary: auto
 prompt_prefix: "Formatting reenabled"
 ---
 display_name: o3-2025-04-16-medium
 api_name:
   openai: o3-2025-04-16
+  openai_responses: o3-2025-04-16
+default_provider: openai_responses
 aliases:
   - o3-medium
   - o3-2025-04-16-medium
@@ -221,12 +251,19 @@ api_kwargs:
   default:
     temperature: null
     max_completion_tokens: null
+  openai:
     reasoning_effort: medium
+  openai_responses:
+    reasoning:
+      effort: medium
+      summary: auto
 prompt_prefix: "Formatting reenabled"
 ---
 display_name: o4-mini-2025-04-16-high
 api_name:
+  openai: o4-mini-2025-04-16
   openai_responses: o4-mini-2025-04-16
+default_provider: openai_responses
 aliases:
   - o4-mini-high
 api_kwargs:
@@ -244,11 +281,18 @@ prompt_prefix: "Formatting reenabled"
 display_name: o4-mini-2025-04-16-medium
 api_name:
   openai: o4-mini-2025-04-16
+  openai_responses: o4-mini-2025-04-16
+default_provider: openai_responses
 aliases:
   - o4-mini-medium
 api_kwargs:
   default:
     temperature: null
     max_completion_tokens: null
+  openai:
     reasoning_effort: medium
+  openai_responses:
+    reasoning:
+      effort: medium
+      summary: auto
 prompt_prefix: "Formatting reenabled"
