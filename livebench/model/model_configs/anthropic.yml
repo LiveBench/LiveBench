@@ -42,6 +42,8 @@ api_kwargs:
       budget_tokens: 25000
     max_tokens: 32000
     temperature: 1
+    extra_headers:
+      anthropic-beta: output-128k-2025-02-19
 ---
 display_name: claude-3-7-sonnet-20250219-thinking-64k
 api_name:
@@ -56,6 +58,8 @@ api_kwargs:
       budget_tokens: 63000
     max_tokens: 64000
     temperature: 1
+    extra_headers:
+      anthropic-beta: output-128k-2025-02-19
 ---
 display_name: claude-3-7-sonnet-20250219-base
 api_name:
@@ -63,3 +67,7 @@ api_name:
 aliases:
   - claude-3-7-sonnet-base
   - claude-3-7-sonnet
+api_kwargs:
+  default:
+    extra_headers:
+      anthropic-beta: output-128k-2025-02-19
