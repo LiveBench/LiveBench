@@ -63,6 +63,8 @@ def run_agentic_coding_inference(
     base_config_path = LIVE_BENCH_ROOT_PATH / 'agentic_code_runner/sweagent/config/livebench.yaml'
     config = yaml.safe_load(open(base_config_path))
 
+    # swe-agent has temperature and top p as top-level config keys so we set them here
+    # and don't pass them as extra completion kwargs
     if 'temperature' in api_kwargs:
         if api_kwargs['temperature'] is not None:
             config['agent']['model']['temperature'] = api_kwargs['temperature']
@@ -82,6 +84,8 @@ def run_agentic_coding_inference(
     if provider == 'openai_responses':
         config['agent']['model']['api_type'] = 'responses'
         provider = 'openai'
+    elif provider == 'google':
+        provider = 'gemini'
 
     config_path = all_traj_folder / 'config.yaml'
     with open(config_path, 'w') as f:
@@ -178,6 +182,8 @@ def run_agentic_coding_inference(
             'python',
             agent_run_path,
             'run-batch',
+            '--agent.model.name',
+            provider + '/' + model_api_name,
             '--instances.type',
             'file',
             '--instances.path',
@@ -188,8 +194,6 @@ def run_agentic_coding_inference(
             env_var_path,
             '--num_workers',
             str(parallel),
-            '--redo_existing',
-            'true',
             '--output_dir',
             all_traj_folder
         ]
@@ -203,6 +207,7 @@ def run_agentic_coding_inference(
         ans = {
             'question_id': question['question_id'],
             'answer_id': shortuuid.uuid(),
+            'run_id': run_id,
             'model_id': model_name,
             'tstamp': time.time(),
             'api_info': {
