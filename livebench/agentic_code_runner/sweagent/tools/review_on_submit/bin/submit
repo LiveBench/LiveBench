@@ -21,7 +21,7 @@ def main() -> None:
     patch_path = Path("/root/model.patch")
 
     subprocess.run(
-        f"git add -A && git diff --cached > {patch_path}",
+        f"git add -A && git diff --cached -- ':(exclude).gitignore' > {patch_path}",
         shell=True,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
