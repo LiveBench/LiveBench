@@ -427,6 +427,8 @@ def filter_questions(questions, answer_file, resume=False, retry_failures=False)
     if not os.path.exists(answer_file):
         # If not, try to find a case-insensitive match
         answer_dir = os.path.dirname(answer_file)
+        if not os.path.exists(answer_dir):
+            Path(answer_dir).mkdir(parents=True, exist_ok=True)
         answer_basename = os.path.basename(answer_file)
         if answer_dir:
             dir_files = os.listdir(answer_dir)

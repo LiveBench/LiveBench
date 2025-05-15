@@ -784,7 +784,7 @@ class LiteLLMModel(AbstractModel):
                         msg = {
                             'type': 'function_call',
                             'id': tool_call['id'],
-                            'call_id': tool_call['call_id'],
+                            'call_id': tool_call['call_id'] if tool_call.get('call_id', None) is not None else tool_call['id'],
                             'name': tool_call['function']['name'],
                             'arguments': tool_call['function']['arguments']
                         }

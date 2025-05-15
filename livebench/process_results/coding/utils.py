@@ -250,6 +250,7 @@ def agentic_coding_process_results(questions: list[dict], answers: list[dict], d
         question = [q for q in questions if f"{q['org']}/{q['repo']}:pr-{q['number']}" == instance_id][0]
         question_id = question['question_id']
         result[question_id] = 1 if instance_id in report['resolved_ids'] else 0
+        answer = [a for a in answers if a['question_id'] == question_id][0]
         if debug and result[question_id] == 0:
             if instance_id in report['unresolved_ids']:
                 print(f"INCORRECT, {model_name} {question_id} ({instance_id})")
@@ -259,6 +260,7 @@ def agentic_coding_process_results(questions: list[dict], answers: list[dict], d
                 print(f"EMPTY PATCH, {model_name} {question_id} ({instance_id})")
             elif instance_id in report['error_ids']:
                 print(f"ERROR, {model_name} {question_id} ({instance_id})")
+            print('RUN ID', answer['run_id'])
     
     assert len(result) == total_instances
     assert resolved_instances == sum(result.values())

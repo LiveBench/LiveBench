@@ -13,6 +13,7 @@ import glob
 import shortuuid
 import tqdm
 
+from livebench.model.api_model_config import AgentConfig
 from livebench.agentic_code_runner.sweagent.run_inference import run_agentic_coding_inference
 from livebench.common import (
     LIVE_BENCH_RELEASES,
@@ -181,9 +182,19 @@ def run_questions(
     print('Evaluating ', len(questions), ' questions in ', bench_name, ' with model ', model_api_name)
    
     if bench_name == "live_bench/coding/agentic_coding":
-        if model_config.litellm_provider and provider in model_config.litellm_provider:
-            provider = model_config.litellm_provider[provider]
-
+        agent_config = None
+        if model_config.agent_config is not None:
+            agent_config: AgentConfig = {}
+            if 'default' in model_config.agent_config:
+                agent_config = model_config.agent_config['default']
+                print(agent_config)
+            if provider in model_config.agent_config:
+                agent_config.update(model_config.agent_config[provider])
+                print(agent_config)
+            if 'litellm_provider' in agent_config:
+                provider = agent_config['litellm_provider']
+                del agent_config['litellm_provider']
+            
         run_agentic_coding_inference(
             questions=questions,
             model_api_name=model_api_name,
@@ -192,10 +203,10 @@ def run_questions(
             num_choices=num_choices,
             model_api_kwargs=api_kwargs,
             api_dict=api_dict,
-            stream=stream,
             model_display_name_override=model_display_name_override,
             answer_file=answer_file,
-            parallel=parallel
+            parallel=parallel,
+            agent_config=agent_config
         )
     elif parallel == 1:
         for question in tqdm.tqdm(questions):
