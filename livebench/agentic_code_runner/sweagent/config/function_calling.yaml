@@ -39,6 +39,8 @@ agent:
       Remember, you should always include a _SINGLE_ tool call/function call and then wait for a response from the shell before continuing with more discussion and commands. Everything you include in the DISCUSSION section will be saved for future reference.
       If you'd like to issue two commands at once, PLEASE DO NOT DO THAT! Please instead first submit just the first tool call, and then after receiving a response you'll be able to issue the second .
       Note that the environment does NOT support interactive session commands (e.g. python, vim), so please do not invoke them.
+      This also applies to any commands that request your input - they will NOT work! Make sure that any bash command you run is called with the
+      correct arguments so that it will just run, complete, and output a result.
     instance_template: |-
       We're currently solving the following issue within our repository. Here's the issue text:
       <issue_description>
