@@ -73,5 +73,6 @@ agent:
   model:
     per_instance_call_limit: 50
     per_instance_cost_limit: 0
+    total_cost_limit: 0
     temperature: 0
     top_p: null

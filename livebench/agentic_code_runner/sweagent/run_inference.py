@@ -1,19 +1,31 @@
-import getpass
 import json
 import os
-import shutil
 import subprocess
 import time
 
 import shortuuid
 import yaml
 
+from livebench.model.api_model_config import AgentConfig
 from livebench.common import LIVE_BENCH_ROOT_PATH
 from livebench.agentic_code_runner.eval.utils import docker_util
 from livebench.process_results.coding.utils import agentic_coding_process_results
 from livebench.model.completions import API_ERROR_OUTPUT
 
 from collections import defaultdict
+
+import litellm
+
+def update_dict_recursively(d1, d2):
+    """
+    Recursively update dict d1 with dict d2
+    """
+    for k, v in d2.items():
+        if k in d1 and isinstance(d1[k], dict) and isinstance(v, dict):
+            update_dict_recursively(d1[k], v)
+        else:
+            d1[k] = v
+    return d1
 
 # python agentic_code_runner/sweagent/agent/run/run.py run --agent.model.name anthropic/claude-3-5-sonnet-20241022 --env.deployment.image mswebench/ponylang_m_ponyc:pr-4583 --env.repo.path agentic_code_runner/data/repos/ponylang/ponyc --problem_statement.text "make a small change to some file in the repo (just add a meaningless comment somewhere)" --config agentic_code_runner/sweagent/config/livebench.yaml --problem_statement.id test --env_var_path .env
 def run_agentic_coding_inference(
@@ -24,10 +36,10 @@ def run_agentic_coding_inference(
     num_choices: int,
     model_api_kwargs: dict[str, str] | None = None,
     api_dict: dict[str, str] | None = None,
-    stream: bool = False,
     model_display_name_override: str | None = None,
     answer_file: str | None = None,
-    parallel: int = 1
+    parallel: int = 1,
+    agent_config: AgentConfig | None = None
 ):
     if force_temperature is not None:
         temperature = force_temperature
@@ -60,8 +72,19 @@ def run_agentic_coding_inference(
     all_traj_folder = LIVE_BENCH_ROOT_PATH / f"agentic_code_runner/data/trajectories" / run_id
     all_traj_folder.mkdir(parents=True, exist_ok=True)
 
-    base_config_path = LIVE_BENCH_ROOT_PATH / 'agentic_code_runner/sweagent/config/livebench.yaml'
+    base_config_path = LIVE_BENCH_ROOT_PATH / 'agentic_code_runner/sweagent/config/livebench_base.yaml'
+    function_calling_config_path = LIVE_BENCH_ROOT_PATH / 'agentic_code_runner/sweagent/config/function_calling.yaml'
+    thought_action_config_path = LIVE_BENCH_ROOT_PATH / 'agentic_code_runner/sweagent/config/thought_action.yaml'
     config = yaml.safe_load(open(base_config_path))
+
+    if (agent_config is not None and agent_config.get('supports_function_calling')) or (litellm.utils.supports_function_calling(model=model_api_name) or litellm.utils.supports_function_calling(model=provider + '/' + model_api_name)):
+        function_calling_config = yaml.safe_load(open(function_calling_config_path))
+        update_dict_recursively(config, function_calling_config)
+        print("Using function calling config")
+    else:
+        thought_action_config = yaml.safe_load(open(thought_action_config_path))
+        update_dict_recursively(config, thought_action_config)
+        print("Using thought action config")
 
     # swe-agent has temperature and top p as top-level config keys so we set them here
     # and don't pass them as extra completion kwargs
@@ -78,6 +101,11 @@ def run_agentic_coding_inference(
         else:
             config['agent']['model']['top_p'] = None
         del api_kwargs['top_p']
+
+    if agent_config is not None:
+        if 'litellm_provider' in agent_config:
+            del agent_config['litellm_provider']
+        config['agent']['model'].update(agent_config)
 
     config['agent']['model']['completion_kwargs'] = api_kwargs
 
