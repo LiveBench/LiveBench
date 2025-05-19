@@ -57,8 +57,8 @@ def check_errors(bench_names: list[str] | None = None, model_names: list[str] | 
                     try:
                         data = json.loads(line)
                         
-                        # Check for "ERROR" in the content
-                        if "ERROR" in str(data):
+                        # Check for the api error response in the content
+                        if "$ERROR$" in str(data):
                             question_id = data.get('question_id', 'Unknown')
                             results[model_name][full_task].append({
                                 'line': line_num,
