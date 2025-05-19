@@ -50,7 +50,15 @@ api_name:
 api_kwargs:
   default:  
     temperature: 0.7
+    top_p: 0.95
     max_tokens: 64000
+agent_config:
+  default:
+    max_input_tokens: 128000
+    convert_system_to_user: true
+  together:
+    litellm_provider: together_ai
+    max_output_tokens: 32768
 ---
 display_name: deepseek-r1-distill-qwen-32b
 api_name:
