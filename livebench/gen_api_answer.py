@@ -178,8 +178,8 @@ def run_questions(
         assert 'api_base' in api_dict, "Missing API base for local model"
 
     model_api_name = model_config.api_name[provider] if provider in model_config.api_name else model_config.display_name
-   
-    print('Evaluating ', len(questions), ' questions in ', bench_name, ' with model ', model_api_name)
+    print('Model API name: ', model_api_name)
+    print('Evaluating ', len(questions), ' questions in ', bench_name, ' with model ', model_config.display_name)
    
     if bench_name == "live_bench/coding/agentic_coding":
         agent_config = None
@@ -187,10 +187,8 @@ def run_questions(
             agent_config: AgentConfig = {}
             if 'default' in model_config.agent_config:
                 agent_config = model_config.agent_config['default']
-                print(agent_config)
             if provider in model_config.agent_config:
                 agent_config.update(model_config.agent_config[provider])
-                print(agent_config)
             if 'litellm_provider' in agent_config:
                 provider = agent_config['litellm_provider']
                 del agent_config['litellm_provider']
