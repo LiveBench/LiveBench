@@ -446,7 +446,7 @@ def filter_questions(questions, answer_file, resume=False, retry_failures=False)
         for line in fin:
             ans = json.loads(line)
             qid = ans["question_id"]
-            error = ans["choices"][0]["turns"][0] == API_ERROR_OUTPUT
+            error = ans["choices"][0]["turns"][0] == API_ERROR_OUTPUT or ans['choices'][0]['turns'] == API_ERROR_OUTPUT
             if qid in new_questions_ids and (resume or retry_failures) and not error:
                 new_questions_ids.remove(qid)
             elif qid in new_questions_ids and error and resume and not retry_failures:
