@@ -170,6 +170,11 @@ class XMLThoughtActionParser(AbstractParseFunction, BaseModel):
     error_message: str = dedent("""\
     Your output was not formatted correctly. You must always include one discussion and one command as part of your response. Make sure you do not have multiple discussion/command tags.
     Please make sure your output precisely matches the following format:
+
+    THOUGHT
+    <command>
+    ACTION
+    </command>
     """)
 
     type: Literal["xml_thought_action"] = "xml_thought_action"
@@ -366,7 +371,7 @@ class FunctionCallingParser(AbstractParseFunction, BaseModel):
     You must invoke the function directly using the function call format.
     You cannot invoke commands with ```, you have to use the function call format.
     If you think you have already resolved the issue, please submit your changes by running the `submit` command.
-    If you think you cannot solve the problem, please run `exit_forfeit` (if available) or `submit`.
+    If you think you cannot solve the problem, please run `submit`.
     Else, please continue with a new tool call!
     {%- elif error_code == "multiple" -%}
     Your last output included multiple tool calls!
@@ -407,6 +412,7 @@ class FunctionCallingParser(AbstractParseFunction, BaseModel):
         if extra_args:
             msg = f"Unexpected argument(s): {', '.join(extra_args)}"
             raise FunctionCallingFormatError(msg, "unexpected_arg")
+
         formatted_args = {
             arg.name: Template(arg.argument_format).render(
                 value=quote(values[arg.name]) if _should_quote(values[arg.name], command) else values[arg.name]

@@ -29,14 +29,18 @@ agent:
 
       You should only include a *SINGLE* command in the command section and then wait for a response from the shell before continuing with more discussion and commands. Everything you include in the DISCUSSION section (i.e., the text before the command) will be saved for future reference.
       If you'd like to issue two commands at once, PLEASE DO NOT DO THAT! Please instead first submit just the first command, and then after receiving a response you'll be able to issue the second command.
+      ONLY the final <command></command> tag will be parsed as a command and executed; any other ones WILL BE IGNORED!
       You're free to use any other bash commands you want (e.g. find, grep, cat, ls, cd) in addition to the special commands listed above.
       However, the environment does NOT support interactive session commands (e.g. python, vim), so please do not invoke them.
       This also applies to any commands that request your input - they will NOT work! Make sure that any bash command you run is called with the
       correct arguments so that it will just run, complete, and output a result.
+
+      DO NOT attempt to chain commands togther using && or ||, unless all chained commands are pure bash commands (e.g. `cd .. && ls` is okay, but `cd .. && open` will NOT work).
     instance_template: |-
       We're currently solving the following issue within our repository. Here's the issue text:
-      ISSUE:
+      <issue_description>
       {{problem_statement}}
+      </issue_description>
 
       INSTRUCTIONS:
       Now, you're going to solve this issue on your own. Your terminal session has started and you're in the repository's root directory. You can use any bash commands or the special interface to help you. Edit all the files you need to and run any checks or tests that you want.
@@ -79,9 +83,6 @@ agent:
       (Open file: {{open_file}})
       (Current directory: {{working_dir}})
       bash-$
-    demonstrations:
-      - demonstrations/thought_action.traj
-    put_demos_in_history: true
   tools:
     parse_function:
       type: xml_thought_action
