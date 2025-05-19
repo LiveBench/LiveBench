@@ -662,9 +662,13 @@ class LiteLLMModel(AbstractModel):
         with GLOBAL_STATS_LOCK:
             GLOBAL_STATS.last_query_timestamp = time.time()
 
-    def prepare_anthropic_reasoning_messages(self, messages: list[dict[str, str]]) -> list[dict[str, str]]:
+    def prepare_reasoning_messages(self, messages: list[dict[str, str]], concat_last_reasoning: bool = False) -> list[dict[str, str]]:
         actual_messages = []
-        for message in messages:
+        last_reasoning_index = None
+        for i, message in enumerate(messages):
+            if message['role'] == 'assistant' and message.get('reasoning', None) is not None:
+                last_reasoning_index = i
+        for i, message in enumerate(messages):
             if message['role'] != 'assistant':
                 actual_messages.append(message)
             else:
@@ -673,7 +677,21 @@ class LiteLLMModel(AbstractModel):
                     'content': message['content']
                 }
                 if message.get('reasoning', None) is not None:
-                    msg['thinking_blocks'] = message['reasoning']
+                    if isinstance(message['reasoning'], list) and len(message['reasoning']) > 0 and isinstance(message['reasoning'][0], dict):
+                        # for anthropic reasoning, include all reasoning blocks
+                        if not concat_last_reasoning:
+                            msg['thinking_blocks'] = message['reasoning']
+                        elif i == last_reasoning_index:
+                            reasoning_content = ''
+                            for block in message['reasoning']:
+                                reasoning_content += block['thinking'] + '\n'
+                            msg['content'] = '<think>' + reasoning_content + '</think> ' + msg['content']
+                    elif message.get('reasoning', None) is not None and isinstance(message['reasoning'], str):
+                        # for other models, only include the last one
+                        if i == last_reasoning_index:
+                            msg['content'] = '<think>' + message['reasoning'] + '</think> ' + msg['content']
+                    else:
+                        raise ValueError(f"Unknown reasoning format: {message['reasoning']}")
                 if message.get('tool_calls', None) is not None:
                     msg['tool_calls'] = message['tool_calls']
                 actual_messages.append(msg)
@@ -683,9 +701,7 @@ class LiteLLMModel(AbstractModel):
         self, messages: list[dict[str, str]], n: int | None = None, temperature: float | None = None, completion_kwargs: dict[str, Any] = {}, extra_args: dict[str, Any] = {}
     ) -> tuple[list[dict], int | None, int, float]:
         input_tokens = None
-        actual_messages = messages
-        if 'claude-3-7-sonnet' in self.config.name:
-            actual_messages = self.prepare_anthropic_reasoning_messages(messages)
+        actual_messages = self.prepare_reasoning_messages(messages)
         try:
             response: litellm.types.utils.ModelResponse = litellm.completion(  # type: ignore
                 model=self.config.name,
@@ -708,6 +724,8 @@ class LiteLLMModel(AbstractModel):
                 raise ContextWindowExceededError from e
             raise
         self.logger.info(f"Response: {response}")
+        if response.model != self.config.name:
+            response.model = self.config.name
         try:
             cost = litellm.cost_calculator.completion_cost(response)
         except Exception as e:
@@ -744,6 +762,8 @@ class LiteLLMModel(AbstractModel):
                 output_dict['reasoning'] = []
                 for block in choices[i].message.thinking_blocks:
                     output_dict['reasoning'].append(block)
+            elif hasattr(choices[i].message, 'reasoning_content'):
+                output_dict['reasoning'] = choices[i].message.reasoning_content
             if not got_actual_output_tokens:
                 # fallback to estimate if actual amount is not available
                 output_tokens += litellm.utils.token_counter(text=output, model=self.config.name)
@@ -892,7 +912,7 @@ class LiteLLMModel(AbstractModel):
             else:
                 raise ValueError(f"Invalid output item type: {output_item.type}")
 
-        if output['message'] == '' and len(output['reasoning']) > 0:
+        if output['message'] == '' and len(output.get('reasoning', [])) > 0:
             summary_text = ''
             for reasoning in output['reasoning']:
                 if reasoning.get('summary') is not None and len(reasoning['summary']) > 0:
@@ -913,7 +933,29 @@ class LiteLLMModel(AbstractModel):
         if self.tools.use_function_calling:
             extra_args["tools"] = self.tools.tools
 
-        input_tokens: int = litellm.utils.token_counter(messages=[{k: v for k, v in message.items() if k != 'reasoning'} for message in messages], model=self.config.name)
+        messages_for_token_counter = messages
+        # if 'claude-3-7-sonnet' in self.config.name and 'thinking' in self.config.completion_kwargs:
+        #     # messages_for_token_counter = []
+        #     for message in messages:
+        #         if message['role'] == 'assistant':
+        #             new_msg = {
+        #                 'role': message['role'],
+        #                 'content': []
+        #             }
+        #             if message.get('reasoning', None):
+        #                 for thinking_block in message['reasoning']:
+        #                     message['content'].append(thinking_block)
+        #             if message.get('content', None):
+        #                 message['content'].append({'type': 'text', 'text': message['content']})
+        #             if message.get('tool_calls', None):
+        #                 pass
+        
+        if not self.config.api_type == "responses":
+            messages_for_token_counter = self.prepare_reasoning_messages(messages, concat_last_reasoning=True)
+        else:
+            messages_for_token_counter = [{k: v for k, v in message.items() if k != 'reasoning'} for message in messages]
+
+        input_tokens: int = litellm.utils.token_counter(messages=messages_for_token_counter, model=self.config.name)
         if self.model_max_input_tokens is None:
             msg = (
                 f"No max input tokens found for model {self.config.name!r}. "
@@ -923,7 +965,6 @@ class LiteLLMModel(AbstractModel):
         elif input_tokens > self.model_max_input_tokens > 0:
             msg = f"Input tokens {input_tokens} exceed max tokens {self.model_max_input_tokens}"
             raise ContextWindowExceededError(msg)
-        # We need to always set max_tokens for anthropic models
         completion_kwargs = self.config.completion_kwargs
         if self.lm_provider == "anthropic":
             # we need input tokens + max output tokens < 200000
@@ -932,6 +973,10 @@ class LiteLLMModel(AbstractModel):
                 # we need thinking budget < max output tokens
                 # as well as thinking budget >= 1024
                 completion_kwargs['thinking']['budget_tokens'] = max(1024, min(completion_kwargs['thinking']['budget_tokens'], completion_kwargs['max_tokens'] - 1000))
+        else:
+            # completion_kwargs['max_tokens'] + input_tokens <= self.model_max_input_tokens
+            # and completion_kwargs['max_tokens'] <= self.model_max_output_tokens
+            completion_kwargs['max_tokens'] = min(self.model_max_output_tokens, self.model_max_input_tokens - input_tokens)
         self.logger.debug(f"completion_kwargs: {completion_kwargs}")
         if self.config.api_type == "completion":
             outputs, actual_input_tokens, output_tokens, cost = self._single_query_completion(messages, n=n, temperature=temperature, completion_kwargs=completion_kwargs, extra_args=extra_args)
@@ -940,6 +985,7 @@ class LiteLLMModel(AbstractModel):
         else:
             raise ValueError(f"Invalid API type: {self.config.api_type}")
         if actual_input_tokens is not None:
+            self.logger.debug(f"predicted input tokens: {input_tokens}, actual input tokens: {actual_input_tokens}")
             input_tokens = actual_input_tokens
         self._update_stats(input_tokens=input_tokens, output_tokens=output_tokens, cost=cost)
         return outputs
