@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import base64
 
 try:
     from livebench.agentic_code_runner.sweagent.agent import TOOLS_DIR
@@ -94,12 +95,15 @@ def main(search: str, replace: str, replace_all: bool):
     # Turn \\n into \n etc., i.e., undo the escaping
     # args.replace = args.replace.encode("utf8").decode("unicode_escape")
 
+    search = base64.b64decode(search).decode('utf-8')
+    replace = base64.b64decode(replace).decode('utf-8')
+
     if search == replace:
         print(_NO_CHANGES_MADE_MSG)
         print(RETRY_WITH_OUTPUT_TOKEN)
         exit(2)
 
-    pre_edit_lint = flake8(wf.path)
+    # pre_edit_lint = flake8(wf.path)
 
     try:
         if not replace_all:
@@ -126,40 +130,40 @@ def main(search: str, replace: str, replace_all: bool):
         print(RETRY_WITH_OUTPUT_TOKEN)
         exit(3)
 
-    post_edit_lint = flake8(wf.path)
+    # post_edit_lint = flake8(wf.path)
 
-    if not replace_all:
-        # Try to filter out pre-existing errors
-        replacement_window = (
-            replacement_info.first_replaced_line,
-            replacement_info.first_replaced_line + replacement_info.n_search_lines - 1,
-        )
-        # print(f"{replacement_info=}")
-        # print(f"{replacement_window=}")
-        # print(f"{pre_edit_lint=}")
-        # print(f"{post_edit_lint=}")
-        new_flake8_output = format_flake8_output(
-            post_edit_lint,
-            previous_errors_string=pre_edit_lint,
-            replacement_window=replacement_window,
-            replacement_n_lines=replacement_info.n_replace_lines,
-        )
-    else:
-        # Cannot easily compare the error strings, because line number changes are hard to keep track of
-        # So we show all linter errors.
-        new_flake8_output = format_flake8_output(post_edit_lint)
+    # if not replace_all:
+    #     # Try to filter out pre-existing errors
+    #     replacement_window = (
+    #         replacement_info.first_replaced_line,
+    #         replacement_info.first_replaced_line + replacement_info.n_search_lines - 1,
+    #     )
+    #     # print(f"{replacement_info=}")
+    #     # print(f"{replacement_window=}")
+    #     # print(f"{pre_edit_lint=}")
+    #     # print(f"{post_edit_lint=}")
+    #     new_flake8_output = format_flake8_output(
+    #         post_edit_lint,
+    #         previous_errors_string=pre_edit_lint,
+    #         replacement_window=replacement_window,
+    #         replacement_n_lines=replacement_info.n_replace_lines,
+    #     )
+    # else:
+    #     # Cannot easily compare the error strings, because line number changes are hard to keep track of
+    #     # So we show all linter errors.
+    #     new_flake8_output = format_flake8_output(post_edit_lint)
 
-    if new_flake8_output:
-        with_edits = wf.get_window_text(line_numbers=True, status_line=True, pre_post_line=True)
-        wf.undo_edit()
-        without_edits = wf.get_window_text(line_numbers=True, status_line=True, pre_post_line=True)
-        print(
-            _LINT_ERROR_TEMPLATE.format(
-                errors=new_flake8_output, window_applied=with_edits, window_original=without_edits,
-            )
-        )
-        print(RETRY_WITH_OUTPUT_TOKEN)
-        exit(4)
+    # if new_flake8_output:
+    #     with_edits = wf.get_window_text(line_numbers=True, status_line=True, pre_post_line=True)
+    #     wf.undo_edit()
+    #     without_edits = wf.get_window_text(line_numbers=True, status_line=True, pre_post_line=True)
+    #     print(
+    #         _LINT_ERROR_TEMPLATE.format(
+    #             errors=new_flake8_output, window_applied=with_edits, window_original=without_edits,
+    #         )
+    #     )
+    #     print(RETRY_WITH_OUTPUT_TOKEN)
+    #     exit(4)
     if not replace_all:
         print(_SINGLE_EDIT_SUCCESS_MSG)
     else:
