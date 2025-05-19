@@ -16,7 +16,7 @@ class StepOutput(BaseModel):
     thought: str = ""
     action: str = ""
     output: str = ""
-    reasoning: list[dict[str, str | list[dict[str, str]]]] | None = None
+    reasoning: list[dict[str, str | list[dict[str, str]]]] | str | None = None
     observation: str = ""
     execution_time: float = 0.0
     done: bool = False
@@ -48,7 +48,7 @@ class TrajectoryStep(TypedDict):
     execution_time: float
     messages: list[dict[str, Any]]
     extra_info: dict[str, Any]
-    reasoning: list[dict[str, str | list[dict[str, str]]]] | None
+    reasoning: list[dict[str, str | list[dict[str, str]]]] | str | None
 
 # required fields go here
 class _HistoryItem(TypedDict):
@@ -67,7 +67,7 @@ class HistoryItem(_HistoryItem, total=False):
     tool_call_ids: list[str] | None
     tags: list[str]
     cache_control: dict[str, Any] | None
-    reasoning: list[dict[str, str | list[dict[str, str]]]] | None
+    reasoning: list[dict[str, str | list[dict[str, str]]]] | str | None
     """HistoryProcessors can add these tags to enable special processing"""
 
 
