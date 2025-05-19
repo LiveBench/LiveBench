@@ -77,7 +77,34 @@ def run_agentic_coding_inference(
     thought_action_config_path = LIVE_BENCH_ROOT_PATH / 'agentic_code_runner/sweagent/config/thought_action.yaml'
     config = yaml.safe_load(open(base_config_path))
 
-    if (agent_config is not None and agent_config.get('supports_function_calling')) or (litellm.utils.supports_function_calling(model=model_api_name) or litellm.utils.supports_function_calling(model=provider + '/' + model_api_name)):
+    if provider == 'openai_responses':
+        config['agent']['model']['api_type'] = 'responses'
+        provider = 'openai'
+    elif provider == 'google':
+        provider = 'gemini'
+    elif provider == 'together':
+        provider = 'together_ai'
+
+    litellm_info = litellm.model_cost.get(model_api_name, None) or litellm.model_cost.get(provider + '/' + model_api_name, None)
+    if litellm_info is None:
+        print('Model ' + provider + '/' + model_api_name + ' not registered with litellm')
+        if agent_config is not None:
+            raise ValueError("Model " + model_api_name + " not registered with litellm and not agent configuration provided.")
+
+
+    if agent_config is not None and 'supports_function_calling' in agent_config:
+        if agent_config['supports_function_calling']:
+            use_function_calling = True
+        else:
+            use_function_calling = False
+        del agent_config['supports_function_calling']
+    else:
+        if (litellm.utils.supports_function_calling(model=model_api_name) or litellm.utils.supports_function_calling(model=provider + '/' + model_api_name)):
+            use_function_calling = True
+        else:
+            use_function_calling = False
+
+    if use_function_calling:
         function_calling_config = yaml.safe_load(open(function_calling_config_path))
         update_dict_recursively(config, function_calling_config)
         print("Using function calling config")
@@ -108,12 +135,6 @@ def run_agentic_coding_inference(
         config['agent']['model'].update(agent_config)
 
     config['agent']['model']['completion_kwargs'] = api_kwargs
-
-    if provider == 'openai_responses':
-        config['agent']['model']['api_type'] = 'responses'
-        provider = 'openai'
-    elif provider == 'google':
-        provider = 'gemini'
 
     config_path = all_traj_folder / 'config.yaml'
     with open(config_path, 'w') as f:
@@ -186,7 +207,7 @@ def run_agentic_coding_inference(
             print('Running command: ', ' '.join([str(c) for c in cmd]))
 
             subprocess.run(cmd, check=True)
-    else:
+    elif len(questions) > 0:
         instances_path = LIVE_BENCH_ROOT_PATH / f'agentic_code_runner/data/instances/{model_name}.jsonl'
         instances_path.parent.mkdir(parents=True, exist_ok=True)
         with open(instances_path, 'w') as f:
@@ -228,7 +249,11 @@ def run_agentic_coding_inference(
 
         print('Running command: ', ' '.join([str(c) for c in cmd]))
 
-        subprocess.run(cmd, check=True)
+        try:
+            subprocess.run(cmd, check=True)
+        except KeyboardInterrupt:
+            print("KeyboardInterrupt received. Stopping subprocess and continuing to collect results...")
+            pass
             
     for question in questions:
         
@@ -255,7 +280,7 @@ def run_agentic_coding_inference(
 
         if not pred_file.exists() or not traj_file.exists():
             print(f"Prediction file {pred_file} or trajectory file {traj_file} does not exist")
-            ans['choices'] = [{'turns': API_ERROR_OUTPUT}]
+            ans['choices'] = [{'turns': [API_ERROR_OUTPUT]}]
         else:
             trajectory = json.load(open(traj_file))
             pred = json.load(open(pred_file))
@@ -274,6 +299,7 @@ def run_agentic_coding_inference(
             total_input_tokens = run_info['info']['model_stats']['tokens_sent']
             cost = run_info['info']['model_stats']['instance_cost']
             api_calls = run_info['info']['model_stats']['api_calls']
+            exit_status = run_info['info']['exit_status']
             
             ans.update({
                 'total_output_tokens': total_output_tokens,
@@ -281,6 +307,7 @@ def run_agentic_coding_inference(
                 'cost': cost,
                 'api_calls': api_calls,
                 'history': history,
+                'exit_status': exit_status,
                 'choices': [{'turns': [final_answer]}]
             })
 
