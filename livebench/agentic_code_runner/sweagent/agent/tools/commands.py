@@ -120,7 +120,14 @@ class Command(BaseModel):
                 raise ValueError(msg)
 
             # Then do the replacement
-            return re.sub(rf"\[?<({ARGUMENT_NAME_PATTERN})>\]?", r"{\1}", self.signature)
+
+            #return re.sub(rf"(?:\[?<|\{{)({ARGUMENT_NAME_PATTERN})(?:>\]?|\}})", r"{\1}", self.signature)
+
+            res = self.signature
+            for arg in self.arguments:
+                pattern = rf"(?:\[?<|\{{)({arg.name})(?:>\]?|\}})"
+                res = re.sub(pattern, r"{\1}", res)
+            return res
         else:
             # cmd arg_format_1 arg_format_2 ...
             _invoke_format = f"{self.name} "
@@ -134,11 +141,13 @@ class Command(BaseModel):
         Returns:
             Dict containing the OpenAI function schema for this command
         """
+        docstring = self.docstring or ""
+        docstring = re.sub(r"<thought_action_call_example>(.*?)</thought_action_call_example>", r"\1", docstring, flags=re.DOTALL)
         tool = {
             "type": "function",
             "function": {
                 "name": self.name,
-                "description": self.docstring or "",
+                "description": docstring,
             },
         }
         properties = {}

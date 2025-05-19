@@ -16,6 +16,7 @@ from swerex.exceptions import BashIncorrectSyntaxError, CommandTimeoutError, Swe
 from tenacity import RetryError
 from typing_extensions import Self
 from unidiff import UnidiffParseError
+import base64
 
 from livebench.agentic_code_runner.sweagent.agent import __version__, get_agent_commit_hash, get_rex_commit_hash, get_rex_version
 from livebench.agentic_code_runner.sweagent.agent.agent.action_sampler import AbstractActionSampler, ActionSamplerConfig
@@ -912,7 +913,67 @@ class DefaultAgent(AbstractAgent):
         assert self._env is not None
         self._chook.on_action_started(step=step)
         execution_t0 = time.perf_counter()
-        run_action: str = self.tools.guard_multiline_input(step.action).strip()
+
+        if step.action.strip().startswith("edit"):
+            # special handling for edit command
+            # base64 encode the search and replace strings so they don't mess up the shell
+            if "<SEARCH>" not in step.action.strip() or "</SEARCH>" not in step.action.strip():
+                step.observation = "Missing <SEARCH> or </SEARCH> tags in action. You must include these tags when calling the edit tool."
+                raise _RetryWithOutput()
+            if "<REPLACE>" not in step.action.strip() or "</REPLACE>" not in step.action.strip():
+                step.observation = "Missing <REPLACE> or </REPLACE> tags in action. You must include these tags when calling the edit tool."
+                raise _RetryWithOutput()
+            if ("<REPLACEALL>" in step.action.strip() and "</REPLACEALL>" not in step.action.strip()) or ("<REPLACEALL>" not in step.action.strip() and "</REPLACEALL>" in step.action.strip()):
+                step.observation = "Improperly formatted REPLACEALL argument for edit command. You must include a <REPLACE> tag followed by a </REPLACEALL> tag, with the value in between."
+                raise _RetryWithOutput()
+            search_str = step.action.strip().split("<SEARCH>")[1].split("</SEARCH>")[0]
+            replace_str = step.action.strip().split("<REPLACE>")[1].split("</REPLACE>")[0]
+            replace_all = step.action.strip().split("<REPLACEALL>")[1].split("</REPLACEALL>")[0]
+            replace_all = replace_all.lower() == "true"
+
+            parsed_action = "edit '" + search_str + "' '" + replace_str + "'"
+            if replace_all:
+                parsed_action += " replace-all"
+
+            self.logger.info(f"Parsed edit command: {parsed_action}")
+
+            search_str = base64.b64encode(search_str.encode('utf-8')).decode('utf-8')
+            replace_str = base64.b64encode(replace_str.encode('utf-8')).decode('utf-8')
+
+            action = "edit '" + search_str + "' '" + replace_str + "'"
+            if replace_all:
+                action += " replace-all"
+
+            self.logger.info(f"Converted edit command to: {repr(action)}")
+            run_action = self.tools.guard_multiline_input(action=action).strip()
+
+            step.action = f"edit \"{search_str}\" \"{replace_str}\" {replace_all}"
+        elif step.action.strip().startswith("insert"):
+            if "<TEXT>" not in step.action.strip() or "</TEXT>" not in step.action.strip():
+                step.observation = "Missing <TEXT> or </TEXT> tags in action. You must include these tags when calling the insert tool."
+                raise _RetryWithOutput()
+            insert_str = step.action.strip().split("<TEXT>")[1].split("</TEXT>")[0]
+            line = step.action.strip().split("</TEXT>")[1].strip()
+
+            parsed_action = "insert '" + insert_str + "'"
+            if line:
+                parsed_action += f" {line}"
+
+            self.logger.info(f"Parsed info command: {parsed_action}")
+
+            insert_str = base64.b64encode(insert_str.encode('utf-8')).decode('utf-8')
+
+            action = "insert '" + insert_str + "'"
+            if line:
+                action += f" {line}"
+
+            self.logger.info(f"Converted insert command to: {repr(action)}")
+            run_action = self.tools.guard_multiline_input(action=action).strip()
+
+            step.action = f"insert \"{insert_str}\" {line}"
+        else:
+            run_action: str = self.tools.guard_multiline_input(step.action).strip()
+
         try:
             step.observation = self._env.communicate(
                 input=run_action,
