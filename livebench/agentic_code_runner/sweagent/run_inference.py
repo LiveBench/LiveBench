@@ -88,7 +88,7 @@ def run_agentic_coding_inference(
     litellm_info = litellm.model_cost.get(model_api_name, None) or litellm.model_cost.get(provider + '/' + model_api_name, None)
     if litellm_info is None:
         print('Model ' + provider + '/' + model_api_name + ' not registered with litellm')
-        if agent_config is not None:
+        if agent_config is None:
             raise ValueError("Model " + model_api_name + " not registered with litellm and not agent configuration provided.")
 
 
@@ -293,7 +293,10 @@ def run_agentic_coding_inference(
                 final_answer = ""
 
             run_info = trajectories[model_name][question['question_id']]
-            history = json.dumps(run_info['history'], indent=4)
+            trajectory = run_info['trajectory']
+            for step in trajectory:
+                del step['messages']
+            trajectory = json.dumps(trajectory, indent=4)
 
             total_output_tokens = run_info['info']['model_stats']['tokens_received']
             total_input_tokens = run_info['info']['model_stats']['tokens_sent']
@@ -306,7 +309,7 @@ def run_agentic_coding_inference(
                 'total_input_tokens': total_input_tokens,
                 'cost': cost,
                 'api_calls': api_calls,
-                'history': history,
+                'trajectory': trajectory,
                 'exit_status': exit_status,
                 'choices': [{'turns': [final_answer]}]
             })

@@ -17,7 +17,7 @@ import argparse
 import json
 import os
 import sys
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Literal
 from rich.console import Console
 from rich.panel import Panel
 from rich.markup import escape
@@ -73,7 +73,7 @@ def find_answer_by_question_id(answers: List[Dict[str, Any]], question_id: str) 
     
     return None
 
-def print_history(history: List[Dict[str, Any]], console: Console) -> None:
+def print_history(history: List[Dict[str, Any]], console: Console, include_reasoning: bool = True) -> None:
     """
     Print the history field step by step.
     
@@ -108,11 +108,43 @@ def print_history(history: List[Dict[str, Any]], console: Console) -> None:
                 for r in value:
                     if isinstance(r, dict) and 'encrypted_content' in r:
                         del r['encrypted_content']
-            if key not in ["role", "content"]:
+            if key not in ["role", "content"] and (include_reasoning or key != 'reasoning'):
                 console.print(f"[bold cyan]{key}:[/bold cyan] {escape(str(value))}")
         
         if step['role'] == 'assistant':
                 i += 1
+
+def print_trajectory(trajectory: List[Dict[str, Any]], console: Console, include_reasoning: bool = True) -> None:
+    """
+    Print the trajectory field step by step.
+    
+    Args:
+        trajectory: List of history items
+        console: Rich console for output
+    """
+    if not trajectory:
+        console.print("No trajectory found in the answer.", style="bold red")
+        return
+
+    if isinstance(trajectory, str):
+        trajectory = json.loads(trajectory)
+    
+    for i, step in enumerate(trajectory):
+        console.print(f"\n[bold]Step {i+1}:[/bold]")
+
+        
+        response = escape(str(step["response"]))
+        console.print(Panel(response, title="Response", expand=False))
+        
+        # Print any other fields that might be present
+        for key, value in step.items():
+            if key == 'reasoning' and isinstance(value, list):
+                for r in value:
+                    if isinstance(r, dict) and 'encrypted_content' in r:
+                        del r['encrypted_content']
+            if key != 'response' and (include_reasoning or key != 'reasoning'):
+                console.print(f"[bold cyan]{key}:[/bold cyan] {escape(str(value))}")
+        
 
 def truncate_tool_response(content: str, max_length: int = 1000) -> str:
     """
@@ -186,7 +218,37 @@ def format_history_for_llm(history: List[Dict[str, Any]], max_tool_response_leng
     
     return formatted_history
 
-def generate_llm_feedback(history: List[Dict[str, Any]], model: str = "gpt-4.1", max_tool_response_length: int = 1000) -> str:
+def format_trajectory_for_llm(trajectory: List[Dict[str, Any]], max_tool_response_length: int = 1000) -> List[Dict[str, Any]]:
+    """
+    Format the trajectory for LLM consumption, extracting role, content, and tool results.
+    Long tool responses are truncated to fit within context limits.
+    
+    Args:
+        traejctory: List of trajectory items
+        max_tool_response_length: Maximum length for tool responses before truncation
+        
+    Returns:
+        Formatted trajectory suitable for LLM analysis
+    """
+    if isinstance(trajectory, str):
+        trajectory = json.loads(trajectory)
+    
+    formatted_trajectory = []
+    
+    for step in trajectory:
+        formatted_step = {}
+        
+        formatted_step['action'] = step['action']
+
+        formatted_step['thought'] = step['thought']
+
+        formatted_step['observation'] = truncate_tool_response(step['observation'], max_length=max_tool_response_length)
+        
+        formatted_trajectory.append(formatted_step)
+    
+    return formatted_trajectory
+
+def generate_llm_feedback(history_or_trajectory: List[Dict[str, Any]], model: str = "gpt-4.1", max_tool_response_length: int = 1000, mode: Literal['history', 'trajectory'] = 'history') -> str:
     """
     Generate feedback on the agent's trajectory using an LLM.
     
@@ -198,7 +260,10 @@ def generate_llm_feedback(history: List[Dict[str, Any]], model: str = "gpt-4.1",
     Returns:
         Feedback from the LLM
     """
-    formatted_history = format_history_for_llm(history, max_tool_response_length=max_tool_response_length)
+    if mode == 'history':
+        formatted_res = format_history_for_llm(history_or_trajectory, max_tool_response_length=max_tool_response_length)
+    else:
+        formatted_res = format_trajectory_for_llm(history_or_trajectory, max_tool_response_length=max_tool_response_length)
     
     # Prepare the prompt for the LLM
     prompt = [
@@ -212,12 +277,15 @@ def generate_llm_feedback(history: List[Dict[str, Any]], model: str = "gpt-4.1",
         It's not your job to judge whether the agent's proposed code changes are correct or not; that will be evaluated by unit tests.
         However, if you notice any obvious mistakes in the agent's reasoning or process, you may note those.
         Your main focus, though, is on checking the validity of the agent framework itself, rather than the intelligence of the underlying model.
+
+        One rule the agent should be following is to issue only one action per turn, either in the form of a tool call or in a <command></command> block.
+        If the agent isn't following this rule, that will be the source of issues.
         
         Be specific in your analysis and provide examples from the trajectory to support your observations."""}
     ]
     
     # Add a user message with the formatted history
-    prompt.append({"role": "user", "content": f"Here is the agent trajectory to analyze:\n{json.dumps(formatted_history, indent=2)}\n\nPlease provide your expert feedback on this trajectory."})
+    prompt.append({"role": "user", "content": f"Here is the agent trajectory to analyze:\n{json.dumps(formatted_res, indent=2)}\n\nPlease provide your expert feedback on this trajectory."})
 
     client = OpenAI()
     
@@ -241,6 +309,8 @@ def main():
     parser.add_argument("--generate-feedback", action="store_true", help="Generate LLM feedback on the agent trajectory")
     parser.add_argument("--feedback-model", default="gpt-4-turbo", help="Model to use for generating feedback (default: gpt-4-turbo)")
     parser.add_argument("--max-tool-response-length", type=int, default=1000, help="Maximum length for tool responses before truncation (default: 1000)")
+    parser.add_argument("--feedback-only", action="store_true", help="Only generate feedback without inspecting the trajectory")
+    parser.add_argument("--no-include-reasoning", action="store_true", help="Don't include model reasoning output")
     args = parser.parse_args()
     
     # Create rich console
@@ -263,11 +333,14 @@ def main():
     # Print question ID and model name
     console.print(f"\n[bold]Question ID:[/bold] {args.question_id}")
     console.print(f"[bold]Model:[/bold] {args.model}")
+    console.print(f"\n[bold]Run ID:[/bold] {answer['run_id']}")
     
-    # Print history field step by step
-    console.print("\n[bold]History:[/bold]")
+
     if "history" in answer:
-        print_history(answer["history"], console)
+        if not args.feedback_only:
+            # Print history field step by step
+            console.print("\n[bold]History:[/bold]")
+            print_history(answer["history"], console, include_reasoning=not args.no_include_reasoning)
         
         # Generate feedback if requested
         if args.generate_feedback:
@@ -275,7 +348,24 @@ def main():
             feedback = generate_llm_feedback(
                 answer["history"], 
                 model=args.feedback_model,
-                max_tool_response_length=args.max_tool_response_length
+                max_tool_response_length=args.max_tool_response_length,
+                mode='history'
+            )
+            console.print(Panel(feedback, title="LLM Feedback", expand=False))
+    elif "trajectory" in answer:
+        if not args.feedback_only:
+            # Print history field step by step
+            console.print("\n[bold]Trajectory:[/bold]")
+            print_trajectory(answer["trajectory"], console, include_reasoning=not args.no_include_reasoning)
+        
+        # Generate feedback if requested
+        if args.generate_feedback:
+            console.print("\n[bold]Generating LLM feedback on trajectory...[/bold]")
+            feedback = generate_llm_feedback(
+                answer["trajectory"], 
+                model=args.feedback_model,
+                max_tool_response_length=args.max_tool_response_length,
+                mode='trajectory'
             )
             console.print(Panel(feedback, title="LLM Feedback", expand=False))
     else:
