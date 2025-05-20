@@ -168,7 +168,7 @@ class XMLThoughtActionParser(AbstractParseFunction, BaseModel):
     """
 
     error_message: str = dedent("""\
-    Your output was not formatted correctly. You must always include one discussion and one command as part of your response. Make sure you do not have multiple discussion/command tags.
+    Your output was not formatted correctly. You must always include one discussion and one command as part of your response. Make sure you do not have multiple sets of command tags.
     Please make sure your output precisely matches the following format:
 
     THOUGHT
@@ -198,6 +198,9 @@ class XMLThoughtActionParser(AbstractParseFunction, BaseModel):
         """
         if "<command>" not in model_response["message"] or "</command>" not in model_response["message"]:
             msg = "No action found in model response."
+            raise FormatError(msg)
+        if model_response["message"].count("<command>") > 1:
+            msg = "Multiple actions found in model response."
             raise FormatError(msg)
         # `action` is everything between the last <command> and </command> tags
         start_action = model_response["message"].rfind("<command>") + len(
