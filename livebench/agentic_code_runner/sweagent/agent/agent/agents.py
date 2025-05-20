@@ -97,7 +97,7 @@ class TemplateConfig(BaseModel):
     shell_check_error_template: str = (
         "Your bash command contained syntax errors and was NOT executed. "
         "Please fix the syntax errors and try again. This can be the result "
-        "of not adhering to the syntax for multi-line commands. Here is the output of `bash -n`:\n"
+        "of not adhering to the syntax for multi-line commands. It can also be the result of trying to chain non-bash commands together (e.g. using && or ||). DO NOT chain non-bash commands together! Here is the output of `bash -n`:\n"
         "{{bash_stdout}}\n{{bash_stderr}}"
     )
     """Message template for when the agent's bash command contains syntax errors.
@@ -946,8 +946,6 @@ class DefaultAgent(AbstractAgent):
 
             self.logger.info(f"Converted edit command to: {repr(action)}")
             run_action = self.tools.guard_multiline_input(action=action).strip()
-
-            step.action = f"edit \"{search_str}\" \"{replace_str}\" {replace_all}"
         elif step.action.strip().startswith("insert"):
             if "<TEXT>" not in step.action.strip() or "</TEXT>" not in step.action.strip():
                 step.observation = "Missing <TEXT> or </TEXT> tags in action. You must include these tags when calling the insert tool."
@@ -969,8 +967,6 @@ class DefaultAgent(AbstractAgent):
 
             self.logger.info(f"Converted insert command to: {repr(action)}")
             run_action = self.tools.guard_multiline_input(action=action).strip()
-
-            step.action = f"insert \"{insert_str}\" {line}"
         else:
             run_action: str = self.tools.guard_multiline_input(step.action).strip()
 
@@ -1053,6 +1049,11 @@ class DefaultAgent(AbstractAgent):
             step.output = output["message"]
             if output.get("reasoning") is not None:
                 step.reasoning = output["reasoning"]
+            # if '<think>' in output and '</think>' in output:
+            #     thought_content = output['message'].split('<think>')[1].split('</think>')[0]
+            #     if step.reasoning is not None:
+            #         step.reasoning += thought_content
+            #     step.output.replace('thought_content', '')
             # todo: Can't I override the parser in __init__?
             step.thought, step.action = self.tools.parse_actions(output)
             if output.get("tool_calls") is not None:
@@ -1067,10 +1068,13 @@ class DefaultAgent(AbstractAgent):
             self._chook.on_actions_generated(step=step)
             return self.handle_action(step)
         except Exception as e:
-            if step.action == step.thought == "":
-                # Probably the parsing failed/no action included. Let's still fill in thought
+            if step.action.strip() == step.thought.strip() == "":
+                # Probably the parsing failed/no action included. Let's still fill in thought and action
                 # so that trajectory viewers have something to show us for this step.
                 step.thought = step.output
+                if output.get('tool_calls') is not None:
+                    step.action = json.dumps(output['tool_calls'])
+            
             # Attach the step object to the exception
             e.step = step  # type: ignore
             raise
@@ -1089,9 +1093,12 @@ class DefaultAgent(AbstractAgent):
             step_output: step output
         """
 
-        def handle_error_with_autosubmission(exit_status: str, message: str) -> StepOutput:
+        def handle_error_with_autosubmission(exception: Exception | None, exit_status: str, message: str) -> StepOutput:
             """Attempts to autosubmit (extract patch from the environment) and stops the loop."""
             self.logger.warning(message)
+            if exception is not None:
+                step: StepOutput = getattr(exception, "Step", StepOutput())
+                self.add_step_to_trajectory(step)
             return self.attempt_autosubmission_after_error(
                 StepOutput(
                     thought=message,
@@ -1104,20 +1111,27 @@ class DefaultAgent(AbstractAgent):
         def handle_error_with_retry(exception: Exception, template: str, n_requeries: int) -> list[dict[str, str]]:
             """Requeries the model if the error is a format/blocklist/bash syntax error."""
             self.logger.warning("Requerying model after %s (%dth requery)", type(exception).__name__, n_requeries)
-            step: StepOutput = getattr(exception, "step", StepOutput())
-            self.add_step_to_trajectory(step)
             exception_message = getattr(exception, "message", "")
             if not exception_message:
                 try:
                     exception_message = exception.args[0]
                 except (IndexError, AttributeError):
                     pass
-            return self.get_model_requery_history(
+
+            step: StepOutput = getattr(exception, "step", StepOutput())
+
+            new_history = self.get_model_requery_history(
                 error_template=template,
                 **step.to_template_format_dict(),
                 **getattr(exception, "extra_info", {}),
                 exception_message=exception_message,
             )
+
+            step.observation += '\n' + new_history[-1]['content']
+
+            self.add_step_to_trajectory(step)
+
+            return new_history
 
         n_format_fails = 0
         while n_format_fails < self.max_requeries:
@@ -1165,60 +1179,69 @@ class DefaultAgent(AbstractAgent):
 
             # Errors that cause exit
 
-            except _ExitForfeit:
+            except _ExitForfeit as e:
                 self.logger.info("Exiting due to forfeit")
                 return handle_error_with_autosubmission(
+                    e,
                     "exit_forfeit",
                     "Exiting due to forfeit",
                 )
 
-            except _TotalExecutionTimeExceeded:
+            except _TotalExecutionTimeExceeded as e:
                 self.logger.exception("Exiting due to total execution time exceeded", exc_info=True)
                 return handle_error_with_autosubmission(
+                    e,
                     "exit_total_execution_time",
                     "Exit due to total execution time exceeded",
                 )
 
-            except CommandTimeoutError:
+            except CommandTimeoutError as e:
                 self.logger.exception("Exiting due to multiple consecutive command timeouts", exc_info=True)
                 return handle_error_with_autosubmission(
+                    e,
                     "exit_command_timeout",
                     "Exit due to multiple consecutive command timeouts",
                 )
 
-            except ContextWindowExceededError:
+            except ContextWindowExceededError as e:
                 return handle_error_with_autosubmission(
+                    e,
                     "exit_context",
                     "Exit due to context window",
                 )
             except TotalCostLimitExceededError:
                 raise
-            except CostLimitExceededError:
+            except CostLimitExceededError as e:
                 return handle_error_with_autosubmission(
+                    e,
                     "exit_cost",
                     "Exit due to cost limit",
                 )
             except RetryError as e:
                 self.logger.exception(f"Exiting due to retry error: {e}", exc_info=True)
                 return handle_error_with_autosubmission(
+                    e,
                     "exit_api",
                     f"Exit due to retry error: {e}",
                 )
             except SwerexException as e:
                 self.logger.exception(f"Exiting due to environment error: {e}", exc_info=True)
                 return handle_error_with_autosubmission(
+                    e,
                     "exit_environment_error",
                     f"Exit due to environment error: {e}",
                 )
             except RuntimeError as e:
                 self.logger.exception(f"Exiting due to runtime error: {e}", exc_info=True)
                 return handle_error_with_autosubmission(
+                    e,
                     "exit_error",
                     f"Exit due to runtime error: {e}",
                 )
             except Exception as e:
                 self.logger.exception(f"Exiting due to unknown error: {e}", exc_info=True)
                 return handle_error_with_autosubmission(
+                    e,
                     "exit_error",
                     f"Exit due to unknown error: {e}",
                 )
@@ -1227,6 +1250,7 @@ class DefaultAgent(AbstractAgent):
             exc_info=True,
         )
         return handle_error_with_autosubmission(
+            None,
             "exit_format",
             "Exit due to repeated format/blocklist/bash syntax errors",
         )
