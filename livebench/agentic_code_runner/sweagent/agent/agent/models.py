@@ -146,6 +146,10 @@ class GenericAPIModelConfig(PydanticBaseModel):
     This is only used for LiteLLM models or other OpenAI-compatible APIs.
     """
 
+    include_thinking_in_history: bool | None = None
+    """For thinking models, whether to include previous turns' thinking content in the history.
+    If true, only the most recent turn's thinking content will be included; if false or None, no previous turns' thinking content will be included."""
+
     # pydantic
     model_config = ConfigDict(extra="forbid")
 
@@ -678,6 +682,7 @@ class LiteLLMModel(AbstractModel):
                 }
                 if message.get('reasoning', None) is not None:
                     if isinstance(message['reasoning'], list) and len(message['reasoning']) > 0 and isinstance(message['reasoning'][0], dict):
+                        assert 'claude' in self.config.name
                         # for anthropic reasoning, include all reasoning blocks
                         if not concat_last_reasoning:
                             msg['thinking_blocks'] = message['reasoning']
@@ -688,7 +693,8 @@ class LiteLLMModel(AbstractModel):
                             msg['content'] = '<think>' + reasoning_content + '</think> ' + msg['content']
                     elif message.get('reasoning', None) is not None and isinstance(message['reasoning'], str):
                         # for other models, only include the last one
-                        if i == last_reasoning_index:
+                        # if include_thinking_in_history is set; otherwise don't.
+                        if i == last_reasoning_index and self.config.include_thinking_in_history:
                             msg['content'] = '<think>' + message['reasoning'] + '</think> ' + msg['content']
                     else:
                         raise ValueError(f"Unknown reasoning format: {message['reasoning']}")
