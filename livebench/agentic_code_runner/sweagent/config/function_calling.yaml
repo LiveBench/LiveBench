@@ -41,12 +41,14 @@ agent:
       Note that the environment does NOT support interactive session commands (e.g. python, vim), so please do not invoke them.
       This also applies to any commands that request your input - they will NOT work! Make sure that any bash command you run is called with the
       correct arguments so that it will just run, complete, and output a result.
+
+            DO NOT attempt to chain commands togther using && or ||, unless all chained commands are pure bash commands (e.g. `cd .. && ls` is okay, but `cd .. && open` will NOT work).
     instance_template: |-
       We're currently solving the following issue within our repository. Here's the issue text:
       <issue_description>
       {{problem_statement}}
       </issue_description>
-
+      
       INSTRUCTIONS:
       Now, you're going to solve this issue on your own. Your terminal session has started and you're in the repository's root directory. You can use any bash commands or the special interface to help you. Edit all the files you need to and run any checks or tests that you want.
       Remember, YOU SHOULD ALWAYS INCLUDE EXACTLY ONE TOOL CALL/FUNCTION CALL PER RESPONSE.

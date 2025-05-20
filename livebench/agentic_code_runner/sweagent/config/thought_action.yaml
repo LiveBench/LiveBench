@@ -35,7 +35,7 @@ agent:
       This also applies to any commands that request your input - they will NOT work! Make sure that any bash command you run is called with the
       correct arguments so that it will just run, complete, and output a result.
 
-      DO NOT attempt to chain commands togther using && or ||, unless all chained commands are pure bash commands (e.g. `cd .. && ls` is okay, but `cd .. && open` will NOT work).
+      DO NOT attempt to chain commands togther using && or ||. Output ONLY a SINGLE command at a time.
     instance_template: |-
       We're currently solving the following issue within our repository. Here's the issue text:
       <issue_description>
