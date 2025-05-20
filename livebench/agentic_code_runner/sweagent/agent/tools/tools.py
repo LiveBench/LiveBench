@@ -47,6 +47,8 @@ class ToolFilterConfig(BaseModel):
         "emacs",
         "nano",
         "su",
+        "bash",
+        "git"
     ]
     """Block any command that matches one of these exactly"""
     block_unless_regex: dict[str, str] = {

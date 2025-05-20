@@ -213,12 +213,12 @@ BASH_COMMAND = Command(
     # name="execute_bash",
     signature="<command>",
     # signature="echo '<command>'\n<command>\necho \"root@workspace:${{PWD}} #\n[Command finished with exit code ${{?}}]\"",
-    docstring="runs the given command directly in bash",
+    docstring="Runs the given command directly in bash.",
     arguments=[
         Argument(
             name="command",
             type="string",
-            description="The bash command to execute.",
+            description="The bash command to execute. Do not include 'bash' in your command; you are already operating within a bash shell.",
             required=True,
         )
     ],
