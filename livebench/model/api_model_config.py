@@ -13,6 +13,7 @@ class AgentConfig(TypedDict):
     supports_function_calling: NotRequired[bool]
     api_type: NotRequired[Literal["completion", "responses"]]
     convert_system_to_user: NotRequired[bool]
+    include_thinking_in_history: NotRequired[bool]
 
 @dataclass
 class ModelConfig:
