@@ -898,6 +898,11 @@ class DefaultAgent(AbstractAgent):
         Returns:
             action_execution_output: action execution output
         """
+        replace_strs = ['bash', '/bin/bash', 'sh', '/bin/sh']
+        for s in replace_strs:
+            # allow models to issue a command like "bash whatever"; we'll just remove the "bash" and run it normally
+            if step.action.startswith(s) and not step.action.strip() == s.strip():
+                step.action = step.action[len(s):].strip()
         if self.tools.should_block_action(step.action):
             raise _BlockedActionError()
 
@@ -928,7 +933,10 @@ class DefaultAgent(AbstractAgent):
                 raise _RetryWithOutput()
             search_str = step.action.strip().split("<SEARCH>")[1].split("</SEARCH>")[0]
             replace_str = step.action.strip().split("<REPLACE>")[1].split("</REPLACE>")[0]
-            replace_all = step.action.strip().split("<REPLACEALL>")[1].split("</REPLACEALL>")[0]
+            if "<REPLACEALL>" in step.action.strip():
+                replace_all = step.action.strip().split("<REPLACEALL>")[1].split("</REPLACEALL>")[0]
+            else:
+                replace_all = ""
             replace_all = replace_all.lower() == "true"
 
             parsed_action = "edit '" + search_str + "' '" + replace_str + "'"
@@ -1030,6 +1038,7 @@ class DefaultAgent(AbstractAgent):
         # attributes (e.g., if we want to requery the model for a bash syntax error, we
         # need to have the previous model output to format the requery template)
         step = StepOutput()
+        output = None
         try:
             # Forward model and get actions
             self._chook.on_model_query(messages=history, agent=self.name)
@@ -1072,7 +1081,7 @@ class DefaultAgent(AbstractAgent):
                 # Probably the parsing failed/no action included. Let's still fill in thought and action
                 # so that trajectory viewers have something to show us for this step.
                 step.thought = step.output
-                if output.get('tool_calls') is not None:
+                if output is not None and output.get('tool_calls') is not None:
                     step.action = json.dumps(output['tool_calls'])
             
             # Attach the step object to the exception

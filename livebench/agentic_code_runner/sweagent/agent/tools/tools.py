@@ -30,17 +30,19 @@ class ToolFilterConfig(BaseModel):
         "less",
         "tail -f",
         "python -m venv",
-        "make",
+        "python3 -m venv",
+        "pip install",
+        "npm install",
+        "pnpm install",
+        "playright install",
+        "bash\n",
+        "sh\n",
+        "/bin/bash\n",
+        "/bin/sh\n"
     ]
-    """Block any command that starts with one of these"""
+    """Block any command that starts with or includes one of these"""
     blocklist_standalone: list[str] = [
-        "python",
-        "python3",
         "ipython",
-        "bash",
-        "sh",
-        "/bin/bash",
-        "/bin/sh",
         "nohup",
         "vi",
         "vim",
@@ -48,7 +50,15 @@ class ToolFilterConfig(BaseModel):
         "nano",
         "su",
         "bash",
-        "git"
+        "sh",
+        "/bin/bash",
+        "/bin/sh",
+        "npm run dev",
+        "npm run preview",
+        "pnpm run dev",
+        "python",
+        "python3",
+        "deactivate"
     ]
     """Block any command that matches one of these exactly"""
     block_unless_regex: dict[str, str] = {
@@ -304,15 +314,20 @@ class ToolHandler:
         action = action.strip()
         if not action:
             return False
-        if any(f.startswith(action) for f in self.config.filter.blocklist):
-            return True
-        if action in self.config.filter.blocklist_standalone:
-            return True
-        name = action.split()[0]
-        if name in self.config.filter.block_unless_regex and not re.search(
-            self.config.filter.block_unless_regex[name], action
-        ):
-            return True
+        action_name = action.split()[0]
+        if action_name in {command.name for command in self.config.commands}:
+            return False
+        # we need f + ' ' so that we block "su ..." but not "submit"
+        actions = action.split(' && ')
+        for action in actions:
+            if any(action.startswith(f + ' ') or action.startswith(f + '\n') for f in self.config.filter.blocklist):
+                return True
+            if action.strip() in self.config.filter.blocklist_standalone:
+                return True
+            if action_name in self.config.filter.block_unless_regex and not re.search(
+                self.config.filter.block_unless_regex[action_name], action
+            ):
+                return True
         return False
 
     # Parsing & multiline commands
