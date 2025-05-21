@@ -44,7 +44,7 @@ def run_agentic_coding_inference(
     if force_temperature is not None:
         temperature = force_temperature
     else:
-        temperature = 0
+        temperature = 0.7
 
     if num_choices != 1:
         raise ValueError("num_choices must be 1 for agentic coding")
@@ -136,6 +136,13 @@ def run_agentic_coding_inference(
 
     config['agent']['model']['completion_kwargs'] = api_kwargs
 
+    if api_dict is not None and 'http' in provider:
+        if api_dict.get('api_base', None) is not None:
+            config['agent']['model']['api_base'] = api_dict['api_base']
+            provider = 'openai'
+        if api_dict.get('api_key', None) is not None:
+            config['agent']['model']['api_key'] = api_dict['api_key']
+
     config_path = all_traj_folder / 'config.yaml'
     with open(config_path, 'w') as f:
         yaml.dump(config, f)
@@ -181,7 +188,7 @@ def run_agentic_coding_inference(
                 agent_run_path,
                 'run',
                 '--agent.model.name',
-                provider + '/' + model_api_name,
+                (provider + '/' if provider else '') + model_api_name,
                 '--env.deployment.image',
                 instance_image_id,
                 '--env.repo.path',
@@ -206,7 +213,11 @@ def run_agentic_coding_inference(
 
             print('Running command: ', ' '.join([str(c) for c in cmd]))
 
-            subprocess.run(cmd, check=True)
+            try:
+                subprocess.run(cmd, check=True)
+            except KeyboardInterrupt:
+                print("KeyboardInterrupt received. Stopping subprocess and continuing to collect results...")
+                pass
     elif len(questions) > 0:
         instances_path = LIVE_BENCH_ROOT_PATH / f'agentic_code_runner/data/instances/{model_name}.jsonl'
         instances_path.parent.mkdir(parents=True, exist_ok=True)
@@ -232,7 +243,7 @@ def run_agentic_coding_inference(
             agent_run_path,
             'run-batch',
             '--agent.model.name',
-            provider + '/' + model_api_name,
+            (provider + '/' if provider else '') + model_api_name,
             '--instances.type',
             'file',
             '--instances.path',
