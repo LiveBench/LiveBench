@@ -8,6 +8,7 @@ import argparse
 import subprocess
 from collections import defaultdict
 from tqdm import tqdm
+import traceback
 
 from livebench.model.api_model_config import get_model_config
 
@@ -26,22 +27,80 @@ trajectories_dir = "agentic_code_runner/data/trajectories"
 MAX_WORKERS = 20
 
 SWEAGENT_ERROR_STATUSES = [
-    # 'exit_total_execution_time',
-    # 'exit_command_timeout',
-    # 'exit_context',
-    # 'exit_api',
-    # 'exit_environment_error',
-    # 'exit_error',
-    # 'exit_format',
-    # 'exit_cost'
+    'exit_total_execution_time',
+    'exit_command_timeout',
+    'exit_context',
+    'exit_api',
+    'exit_environment_error',
+    'exit_error',
+    'exit_format',
+    'exit_cost',
+    'Uncaught TIMEOUT'
 ]
 
 OTHER_ERROR_STRINGS = [
-    # 'action\\\": \\\"insert',
     # 'Please make sure your output precisely matches the following format:\n2025',
     # 'Unexpected argument(s): pattern'
-    'action\\\": \\\"bash',
+    # "timeout after 300.0 seconds while running command 'submit'",
+    # "list index out of range",
+    # "Operation 'insert",
+    # "Operation 'open",
+    # "Operation 'create",
+    # "Operation 'edit",
+    # "Operation 'search",
+    # "Operation 'find"
+    # "Text '1:' not found in displayed lines"
+    # "Operation 'python"
 ]
+
+blocklist: list[str] = [
+    "vim",
+    "vi",
+    "emacs",
+    "nano",
+    "nohup",
+    "gdb",
+    "less",
+    "tail -f",
+    "python -m venv",
+    "python3 -m venv",
+    "pip install",
+    "npm install",
+    "pnpm install",
+    "playright install",
+    "bash\n",
+    "sh\n",
+    "/bin/bash\n",
+    "/bin/sh\n",
+]
+blocklist_standalone: list[str] = [
+    "ipython",
+    "nohup",
+    "vi",
+    "vim",
+    "emacs",
+    "nano",
+    "su",
+    "bash",
+    "sh",
+    "/bin/bash",
+    "/bin/sh",
+    "npm run dev",
+    "npm run preview",
+    "pnpm run dev",
+    "python",
+    "python3",
+    "deactivate"
+]
+
+# OTHER_ERROR_STRINGS += [f"action\\\": \\\"{cmd} " for cmd in blocklist]
+# OTHER_ERROR_STRINGS += [f"action\\\": \\\"{cmd}\n" for cmd in blocklist]
+# OTHER_ERROR_STRINGS += [f" && {cmd} " for cmd in blocklist]
+# OTHER_ERROR_STRINGS += [f" {cmd} && " for cmd in blocklist]
+# OTHER_ERROR_STRINGS += [f" && {cmd}\n" for cmd in blocklist]
+# OTHER_ERROR_STRINGS += [f" && {cmd}\\\"" for cmd in blocklist]
+# OTHER_ERROR_STRINGS += [f"action\\\": \\\"{cmd}\\\"" for cmd in blocklist_standalone]
+# OTHER_ERROR_STRINGS += [f"action\\\": \\\"{cmd}\n\\\"" for cmd in blocklist_standalone]
 
 ALL_ERROR_STRINGS = SWEAGENT_ERROR_STATUSES + OTHER_ERROR_STRINGS
 
@@ -68,7 +127,7 @@ def process_jsonl_file(jsonl_file):
     
     model_name = os.path.basename(jsonl_file).replace(".jsonl", "")
     print(f"Processing {model_name}...")
-    
+
     # Read the JSONL file
     with open(jsonl_file, 'r') as f:
         for line_num, line in enumerate(f):
@@ -92,7 +151,6 @@ def process_jsonl_file(jsonl_file):
                             if error_id not in local_found_errors:
                                 local_found_errors.add(error_id)
                                 local_model_errors.append((run_id, question_id, f"JSONL:{error_found}"))
-                    assert 'history' in data or 'trajectory' in data
                     if len(CONTENT_ERROR_REGEXES) > 0:
                         if 'history' in data:
                             content_pattern = r'"role"\s*:\s*"assistant"\s*,\s*"content"\s*:\s*"((?:\\.|[^"\\])*)(?:",|\"\s*})'
@@ -148,6 +206,7 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
             found_errors.update(local_found)
         except Exception as exc:
             print(f"Processing {jsonl_file} generated an exception: {exc}")
+            traceback.print_exc()
 
 # for jsonl_file in jsonl_files:
 #     model_name, local_pairs, local_errors, local_found = process_jsonl_file(jsonl_file)
@@ -255,6 +314,7 @@ if args.rerun:
             "python", "run_livebench.py",
             "--model", model,
             "--bench-name", "live_bench/coding/agentic_coding",
+            "--mode", "sequential",
             "--question-source", "jsonl",
             "--parallel-requests", "20",
             "--parallel-grading", "20",
