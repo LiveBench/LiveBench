@@ -24,6 +24,10 @@ main() {
     fi
     # Calculate total number of matches
     local num_matches=$(echo "$matches" | wc -l | awk '{$1=$1; print $0}')
+    if [ $num_matches -gt 100 ]; then
+        echo "More than $num_matches files matched for \"$file_name\" in $dir. Please narrow your search."
+        return
+    fi
     echo "Found $num_matches matches for \"$file_name\" in $dir:"
     echo "$matches" | awk '{print $0}'
 }
