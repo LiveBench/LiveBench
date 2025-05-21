@@ -16,6 +16,7 @@ Options:
 import argparse
 import json
 import os
+from pathlib import Path
 import sys
 from typing import Dict, Any, List, Literal
 from rich.console import Console
@@ -334,6 +335,10 @@ def main():
     console.print(f"\n[bold]Question ID:[/bold] {args.question_id}")
     console.print(f"[bold]Model:[/bold] {args.model}")
     console.print(f"\n[bold]Run ID:[/bold] {answer['run_id']}")
+
+    log_path = Path("agentic_code_runner/data/trajectories/" + answer['run_id'] + "/" + answer['question_id'] + "/" + answer['question_id'] + ".debug.log")
+    if log_path.exists():
+        console.print(f"\n[bold]Log Path:[/bold] {log_path.resolve()}")
     
 
     if "history" in answer:
