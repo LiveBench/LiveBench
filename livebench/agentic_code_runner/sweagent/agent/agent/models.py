@@ -150,6 +150,9 @@ class GenericAPIModelConfig(PydanticBaseModel):
     """For thinking models, whether to include previous turns' thinking content in the history.
     If true, only the most recent turn's thinking content will be included; if false or None, no previous turns' thinking content will be included."""
 
+    prompt_prefix: str | None = None
+    """A string to insert at the beginning of the prompt."""
+
     # pydantic
     model_config = ConfigDict(extra="forbid")
 
@@ -574,14 +577,14 @@ class LiteLLMModel(AbstractModel):
         self.tools = tools
         self.logger = get_logger("swea-lm", emoji="🤖")
 
-        if tools.use_function_calling:
-            if not litellm.utils.supports_function_calling(model=self.config.name) and not litellm.utils.supports_function_calling(model=self.config.name.split('/')[-1]):
-                msg = (
-                    f"Model {self.config.name} does not support function calling. If your model"
-                    " does not support function calling, you can use `parse_function='thought_action'` instead. "
-                    "See https://swe-agent.com/latest/faq/ for more information."
-                )
-                self.logger.warning(msg)
+        # if tools.use_function_calling:
+        #     if not litellm.utils.supports_function_calling(model=self.config.name) and not litellm.utils.supports_function_calling(model=self.config.name.split('/')[-1]):
+        #         msg = (
+        #             f"Model {self.config.name} does not support function calling. If your model"
+        #             " does not support function calling, you can use `parse_function='thought_action'` instead. "
+        #             "See https://swe-agent.com/latest/faq/ for more information."
+        #         )
+        #         self.logger.warning(msg)
 
         if self.config.max_input_tokens is not None:
             self.model_max_input_tokens = self.config.max_input_tokens
@@ -757,6 +760,8 @@ class LiteLLMModel(AbstractModel):
                 # use the actual amount of output tokens used rather than the estimate if available
                 output_tokens = response.usage.completion_tokens
                 got_actual_output_tokens = True
+                if 'deepinfra' in self.config.name and output_tokens == 16384:
+                    raise Exception("Hit deepinfra token limit")
             if response.usage.prompt_tokens is not None:
                 # override with the actual amount of input tokens used rather than the estimate
                 input_tokens = response.usage.prompt_tokens
@@ -938,6 +943,9 @@ class LiteLLMModel(AbstractModel):
             extra_args["api_base"] = self.config.api_base
         if self.tools.use_function_calling:
             extra_args["tools"] = self.tools.tools
+
+        if self.config.prompt_prefix is not None and self.config.prompt_prefix not in messages[0]['content']:
+            messages[0]['content'] = self.config.prompt_prefix + '\n' + messages[0]['content']
 
         messages_for_token_counter = messages
         # if 'claude-3-7-sonnet' in self.config.name and 'thinking' in self.config.completion_kwargs:
