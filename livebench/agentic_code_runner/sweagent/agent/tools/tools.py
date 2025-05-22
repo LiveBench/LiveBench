@@ -58,7 +58,8 @@ class ToolFilterConfig(BaseModel):
         "pnpm run dev",
         "python",
         "python3",
-        "deactivate"
+        "deactivate",
+        "git clone"
     ]
     """Block any command that matches one of these exactly"""
     block_unless_regex: dict[str, str] = {
