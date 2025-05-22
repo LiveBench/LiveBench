@@ -335,6 +335,8 @@ def chat_completion_google_generativeai(
     num_tokens = None
     if response.usage_metadata is not None:
         num_tokens = response.usage_metadata.candidates_token_count
+        if response.usage_metadata.thoughts_token_count is not None:
+            num_tokens += response.usage_metadata.thoughts_token_count
     
     if num_tokens is None:
         num_tokens = -1

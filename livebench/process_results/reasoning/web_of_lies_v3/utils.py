@@ -39,6 +39,7 @@ def web_of_lies_v3_process_results(ground_truth: str, llm_answer: str, debug=Fal
 
         if last_boxed:
             parsed_answer = remove_boxed(last_boxed)
+            parsed_answer = parsed_answer.replace('\\text{', '').replace('}', '')
 
     allow_plain = True
     if allow_plain and parsed_answer is None:

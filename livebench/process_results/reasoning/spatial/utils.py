@@ -44,6 +44,7 @@ def spatial_process_results(ground_truth: str, llm_answer: str, debug=False) -> 
             parsed_answer = remove_boxed(last_boxed)
             parsed_answer = parsed_answer.replace("\\textbf{", "")
             parsed_answer = parsed_answer.replace("\\mathbf{", "")
+            parsed_answer = parsed_answer.replace("\\text{", "")
             parsed_answer = parsed_answer.replace("}", "")
             if parsed_answer == ground_truth:
                 score = 1
