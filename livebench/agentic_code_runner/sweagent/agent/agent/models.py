@@ -943,6 +943,7 @@ class LiteLLMModel(AbstractModel):
             extra_args["api_base"] = self.config.api_base
         if self.tools.use_function_calling:
             extra_args["tools"] = self.tools.tools
+            extra_args["tool_choice"] = "required"
 
         if self.config.prompt_prefix is not None and self.config.prompt_prefix not in messages[0]['content']:
             messages[0]['content'] = self.config.prompt_prefix + '\n' + messages[0]['content']
