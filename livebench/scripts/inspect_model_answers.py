@@ -689,8 +689,9 @@ def display_model_comparison(model1, model2, model1_answer, model2_answer, model
                            console, include_mistake_explanations=False, model1_debug=None, model2_debug=None,
                            model1_mistake_explanation=None, model2_mistake_explanation=None):
     # Check if ground truth exists
-    has_ground_truth = question_content and "ground_truth" in question_content
+    has_ground_truth = question_content and ("ground_truth" in question_content or "fix_patch" in question_content)
     ground_truth = question_content.get("ground_truth", None) if has_ground_truth else None
+    ground_truth = question_content.get("fix_patch", None) if not ground_truth else ground_truth
 
     if question_content['task'] in ['code_generation', 'code_completion'] and not ground_truth.startswith(question_content['code_prompt']):
         ground_truth = question_content['code_prompt'] + '\n' + ground_truth
