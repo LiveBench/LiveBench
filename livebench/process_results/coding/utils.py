@@ -241,16 +241,18 @@ def agentic_coding_process_results(questions: list[dict], answers: list[dict], d
         print(f"Report not found for eval {eval_id} for model {model_name}")
         return dict()
     report = json.load(open(report_path))
-    
-    total_instances = report['total_instances']
-    resolved_instances = report['resolved_instances']
 
     result = {}
-    for instance_id in report['submitted_ids']:
-        question = [q for q in questions if f"{q['org']}/{q['repo']}:pr-{q['number']}" == instance_id][0]
+
+    for question in questions:
         question_id = question['question_id']
-        result[question_id] = 1 if instance_id in report['resolved_ids'] else 0
-        answer = [a for a in answers if a['question_id'] == question_id][0]
+        instance_id = f"{question['org']}/{question['repo']}:pr-{question['number']}"
+        if instance_id not in report['submitted_ids']:
+            print(f"Instance {instance_id} not found in report (question {question_id})")
+            result[question_id] = 0
+        else:
+            result[question_id] = 1 if instance_id in report['resolved_ids'] else 0
+        
         if debug and result[question_id] == 0:
             if instance_id in report['unresolved_ids']:
                 print(f"INCORRECT, {model_name} {question_id} ({instance_id})")
@@ -262,7 +264,7 @@ def agentic_coding_process_results(questions: list[dict], answers: list[dict], d
                 print(f"ERROR, {model_name} {question_id} ({instance_id})")
             print('RUN ID', answer['run_id'])
     
-    assert len(result) == total_instances
-    assert resolved_instances == sum(result.values())
+    assert len(result) == len(questions)
+    assert sum(result.values()) == report['resolved_instances']
 
     return result
