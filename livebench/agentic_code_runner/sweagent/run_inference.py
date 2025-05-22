@@ -218,6 +218,9 @@ def run_agentic_coding_inference(
             except KeyboardInterrupt:
                 print("KeyboardInterrupt received. Stopping subprocess and continuing to collect results...")
                 pass
+            except subprocess.CalledProcessError as e:
+                print(f"Subprocess error: {e}")
+                pass
     elif len(questions) > 0:
         instances_path = LIVE_BENCH_ROOT_PATH / f'agentic_code_runner/data/instances/{model_name}.jsonl'
         instances_path.parent.mkdir(parents=True, exist_ok=True)
@@ -264,6 +267,9 @@ def run_agentic_coding_inference(
             subprocess.run(cmd, check=True)
         except KeyboardInterrupt:
             print("KeyboardInterrupt received. Stopping subprocess and continuing to collect results...")
+            pass
+        except subprocess.CalledProcessError as e:
+            print(f"Subprocess error: {e}")
             pass
             
     for question in questions:
