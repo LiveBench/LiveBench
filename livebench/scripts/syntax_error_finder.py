@@ -27,15 +27,16 @@ trajectories_dir = "agentic_code_runner/data/trajectories"
 MAX_WORKERS = 20
 
 SWEAGENT_ERROR_STATUSES = [
-    'exit_total_execution_time',
-    'exit_command_timeout',
-    'exit_context',
-    'exit_api',
-    'exit_environment_error',
-    'exit_error',
-    'exit_format',
-    'exit_cost',
-    'Uncaught TIMEOUT'
+#     'exit_total_execution_time',
+#     'exit_command_timeout',
+#     # 'exit_command',
+#     'exit_context',
+#     # 'exit_api',
+#     # 'exit_environment_error',
+#     # 'exit_error',
+#    'exit_format',
+#    'exit_cost',
+    # 'Bad gateway'
 ]
 
 OTHER_ERROR_STRINGS = [
@@ -50,7 +51,15 @@ OTHER_ERROR_STRINGS = [
     # "Operation 'search",
     # "Operation 'find"
     # "Text '1:' not found in displayed lines"
-    # "Operation 'python"
+    # "Operation 'python",
+    # "Operation",
+    # "Together_aiException"
+    # "python manage.py runserver",
+    # "action\\\": \\\"find_file",
+    # "Failed to interrupt session",
+    # "timeout after 300.0 seconds while running command",
+    "The command 'edit",
+    "This model's maximum context length"
 ]
 
 blocklist: list[str] = [
@@ -302,6 +311,8 @@ if args.rerun:
     
     # Rerun each model with its error questions
     for model, question_ids in model_to_question_ids.items():
+        if 'command-a' in model:
+            continue
         if not question_ids:
             continue
             
@@ -314,10 +325,9 @@ if args.rerun:
             "python", "run_livebench.py",
             "--model", model,
             "--bench-name", "live_bench/coding/agentic_coding",
-            "--mode", "sequential",
             "--question-source", "jsonl",
-            "--parallel-requests", "20",
-            "--parallel-grading", "20",
+            "--parallel-requests", "30",
+            "--parallel-grading", "30",
             "--question-id"] + list(question_ids)
         
         print(f"Running command: {' '.join(cmd)}")
