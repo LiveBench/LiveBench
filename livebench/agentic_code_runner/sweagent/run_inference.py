@@ -226,6 +226,9 @@ def run_agentic_coding_inference(
         instances_path.parent.mkdir(parents=True, exist_ok=True)
         with open(instances_path, 'w') as f:
             for question in questions:
+                if (all_traj_folder / str(question['question_id'])).exists() and f"{question['question_id']}.pred" in os.listdir(all_traj_folder / str(question['question_id'])):
+                    print(f"Skipping {question['question_id']} because it already exists")
+                    continue
                 instance_image_id = f"mswebench/{question['org']}_m_{question['repo']}:pr-{question['number']}"
                 instance_obj = {
                     'instance_id': str(question['question_id']),
@@ -241,36 +244,38 @@ def run_agentic_coding_inference(
                 }
                 f.write(json.dumps(instance_obj) + '\n')
 
-        cmd = [
-            'python',
-            agent_run_path,
-            'run-batch',
-            '--agent.model.name',
-            (provider + '/' if provider else '') + model_api_name,
-            '--instances.type',
-            'file',
-            '--instances.path',
-            instances_path,
-            '--config',
-            config_path,
-            '--env_var_path',
-            env_var_path,
-            '--num_workers',
-            str(parallel),
-            '--output_dir',
-            all_traj_folder
-        ]
+        if len(questions) > 0:
 
-        print('Running command: ', ' '.join([str(c) for c in cmd]))
+            cmd = [
+                'python',
+                agent_run_path,
+                'run-batch',
+                '--agent.model.name',
+                (provider + '/' if provider else '') + model_api_name,
+                '--instances.type',
+                'file',
+                '--instances.path',
+                instances_path,
+                '--config',
+                config_path,
+                '--env_var_path',
+                env_var_path,
+                '--num_workers',
+                str(parallel),
+                '--output_dir',
+                all_traj_folder
+            ]
 
-        try:
-            subprocess.run(cmd, check=True)
-        except KeyboardInterrupt:
-            print("KeyboardInterrupt received. Stopping subprocess and continuing to collect results...")
-            pass
-        except subprocess.CalledProcessError as e:
-            print(f"Subprocess error: {e}")
-            pass
+            print('Running command: ', ' '.join([str(c) for c in cmd]))
+
+            try:
+                subprocess.run(cmd, check=True)
+            except KeyboardInterrupt:
+                print("KeyboardInterrupt received. Stopping subprocess and continuing to collect results...")
+                pass
+            except subprocess.CalledProcessError as e:
+                print(f"Subprocess error: {e}")
+                pass
             
     for question in questions:
         
