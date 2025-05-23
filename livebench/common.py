@@ -170,6 +170,7 @@ def load_questions(
         ]
     else:
         questions = list(category)
+    assert len(questions) == len(set(q['question_id'] for q in questions)), "Duplicate question IDs found"
     for q in questions:
         if "livebench_release_date" in q.keys() and isinstance(
             q["livebench_release_date"], datetime
@@ -227,6 +228,8 @@ def load_questions_jsonl(
         for line in ques_file:
             if line:
                 questions.append(json.loads(line))
+
+    assert len(questions) == len(set(q['question_id'] for q in questions)), "Duplicate question IDs found in question file " + question_file
 
     questions = [
         q for q in questions if q["livebench_release_date"] in livebench_releases
