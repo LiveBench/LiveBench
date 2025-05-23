@@ -38,7 +38,8 @@ class ToolFilterConfig(BaseModel):
         "bash\n",
         "sh\n",
         "/bin/bash\n",
-        "/bin/sh\n"
+        "/bin/sh\n",
+        "git clone"
     ]
     """Block any command that starts with or includes one of these"""
     blocklist_standalone: list[str] = [
@@ -59,7 +60,6 @@ class ToolFilterConfig(BaseModel):
         "python",
         "python3",
         "deactivate",
-        "git clone"
     ]
     """Block any command that matches one of these exactly"""
     block_unless_regex: dict[str, str] = {
