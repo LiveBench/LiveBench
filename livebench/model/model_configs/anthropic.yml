@@ -63,3 +63,51 @@ api_name:
 aliases:
   - claude-3-7-sonnet-base
   - claude-3-7-sonnet
+---
+display_name: claude-4-sonnet-20250514-base
+api_name:
+  anthropic: claude-4-sonnet-20250514
+api_kwargs:
+  default:
+    temperature: 1
+aliases:
+  - claude-4-sonnet-base
+  - claude-4-sonnet
+---
+display_name: claude-4-sonnet-20250514-thinking-64k
+api_name:
+  anthropic: claude-4-sonnet-20250514
+api_kwargs:
+  default:
+    temperature: 1
+    thinking:
+      type: enabled
+      budget_tokens: 63000
+    max_tokens: 64000
+aliases:
+  - claude-4-sonnet-thinking-64k
+  - claude-4-sonnet-thinking
+---
+display_name: claude-4-opus-20250514-base
+api_name:
+  anthropic: claude-4-opus-20250514
+api_kwargs:
+  default:
+    temperature: 1
+aliases:
+  - claude-4-opus-base
+  - claude-4-opus
+---
+display_name: claude-4-opus-20250514-thinking-32k
+api_name:
+  anthropic: claude-4-opus-20250514
+api_kwargs:
+  default:
+    temperature: 1
+    thinking:
+      type: enabled
+      budget_tokens: 31000
+    max_tokens: 32000
+aliases:
+  - claude-4-opus-thinking-32k
+  - claude-4-opus-thinking

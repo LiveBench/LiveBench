@@ -162,6 +162,32 @@ api_kwargs:
     temperature: 1
     top_p: 0.95
 ---
+display_name: gemini-2.5-flash-preview-05-20-thinking
+api_name:
+  google: gemini-2.5-flash-preview-05-20
+aliases:
+  - gemini-2.5-flash-preview-thinking
+api_kwargs:
+  default:
+    max_output_tokens: 65536
+    temperature: 1
+    top_p: 0.95
+    thinking_config:
+      thinking_budget: 24576
+---
+display_name: gemini-2.5-flash-preview-05-20-base
+api_name:
+  google: gemini-2.5-flash-preview-05-20
+aliases:
+  - gemini-2.5-flash-preview-base
+api_kwargs:
+  default:
+    max_output_tokens: 65536
+    temperature: 1
+    top_p: 0.95
+    thinking_config:
+      thinking_budget: 0
+---
 display_name: gemini-2.5-flash-preview-05-20
 api_name:
   google: gemini-2.5-flash-preview-05-20
@@ -170,5 +196,3 @@ aliases:
 api_kwargs:
   default:
     max_output_tokens: 65536
-    temperature: 1
-    top_p: 0.95
