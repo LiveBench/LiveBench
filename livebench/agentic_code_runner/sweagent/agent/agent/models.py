@@ -943,7 +943,6 @@ class LiteLLMModel(AbstractModel):
             extra_args["api_base"] = self.config.api_base
         if self.tools.use_function_calling:
             extra_args["tools"] = self.tools.tools
-            extra_args["tool_choice"] = "required"
 
         if self.config.prompt_prefix is not None and self.config.prompt_prefix not in messages[0]['content']:
             messages[0]['content'] = self.config.prompt_prefix + '\n' + messages[0]['content']
@@ -990,6 +989,8 @@ class LiteLLMModel(AbstractModel):
                 # we need thinking budget < max output tokens
                 # as well as thinking budget >= 1024
                 completion_kwargs['thinking']['budget_tokens'] = max(1024, min(completion_kwargs['thinking']['budget_tokens'], completion_kwargs['max_tokens'] - 1000))
+                if 'tool_choice' in extra_args:
+                    del extra_args['tool_choice']
         else:
             # completion_kwargs['max_tokens'] + input_tokens <= self.model_max_input_tokens
             # and completion_kwargs['max_tokens'] <= self.model_max_output_tokens
