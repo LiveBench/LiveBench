@@ -30,3 +30,10 @@ api_keys:
   https://api.fireworks.ai/inference/v1: FIREWORKS_API_KEY
 aliases:
   - llama4-maverick
+agent_config:
+  default:
+    max_input_tokens: 131072
+    max_output_tokens: 131072
+    supports_function_calling: true
+  https://api.fireworks.ai/inference/v1:
+    litellm_provider: fireworks_ai
