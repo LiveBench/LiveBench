@@ -37,6 +37,10 @@ api_name:
   mistral: mistral-large-2411
 aliases:
   - mistral-large
+agent_config:
+  default:
+    max_input_tokens: 128000
+    max_output_tokens: 128000
 ---
 display_name: mistral-small-2409
 api_name:
@@ -51,9 +55,26 @@ api_name:
   mistral: mistral-small-2503
 aliases:
   - mistral-small
+agent_config:
+  default:
+    max_input_tokens: 128000
+    max_output_tokens: 128000
 ---
 display_name: mistral-medium-2505
 api_name:
   mistral: mistral-medium-2505
 aliases:
   - mistral-medium
+agent_config:
+  default:
+    max_input_tokens: 128000
+    max_output_tokens: 128000
+---
+display_name: devstral-small-2505
+api_name: devstral-small-2505
+aliases:
+  - devstral-small
+agent_config:
+  default:
+    max_input_tokens: 128000
+    max_output_tokens: 128000
