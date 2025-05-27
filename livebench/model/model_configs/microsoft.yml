@@ -6,6 +6,10 @@ api_kwargs:
     max_tokens: 30000
     temperature: 0.8
     top_p: 0.95
+agent_config:
+  default:
+    max_input_tokens: 32000
+    max_output_tokens: 32000
 ---
 display_name: phi-4-reasoning
 api_name:
@@ -15,3 +19,7 @@ api_kwargs:
     max_tokens: 30000
     temperature: 0.8
     top_p: 0.95
+agent_config:
+  default:
+    max_input_tokens: 32000
+    max_output_tokens: 32000
