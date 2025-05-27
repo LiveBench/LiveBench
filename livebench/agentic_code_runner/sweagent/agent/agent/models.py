@@ -969,8 +969,11 @@ class LiteLLMModel(AbstractModel):
         else:
             messages_for_token_counter = [{k: v for k, v in message.items() if k != 'reasoning'} for message in messages]
 
+        token_est_mult = 1.1
+        if 'qwen3' in self.config.name:
+            token_est_mult = 1.5
         # litellm token counter uses gpt-3.5-turbo tokenizer, which tends to underestimate
-        input_tokens: int = round(litellm.utils.token_counter(messages=messages_for_token_counter, model=self.config.name) * 1.1)
+        input_tokens: int = round(litellm.utils.token_counter(messages=messages_for_token_counter, model=self.config.name) * token_est_mult)
         self.logger.debug(f"predicted input tokens: {input_tokens}")
         if self.model_max_input_tokens is None:
             msg = (
