@@ -74,7 +74,7 @@ api_kwargs:
 ---
 display_name: claude-4-sonnet-20250514-base
 api_name:
-  anthropic: claude-4-sonnet-20250514
+  anthropic: claude-sonnet-4-20250514
 api_kwargs:
   default:
     temperature: 1
@@ -84,7 +84,7 @@ aliases:
 ---
 display_name: claude-4-sonnet-20250514-thinking-64k
 api_name:
-  anthropic: claude-4-sonnet-20250514
+  anthropic: claude-sonnet-4-20250514
 api_kwargs:
   default:
     temperature: 1
@@ -98,7 +98,7 @@ aliases:
 ---
 display_name: claude-4-opus-20250514-base
 api_name:
-  anthropic: claude-4-opus-20250514
+  anthropic: claude-opus-4-20250514
 api_kwargs:
   default:
     temperature: 1
@@ -108,7 +108,7 @@ aliases:
 ---
 display_name: claude-4-opus-20250514-thinking-32k
 api_name:
-  anthropic: claude-4-opus-20250514
+  anthropic: claude-opus-4-20250514
 api_kwargs:
   default:
     temperature: 1
