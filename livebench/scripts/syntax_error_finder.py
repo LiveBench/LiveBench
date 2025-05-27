@@ -6,7 +6,7 @@ import re
 import concurrent.futures
 import argparse
 import subprocess
-from collections import defaultdict
+from collections import defaultdict, Counter
 from tqdm import tqdm
 import traceback
 
@@ -31,11 +31,11 @@ SWEAGENT_ERROR_STATUSES = [
 #     'exit_command_timeout',
 #     # 'exit_command',
 #     'exit_context',
-#     # 'exit_api',
-#     # 'exit_environment_error',
-#     # 'exit_error',
+    #  'exit_api',
+    #  'exit_environment_error',
+    #  'exit_error',
 #    'exit_format',
-#    'exit_cost',
+   'exit_cost',
     # 'Bad gateway'
 ]
 
@@ -59,7 +59,10 @@ OTHER_ERROR_STRINGS = [
     # "Failed to interrupt session",
     # "timeout after 300.0 seconds while running command",
     "The command 'edit",
-    "This model's maximum context length"
+    # "This model's maximum context length",
+    # "This request would exceed the rate limit for your organization",
+    # "You exceeded your current quota, please check your plan and billing details",
+    # "doesn't support tool_choice=required"
 ]
 
 blocklist: list[str] = [
@@ -124,15 +127,14 @@ model_pairs = defaultdict(list)
 # Results dictionary to store model -> (run_id, question_id) pairs with errors
 model_errors = defaultdict(list)
 
-# Set to track which (model, run_id, question_id, error) tuples have been found
-# This helps avoid duplicates between JSONL and trajectory files
-found_errors = set()
+# Dictionary to track how many times each (model, run_id, question_id, error) tuple appears
+found_errors = Counter()
 
 # Function to process a single JSONL file
 def process_jsonl_file(jsonl_file):
     local_model_pairs = []
     local_model_errors = []
-    local_found_errors = set()
+    local_found_errors = Counter()
     
     model_name = os.path.basename(jsonl_file).replace(".jsonl", "")
     print(f"Processing {model_name}...")
@@ -153,12 +155,10 @@ def process_jsonl_file(jsonl_file):
                             error_found = error_string
                             # Create a unique identifier for this error
                             error_id = (model_name, run_id, question_id, error_found)
-                            # print(f"Found {error_id}")
-                            index = line.find(error_string)
-                            # print(line[index - 20:index + len(error_string) + 20])
-                            # Only add if not already found
-                            if error_id not in local_found_errors:
-                                local_found_errors.add(error_id)
+                            # Increment the counter for this error
+                            local_found_errors[error_id] += 1
+                            # Only add to model_errors if this is the first occurrence
+                            if local_found_errors[error_id] == 1:
                                 local_model_errors.append((run_id, question_id, f"JSONL:{error_found}"))
                     if len(CONTENT_ERROR_REGEXES) > 0:
                         if 'history' in data:
@@ -177,8 +177,8 @@ def process_jsonl_file(jsonl_file):
                             for error_name, regex in CONTENT_ERROR_REGEXES.items():
                                 if re.search(regex, content_value, re.DOTALL):
                                     error_id = (model_name, run_id, question_id, error_name)
-                                    if error_id not in local_found_errors:
-                                        local_found_errors.add(error_id)
+                                    local_found_errors[error_id] += 1
+                                    if local_found_errors[error_id] == 1:
                                         local_model_errors.append((run_id, question_id, error_name))
                                         remaining_poss_errors.remove(error_name)
                             
@@ -212,7 +212,9 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
             model_name, local_pairs, local_errors, local_found = future.result()
             model_pairs[model_name].extend(local_pairs)
             model_errors[model_name].extend(local_errors)
-            found_errors.update(local_found)
+            # Update the counter with values from local_found
+            for error_id, count in local_found.items():
+                found_errors[error_id] += count
         except Exception as exc:
             print(f"Processing {jsonl_file} generated an exception: {exc}")
             traceback.print_exc()
@@ -268,6 +270,8 @@ for model, error_pairs in model_errors.items():
     print(f"Total pairs with errors: {len(error_pairs)}/{len(model_pairs[model])}")
 
     run_id_to_errors = defaultdict(lambda: defaultdict(list))
+    error_counts = defaultdict(int)
+    
     for run_id, question_id, error in error_pairs:
         # Prefix to indicate where the error was found
         if error.startswith("JSONL:"):
@@ -277,20 +281,37 @@ for model, error_pairs in model_errors.items():
             source = "Trajectory file"
             error_type = error
             
+        # Get the count for this error
+        error_id = (model, run_id, question_id, error_type)
+        count = found_errors[error_id]
+        error_counts[(source, error_type, question_id)] = count
         run_id_to_errors[run_id][(source, error_type)].append(question_id)
     
     for run_id, error_to_question_ids in run_id_to_errors.items():
         print(f"  Run ID: {run_id}")
         overlap = None
         for (source, error), question_ids in error_to_question_ids.items():
-            print(f"    {error}: {' '.join(question_ids)}")
+            # Display question IDs with their error counts
+            question_ids_with_counts = []
+            for qid in question_ids:
+                count = error_counts[(source, error, qid)]
+                question_ids_with_counts.append(f"{qid}({count})")
+            
+            print(f"    {error}: {' '.join(question_ids_with_counts)}")
+            
             if overlap is None:
                 overlap = set(question_ids)
             else:
                 overlap = overlap.intersection(set(question_ids))
         
         if len(error_to_question_ids) > 1 and overlap is not None and len(overlap) > 0:
-            print(f"  Overlapping question IDs: {' '.join(overlap)}")
+            # Display overlapping question IDs with their counts for the most frequent error
+            overlap_with_counts = []
+            for qid in overlap:
+                max_count = max(error_counts[(source, error, qid)] for source, error in error_to_question_ids.keys())
+                overlap_with_counts.append(f"{qid}({max_count})")
+            
+            print(f"  Overlapping question IDs: {' '.join(overlap_with_counts)}")
 
 print("\nDone!") 
 
