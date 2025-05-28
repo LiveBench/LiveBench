@@ -529,10 +529,15 @@ def process_model_comparison(question_id, model1, model2, model1_answers, model2
         
     task, question_content, model1_answer, model1_answer_obj, model1_score, model1_debug, model1_mistake_explanation, model1_mistake_type = model1_result
     
+    if question_content and 'instance_id' in question_content:
+        console.print(f"Instance ID: {question_content['instance_id']}", style="bold")
+    
     # Display question content once
     if question_content and 'turns' in question_content and len(question_content['turns']) > 0:
         console.print(Panel(str(question_content['turns'][0]), title="Question Content", expand=True))
         console.print("\n")
+
+
     
     # Process model2 if it exists
     model2_result = None

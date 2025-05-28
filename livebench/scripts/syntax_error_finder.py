@@ -9,7 +9,6 @@ import subprocess
 from collections import defaultdict, Counter
 from tqdm import tqdm
 import traceback
-
 from livebench.model.api_model_config import get_model_config
 
 # Parse command-line arguments
@@ -27,15 +26,14 @@ trajectories_dir = "agentic_code_runner/data/trajectories"
 MAX_WORKERS = 20
 
 SWEAGENT_ERROR_STATUSES = [
-#     'exit_total_execution_time',
-#     'exit_command_timeout',
-#     # 'exit_command',
-#     'exit_context',
-    #  'exit_api',
-    #  'exit_environment_error',
-    #  'exit_error',
-#    'exit_format',
-   'exit_cost',
+    # 'exit_total_execution_time',
+    # 'exit_command_timeout',
+    'exit_context',
+    'exit_api',
+    'exit_environment_error',
+    'exit_error',
+    'exit_format',
+    # 'exit_cost',
     # 'Bad gateway'
 ]
 
@@ -58,11 +56,13 @@ OTHER_ERROR_STRINGS = [
     # "action\\\": \\\"find_file",
     # "Failed to interrupt session",
     # "timeout after 300.0 seconds while running command",
-    "The command 'edit",
+    # "The command 'edit",
     # "This model's maximum context length",
     # "This request would exceed the rate limit for your organization",
     # "You exceeded your current quota, please check your plan and billing details",
     # "doesn't support tool_choice=required"
+    # "git restore .gitignore",
+    "exceeds maximum input length"
 ]
 
 blocklist: list[str] = [
@@ -347,8 +347,9 @@ if args.rerun:
             "--model", model,
             "--bench-name", "live_bench/coding/agentic_coding",
             "--question-source", "jsonl",
-            "--parallel-requests", "30",
-            "--parallel-grading", "30",
+            "--mode", "parallel",
+            "--parallel-requests", "1",
+            "--parallel-grading", "1",
             "--question-id"] + list(question_ids)
         
         print(f"Running command: {' '.join(cmd)}")
