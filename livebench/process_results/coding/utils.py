@@ -166,7 +166,7 @@ def agentic_coding_process_results(questions: list[dict], answers: list[dict], d
     shutil.rmtree(workdir_path, ignore_errors=True)
     workdir_path.mkdir(parents=True, exist_ok=True)
 
-    report_path = Path(LIVE_BENCH_ROOT_PATH / f'agentic_code_runner/data/report/{model_name}_{eval_id}_report.json')
+    report_path = Path(LIVE_BENCH_ROOT_PATH / f'agentic_code_runner/data/report/{model_name}_{eval_id}/final_report.json')
     shutil.rmtree(report_path.parent, ignore_errors=True)
     report_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -236,7 +236,7 @@ def agentic_coding_process_results(questions: list[dict], answers: list[dict], d
     if only_build_image:
         return dict()
 
-    report_path = Path(LIVE_BENCH_ROOT_PATH / f'agentic_code_runner/data/report/final_report.json')
+    report_path = Path(LIVE_BENCH_ROOT_PATH / f'agentic_code_runner/data/report/{model_name}_{eval_id}/final_report.json')
     if not report_path.exists():
         print(f"Report not found for eval {eval_id} for model {model_name}")
         return dict()
