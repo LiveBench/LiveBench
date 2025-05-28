@@ -952,22 +952,12 @@ class LiteLLMModel(AbstractModel):
         if self.config.prompt_prefix is not None and self.config.prompt_prefix not in messages[0]['content']:
             messages[0]['content'] = self.config.prompt_prefix + '\n' + messages[0]['content']
 
+        if self.config.name.startswith('cohere'):
+            for message in messages:
+                if message['content'].strip() == '':
+                    message['content'] = '.' # cohere doesn't like empty messages
+
         messages_for_token_counter = messages
-        # if 'claude-3-7-sonnet' in self.config.name and 'thinking' in self.config.completion_kwargs:
-        #     # messages_for_token_counter = []
-        #     for message in messages:
-        #         if message['role'] == 'assistant':
-        #             new_msg = {
-        #                 'role': message['role'],
-        #                 'content': []
-        #             }
-        #             if message.get('reasoning', None):
-        #                 for thinking_block in message['reasoning']:
-        #                     message['content'].append(thinking_block)
-        #             if message.get('content', None):
-        #                 message['content'].append({'type': 'text', 'text': message['content']})
-        #             if message.get('tool_calls', None):
-        #                 pass
         
         if not self.config.api_type == "responses":
             messages_for_token_counter = self.prepare_reasoning_messages(messages, concat_last_reasoning=True)
@@ -1045,9 +1035,11 @@ class LiteLLMModel(AbstractModel):
                 f"{exception_info}"
             )
 
+        min_wait = self.config.retry.min_wait if 'gemma' not in self.config.name else 45
+
         for attempt in Retrying(
             stop=stop_after_attempt(self.config.retry.retries),
-            wait=wait_random_exponential(min=self.config.retry.min_wait, max=self.config.retry.max_wait),
+            wait=wait_random_exponential(min=min_wait, max=self.config.retry.max_wait),
             reraise=True,
             retry=retry_if_not_exception_type(
                 (
