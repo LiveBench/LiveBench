@@ -7,7 +7,6 @@ import concurrent.futures
 import argparse
 import subprocess
 from collections import defaultdict, Counter
-from tqdm import tqdm
 import traceback
 from livebench.model.api_model_config import get_model_config
 
@@ -19,8 +18,29 @@ parser.add_argument('--rerun', action='store_true', help='Rerun questions with e
 args = parser.parse_args()
 
 # Paths to directories
-jsonl_dir = "data/live_bench/coding/agentic_coding/model_answer"
+jsonl_dirs = ["data/live_bench/agentic_coding/python/model_answer","data/live_bench/agentic_coding/javascript/model_answer","data/live_bench/agentic_coding/typescript/model_answer"]
 trajectories_dir = "agentic_code_runner/data/trajectories"
+questions_files = ["data/live_bench/agentic_coding/python/question.jsonl","data/live_bench/agentic_coding/javascript/question.jsonl","data/live_bench/agentic_coding/typescript/question.jsonl"]
+
+# Load valid question IDs
+print("Loading valid question IDs...")
+valid_question_ids = set()
+for questions_file in questions_files:
+    try:
+        with open(questions_file, 'r') as f:
+            for line in f:
+                try:
+                    data = json.loads(line)
+                    question_id = data.get('question_id')
+                    if question_id:
+                        valid_question_ids.add(str(question_id))
+                except json.JSONDecodeError:
+                    continue
+        print(f"Loaded {len(valid_question_ids)} valid question IDs from " + questions_file)
+    except FileNotFoundError:
+        print(f"Warning: Questions file not found at {questions_file}")
+        print("Proceeding without question ID validation")
+        valid_question_ids = None
 
 # Set maximum number of workers for parallel processing
 MAX_WORKERS = 20
@@ -28,10 +48,10 @@ MAX_WORKERS = 20
 SWEAGENT_ERROR_STATUSES = [
     # 'exit_total_execution_time',
     # 'exit_command_timeout',
-    'exit_context',
-    'exit_api',
-    'exit_environment_error',
-    'exit_error',
+    # 'exit_context',
+    # 'exit_api',
+    # 'exit_environment_error',
+    # 'exit_error',
     'exit_format',
     # 'exit_cost',
     # 'Bad gateway'
@@ -62,7 +82,13 @@ OTHER_ERROR_STRINGS = [
     # "You exceeded your current quota, please check your plan and billing details",
     # "doesn't support tool_choice=required"
     # "git restore .gitignore",
-    "exceeds maximum input length"
+    # "exceeds maximum input length",
+    # "tool_choice=required",
+    # "all elements in history must have a message",
+    # "You exceeded your current quota",
+    # "MistralException - Service unavailable.",
+    # "'NoneType' object has no attribute 'keys'",
+    # "invalid tool call provided"
 ]
 
 blocklist: list[str] = [
@@ -131,7 +157,7 @@ model_errors = defaultdict(list)
 found_errors = Counter()
 
 # Function to process a single JSONL file
-def process_jsonl_file(jsonl_file):
+def process_jsonl_file(jsonl_file, valid_question_ids=None):
     local_model_pairs = []
     local_model_errors = []
     local_found_errors = Counter()
@@ -148,6 +174,10 @@ def process_jsonl_file(jsonl_file):
                 question_id = str(data.get('question_id'))
                 if run_id and question_id:
                     local_model_pairs.append((run_id, question_id))
+                    
+                    # Skip processing if question_id is not in valid questions list
+                    if valid_question_ids is not None and question_id not in valid_question_ids:
+                        continue
                     
                     # Check for error pattern in the original JSONL line
                     for error_string in ALL_ERROR_STRINGS:
@@ -192,18 +222,22 @@ def process_jsonl_file(jsonl_file):
 # Process JSONL files in parallel
 if args.model:
     # Only process specified models
-    jsonl_files = [os.path.join(jsonl_dir, f"{get_model_config(model_name).display_name}.jsonl") for model_name in args.model]
+    jsonl_files = []
+    for jsonl_dir in jsonl_dirs:
+        jsonl_files += [os.path.join(jsonl_dir, f"{get_model_config(model_name).display_name}.jsonl") for model_name in args.model]
     # Filter out non-existent files
     jsonl_files = [f for f in jsonl_files if os.path.exists(f)]
     print(f"Found {len(jsonl_files)} JSONL files to process for specified models: {', '.join(args.model)}")
 else:
     # Process all JSONL files
-    jsonl_files = glob.glob(os.path.join(jsonl_dir, "*.jsonl"))
+    jsonl_files = []
+    for jsonl_dir in jsonl_dirs:
+        jsonl_files += glob.glob(os.path.join(jsonl_dir, "*.jsonl"))
     print(f"Found {len(jsonl_files)} JSONL files to process")
 
 with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
     # Submit all JSONL files for processing
-    future_to_file = {executor.submit(process_jsonl_file, jsonl_file): jsonl_file for jsonl_file in jsonl_files}
+    future_to_file = {executor.submit(process_jsonl_file, jsonl_file, valid_question_ids): jsonl_file for jsonl_file in jsonl_files}
     
     # Process results as they complete
     for future in concurrent.futures.as_completed(future_to_file):
@@ -217,45 +251,7 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
                 found_errors[error_id] += count
         except Exception as exc:
             print(f"Processing {jsonl_file} generated an exception: {exc}")
-            traceback.print_exc()
-
-# for jsonl_file in jsonl_files:
-#     model_name, local_pairs, local_errors, local_found = process_jsonl_file(jsonl_file)
-#     model_pairs[model_name].extend(local_pairs)
-#     model_errors[model_name].extend(local_errors)
-#     found_errors.update(local_found)
-
-# Check each (run_id, question_id) pair for syntax errors
-# for model, pairs in model_pairs.items():
-#     print(f"Checking {len(pairs)} questions for model {model}")
-    
-#     for run_id, question_id in pairs:
-#         # Directly construct the path to the specific folder
-#         folder_path = os.path.join(trajectories_dir, run_id, question_id)
-        
-#         if not os.path.exists(folder_path):
-#             continue
-
-#         traj_path = os.path.join(folder_path, question_id + '.traj')
-
-#         if not os.path.exists(traj_path):
-#             continue
-        
-#         try:
-#             with open(traj_path, 'r', errors='ignore') as f:
-#                 content = f.read()
-#                 for error_string in ALL_ERROR_STRINGS:
-#                     if error_string in content:
-#                         error_found = error_string
-#                         # Check if this error was already found in the JSONL file
-#                         error_id = (model, run_id, question_id, error_found)
-#                         # Only add if not already found
-#                         if error_id not in found_errors:
-#                             found_errors.add(error_id)
-#                             model_errors[model].append((run_id, question_id, error_found))
-#         except Exception as e:
-#             print(f"Error reading {traj_path}: {e}")
-            
+            traceback.print_exc()       
 
 # Print results
 print("\n" + "="*50)
@@ -328,12 +324,12 @@ if args.rerun:
             continue
             
         for run_id, question_id, error in error_pairs:
-            model_to_question_ids[model].add(question_id)
+            # Only include question IDs that are in the valid questions list
+            if valid_question_ids is None or question_id in valid_question_ids:
+                model_to_question_ids[model].add(question_id)
     
     # Rerun each model with its error questions
     for model, question_ids in model_to_question_ids.items():
-        if 'command-a' in model:
-            continue
         if not question_ids:
             continue
             
@@ -345,7 +341,7 @@ if args.rerun:
         cmd = [
             "python", "run_livebench.py",
             "--model", model,
-            "--bench-name", "live_bench/coding/agentic_coding",
+            "--bench-name", "live_bench/agentic_coding",
             "--question-source", "jsonl",
             "--mode", "parallel",
             "--parallel-requests", "1",

@@ -14,6 +14,7 @@ Options:
 """
 
 import argparse
+import glob
 import json
 import os
 from pathlib import Path
@@ -42,21 +43,24 @@ def load_model_answers(model_name: str) -> list[dict[str, Any]]:
     Returns:
         List of answer objects from the JSONL file
     """
-    file_path = f"data/live_bench/coding/agentic_coding/model_answer/{model_name}.jsonl"
+    model_answer_path_glob = f"data/live_bench/agentic_coding/**/{model_name}.jsonl"
+
+    file_paths = glob.glob(model_answer_path_glob)
     
-    if not os.path.exists(file_path):
-        print(f"Error: Could not find answer file for model {model_name} at {file_path}.")
+    if file_paths == []:
+        print(f"Error: Could not find answer file for model {model_name}.")
         sys.exit(1)
     
     answers = []
-    with open(file_path, 'r') as f:
-        for line in f:
-            try:
-                answer_obj = json.loads(line.strip())
-                answers.append(answer_obj)
-            except json.JSONDecodeError:
-                print(f"Warning: Could not parse line in {file_path}. Skipping.")
-                continue
+    for file_path in file_paths:
+        with open(file_path, 'r') as f:
+            for line in f:
+                try:
+                    answer_obj = json.loads(line.strip())
+                    answers.append(answer_obj)
+                except json.JSONDecodeError:
+                    print(f"Warning: Could not parse line in {file_path}. Skipping.")
+                    continue
     
     return answers
 

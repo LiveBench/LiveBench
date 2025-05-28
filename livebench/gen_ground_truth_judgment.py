@@ -358,13 +358,14 @@ def gen_judgments(
             eval_result = agentic_coding_process_results(questions, answers, debug=debug, max_workers=parallel)
             for question_id in sorted(eval_result.keys()):
                 model_answer = model_answers[model_id][question_id]
+                question = [q for q in questions if q['question_id'] == question_id][0]
                 result = {
                     "question_id": question_id,
-                    "task": "agentic_coding",
+                    "task": question['task'],
                     "model": model_id,
                     "score": eval_result[question_id],
                     "tstamp": time.time(),
-                    "category": "coding",
+                    "category": "agentic_coding",
                 }
                 if "answer_id" in model_answer:
                     result["answer_id"] = model_answer["answer_id"]

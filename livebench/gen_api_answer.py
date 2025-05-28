@@ -181,7 +181,7 @@ def run_questions(
     print('Model API name: ', model_api_name)
     print('Evaluating ', len(questions), ' questions in ', bench_name, ' with model ', model_config.display_name)
    
-    if bench_name == "live_bench/coding/agentic_coding":
+    if 'agentic_coding' in bench_name:
         agent_config = None
         if model_config.agent_config is not None:
             agent_config: AgentConfig = {}

@@ -281,25 +281,7 @@ def display_result_single(args):
     df = df[df['question_id'].isin(question_id_set)]
     df['model'] = df['model'].str.lower()
     df["score"] *= 100
-
-    # If splitting agentic_coding by language, create a dictionary mapping question_id to language
-    if args.agentic_coding_split_by_language:
-        question_id_to_language = {}
-        for q in questions_all:
-            if 'task' in q and q['task'] == 'agentic_coding' and 'language' in q:
-                question_id_to_language[q['question_id']] = q['language']
-        
-        # Create a copy of the DataFrame with modified task names for agentic_coding
-        df_copy = df.copy()
-        for idx, row in df.iterrows():
-            if row['task'] == 'agentic_coding' and row['question_id'] in question_id_to_language:
-                language = question_id_to_language[row['question_id']]
-                df_copy.at[idx, 'task'] = f"agentic_coding_{language}"
-        
-        # Replace the original DataFrame with the modified one
-        df = df_copy
-        print(f"Split agentic_coding by language, created tasks: {sorted(set(df[df['task'].str.startswith('agentic_coding_')]['task']))}")
-
+    
     if args.model_list is not None:
         model_list = [get_model_config(x).display_name for x in args.model_list]
         df = df[df["model"].isin([x.lower() for x in model_list])]
@@ -438,12 +420,6 @@ if __name__ == "__main__":
         default=False,
         help="Skip displaying the average column in results",
         action='store_true'
-    )
-    parser.add_argument(
-        "--agentic-coding-split-by-language",
-        default=False,
-        action='store_true',
-        help="Split agentic_coding task by programming language, creating separate columns for each language"
     )
     args = parser.parse_args()
 
