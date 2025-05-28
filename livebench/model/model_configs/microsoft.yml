@@ -10,6 +10,7 @@ agent_config:
   default:
     max_input_tokens: 32000
     max_output_tokens: 32000
+    use_last_action_in_message: true
 ---
 display_name: phi-4-reasoning
 api_name:

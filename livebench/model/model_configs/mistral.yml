@@ -71,10 +71,12 @@ agent_config:
     max_output_tokens: 128000
 ---
 display_name: devstral-small-2505
-api_name: devstral-small-2505
+api_name: 
+  mistral: devstral-small-2505
 aliases:
   - devstral-small
 agent_config:
   default:
     max_input_tokens: 128000
     max_output_tokens: 128000
+    supports_function_calling: false
