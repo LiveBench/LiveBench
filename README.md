@@ -97,7 +97,9 @@ Run `python run_livebench.py --help` to see all available options.
 
 When this is finished, follow along with [Viewing Results](#viewing-results) to view results.
 
-**Note: The current LiveBench release is 2025-04-02; however, not all questions for this release are public on Huggingface. In order to evaluate all categories, you will need to pass `--livebench-release-option 2024-11-25` to all scripts to use the most recent public questions.**
+**Note: The current LiveBench release is 2025-04-25; however, not all questions for this release are public on Huggingface. In order to evaluate all categories, you will need to pass `--livebench-release-option 2024-11-25` to all scripts to use the most recent public questions.**
+
+**Note: Evaluation of the agentic coding tasks require the building of task-specific Docker images. Storing all of these images may take up to 150GB. Images are needed both for inference and evaluation. In the future we will work on optimizing the evaluation process for this task to minimize storage requirements.**
 
 #### Parallel Evaluation Options
 
@@ -204,7 +206,7 @@ python gen_ground_truth_judgment.py --bench-name live_bench/reasoning/web_of_lie
 python show_livebench_result.py --bench-name live_bench/reasoning/web_of_lies_new_prompt
 ```
 
-## Evaluating New Models and Configuring API Parameters
+## Evaluating New Models and Configuring API Parametersdee
 
 Any API-based model for which there is an OpenAI compatible endpoint should work out of the box using the `--api-base` and `--api-key` (or `--api-key-name`) arguments. If you'd like to override the name of the model for local files (e.g. saving it as `deepseek-v3` instead of `deepseek-chat`), use the `--model-display-name` argument. You can also override values for temperature and max tokens using the `--force-temperature` and `--max-tokens` arguments, respectively.
 
