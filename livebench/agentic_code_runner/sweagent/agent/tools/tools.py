@@ -13,7 +13,7 @@ from typing_extensions import Self
 from livebench.agentic_code_runner.sweagent.agent.environment.swe_env import SWEEnv
 from livebench.agentic_code_runner.sweagent.agent.tools.bundle import Bundle
 from livebench.agentic_code_runner.sweagent.agent.tools.commands import BASH_COMMAND, Command
-from livebench.agentic_code_runner.sweagent.agent.tools.parsing import FunctionCallingParser, JsonParser, ParseFunction
+from livebench.agentic_code_runner.sweagent.agent.tools.parsing import FunctionCallingParser, JsonParser, ParseFunction, XMLThoughtActionParser
 from livebench.agentic_code_runner.sweagent.agent.tools.utils import _guard_multiline_input, generate_command_docs
 from livebench.agentic_code_runner.sweagent.agent.utils.log import get_logger
 
@@ -39,7 +39,7 @@ class ToolFilterConfig(BaseModel):
         "sh\n",
         "/bin/bash\n",
         "/bin/sh\n",
-        "git clone"
+        "git clone",
     ]
     """Block any command that starts with or includes one of these"""
     blocklist_standalone: list[str] = [
@@ -60,6 +60,7 @@ class ToolFilterConfig(BaseModel):
         "python",
         "python3",
         "deactivate",
+        "git restore .gitignore"
     ]
     """Block any command that matches one of these exactly"""
     block_unless_regex: dict[str, str] = {
@@ -340,8 +341,12 @@ class ToolHandler:
             return True
         return False
 
-    def parse_actions(self, output: dict) -> tuple[str, str]:
+    def parse_actions(self, output: dict, use_last_action_in_message: bool = False) -> tuple[str, str]:
         """Parse the model output into a thought and action."""
+        if use_last_action_in_message:
+            self.logger.info(f"Using last action in message")
+            assert isinstance(self.config.parse_function, XMLThoughtActionParser), "use_last_action_in_message is only supported with XMLThoughtActionParser"
+            return self.config.parse_function(output, self.config.commands, use_last_action_in_message=use_last_action_in_message)
         return self.config.parse_function(output, self.config.commands)
 
     def guard_multiline_input(self, action: str) -> str:

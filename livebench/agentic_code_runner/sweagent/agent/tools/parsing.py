@@ -180,7 +180,7 @@ class XMLThoughtActionParser(AbstractParseFunction, BaseModel):
     type: Literal["xml_thought_action"] = "xml_thought_action"
     """Type for (de)serialization. Do not change."""
 
-    def __call__(self, model_response: dict, commands: list[Command], strict=False) -> tuple[str, str]:
+    def __call__(self, model_response: dict, commands: list[Command], strict=False, use_last_action_in_message=False) -> tuple[str, str]:
         """
         Parses the action from the output of the API call.
         We assume that the action is the last code block in the model_response.
@@ -199,7 +199,7 @@ class XMLThoughtActionParser(AbstractParseFunction, BaseModel):
         if "<command>" not in model_response["message"] or "</command>" not in model_response["message"]:
             msg = "No action found in model response."
             raise FormatError(msg)
-        if model_response["message"].count("<command>") > 1:
+        if model_response["message"].count("<command>") > 1 and not use_last_action_in_message:
             msg = "Multiple actions found in model response."
             raise FormatError(msg)
         # `action` is everything between the last <command> and </command> tags

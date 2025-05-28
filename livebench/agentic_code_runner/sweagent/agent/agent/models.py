@@ -153,6 +153,11 @@ class GenericAPIModelConfig(PydanticBaseModel):
     prompt_prefix: str | None = None
     """A string to insert at the beginning of the prompt."""
 
+    use_last_action_in_message: bool = False
+    """Generally it's not allowed to have multiple actions in a single message, and will cause a FormatError.
+    If this is set to True, though, we will instead just use the very last action as the action"""
+
+
     # pydantic
     model_config = ConfigDict(extra="forbid")
 
@@ -972,6 +977,8 @@ class LiteLLMModel(AbstractModel):
         token_est_mult = 1.1
         if 'qwen3' in self.config.name:
             token_est_mult = 1.5
+        elif 'step-2-16k' in self.config.name:
+            token_est_mult = 2
         # litellm token counter uses gpt-3.5-turbo tokenizer, which tends to underestimate
         input_tokens: int = round(litellm.utils.token_counter(messages=messages_for_token_counter, model=self.config.name) * token_est_mult)
         self.logger.debug(f"predicted input tokens: {input_tokens}")

@@ -1064,7 +1064,7 @@ class DefaultAgent(AbstractAgent):
             #         step.reasoning += thought_content
             #     step.output.replace('thought_content', '')
             # todo: Can't I override the parser in __init__?
-            step.thought, step.action = self.tools.parse_actions(output)
+            step.thought, step.action = self.tools.parse_actions(output, use_last_action_in_message=self.model.config.use_last_action_in_message)
             if output.get("tool_calls") is not None:
                 step.tool_call_ids = []
                 for call in output["tool_calls"]:
