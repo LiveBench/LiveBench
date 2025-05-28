@@ -1,5 +1,36 @@
 #!/usr/bin/env python3
 
+def _ensure_venv_in_gitignore(repo_root: str) -> None:
+    """Ensure .venv is present in .gitignore file."""
+    from pathlib import Path
+    
+    gitignore_path = Path(repo_root) / ".gitignore"
+    
+    # Read existing .gitignore content or create empty if it doesn't exist
+    if gitignore_path.exists():
+        content = gitignore_path.read_text()
+        lines = content.splitlines()
+    else:
+        content = ""
+        lines = []
+    
+    # Check if .venv is already present (as exact match or pattern)
+    venv_present = any(
+        line.strip() == ".venv" or 
+        line.strip() == ".venv/" or
+        line.strip() == "/.venv" or
+        line.strip() == "/.venv/"
+        for line in lines
+    )
+    
+    # Add .venv if not present
+    if not venv_present:
+        if content and not content.endswith('\n'):
+            content += '\n'
+        content += '.venv\n'
+        gitignore_path.write_text(content)
+
+
 def main() -> None:
     import json
     import os
@@ -15,6 +46,9 @@ def main() -> None:
         state = {}
 
     repo_root = registry.get("ROOT", os.getenv("ROOT"))
+
+    # Ensure .venv is in .gitignore before running git diff
+    _ensure_venv_in_gitignore(repo_root)
 
     patch_path = Path("/root/model.patch")
 
