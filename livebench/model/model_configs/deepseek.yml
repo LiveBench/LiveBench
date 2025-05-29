@@ -86,10 +86,21 @@ api_name:
   local: DeepSeek-R1
   https://api.hyperbolic.xyz/v1: deepseek-ai/DeepSeek-R1-0528
   deepinfra: deepseek-ai/DeepSeek-R1-0528
-default_provider: deepinfra
+  https://api.deepseek.com: deepseek-reasoner
+default_provider: https://api.deepseek.com
 api_keys:
   https://api.hyperbolic.xyz/v1: HYPERBOLIC_API_KEY
+  https://api.deepseek.com: DEEPSEEK_API_KEY
 api_kwargs:
   default:
     temperature: 0.7
     max_tokens: 64000
+  https://api.deepseek.com:
+    temperature: null
+agent_config:
+  default:
+    max_input_tokens: 128000
+    max_output_tokens: 32768
+  https://api.deepseek.com:
+    supports_function_calling: true
+    max_output_tokens: 64000
