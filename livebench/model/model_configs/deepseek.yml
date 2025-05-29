@@ -38,3 +38,16 @@ api_kwargs:
   default:
     temperature: 0.7
     max_tokens: 64000
+---
+display_name: deepseek-r1-0528
+api_name:
+  local: DeepSeek-R1
+  https://api.hyperbolic.xyz/v1: deepseek-ai/DeepSeek-R1-0528
+  deepinfra: deepseek-ai/DeepSeek-R1-0528
+default_provider: deepinfra
+api_keys:
+  https://api.hyperbolic.xyz/v1: HYPERBOLIC_API_KEY
+api_kwargs:
+  default:
+    temperature: 0.7
+    max_tokens: 64000
