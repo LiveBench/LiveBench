@@ -1,7 +1,9 @@
 ## Changelog
 
 ### 2025-05-17
-This update introduces a new agentic coding task, where models must operate in a multi-turn, realistic development environment to resolve issues from real Github repositories. Inference is performed using the [SWE-Agent](https://swe-agent.com) framework, and evaluation uses the [Multi-SWE-Bench](https://multi-swe-bench.github.io/#/) harness. This task provides the most realistic possible evaluation of LLM coding capabilities and prediction of which will be most useful for developers.
+This update introduces a new agentic coding category, where models must operate in a multi-turn, realistic development environment to resolve issues from real Github repositories. It contains Python, JavaScript, and TypeScript tasks, and we plan to add more tasks and languages in the future. Inference is performed using the [SWE-Agent](https://swe-agent.com) framework, and evaluation uses the [Multi-SWE-Bench](https://multi-swe-bench.github.io/#/) harness. This task provides the most realistic possible evaluation of LLM coding capabilities and prediction of which will be most useful for developers.
+
+Note: SWE-Agent was run with a 50-step limit for all models during this evaluation. In some cases, it's likely that scores would have improved were models given more time to complete the tasks.
 
 ### 2025-04-25
  - Completely new coding questions focused on evaluating usage of real-world libraries in realistic scenarios. Questions are no longer sourced from LiveCodeBench. The tasks themselves are the same; we still have a full code generation task and a code completion task.
