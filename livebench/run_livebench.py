@@ -47,6 +47,7 @@ class LiveBenchParams:
     model_display_name: str | None = None
     max_tokens: int | None = None
     parallel_requests: int | None = None
+    parallel_grading: int | None = None
     resume: bool = False
     resume_inference: bool = False
     resume_grading: bool = False
@@ -86,6 +87,7 @@ class LiveBenchParams:
             model_display_name=args.model_display_name,
             max_tokens=args.max_tokens,
             parallel_requests=args.parallel_requests,
+            parallel_grading=args.parallel_grading,
             resume=args.resume,
             resume_inference=args.resume_inference,
             resume_grading=args.resume_grading,
@@ -205,6 +207,7 @@ def build_run_command(
     model_display_name: str | None = None,
     max_tokens: int | None = None,
     parallel_requests: int | None = None,
+    parallel_grading: int | None = None,
     resume: bool = False,
     resume_inference: bool = False,
     resume_grading: bool = False,
@@ -256,7 +259,8 @@ def build_run_command(
         gen_api_cmd += f" --max-tokens {max_tokens}"
     if parallel_requests:
         gen_api_cmd += f" --parallel {parallel_requests}"
-    
+    if parallel_grading:
+        gen_judge_cmd += f" --parallel {parallel_grading}"
     # Handle resume flags
     if resume:
         gen_api_cmd += " --resume"
@@ -276,8 +280,10 @@ def build_run_command(
         gen_api_cmd += f" --num-choices {num_choices}"
     if question_begin is not None:
         gen_api_cmd += f" --question-begin {question_begin}"
+        gen_judge_cmd += f" --question-begin {question_begin}"
     if question_end is not None:
         gen_api_cmd += f" --question-end {question_end}"
+        gen_judge_cmd += f" --question-end {question_end}"
     if question_id:
         question_id_str = ' '.join(question_id)
         gen_api_cmd += f" --question-id {question_id_str}"
@@ -321,6 +327,7 @@ def build_run_command_from_params(params: LiveBenchParams, bench_name: str | Non
         model_display_name=params.model_display_name,
         max_tokens=params.max_tokens,
         parallel_requests=params.parallel_requests,
+        parallel_grading=params.parallel_grading,
         resume=params.resume,
         resume_inference=params.resume_inference,
         resume_grading=params.resume_grading,
@@ -458,6 +465,7 @@ def main():
     parser.add_argument("--model-display-name", help="Display name for the model in results")
     parser.add_argument("--max-tokens", type=int, help="Maximum tokens for model responses")
     parser.add_argument("--parallel-requests", type=int, help="Number of parallel requests for API calls")
+    parser.add_argument("--parallel-grading", type=int, help="Number of parallel grading threads")
     parser.add_argument("--resume", action="store_true", help="Resume from previous run (applies to both inference and grading)")
     parser.add_argument("--resume-inference", action="store_true", help="Resume only for inference (gen_api_answer.py)")
     parser.add_argument("--resume-grading", action="store_true", help="Resume only for grading (gen_ground_truth_judgment.py)")

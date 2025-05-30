@@ -5,24 +5,36 @@ api_name:
   https://api.x.ai/v1: grok-beta
 api_keys:
   https://api.x.ai/v1: XAI_API_KEY
+agent_config:
+  default:
+    litellm_provider: xai
 ---
 display_name: grok-2-1212
 api_name:
   https://api.x.ai/v1: grok-2-1212
 api_keys:
   https://api.x.ai/v1: XAI_API_KEY
+agent_config:
+  default:
+    litellm_provider: xai
 ---
 display_name: grok-3-beta
 api_name:
   https://api.x.ai/v1: grok-3-beta
 api_keys:
   https://api.x.ai/v1: XAI_API_KEY
+agent_config:
+  default:
+    litellm_provider: xai
 ---
 display_name: grok-3-mini-beta-high
 api_name:
   https://api.x.ai/v1: grok-3-mini-beta
 api_keys:
   https://api.x.ai/v1: XAI_API_KEY
+agent_config:
+  default:
+    litellm_provider: xai
 aliases:
   - grok-3-mini-beta
 api_kwargs:
@@ -36,6 +48,9 @@ api_name:
   https://api.x.ai/v1: grok-3-mini-beta
 api_keys:
   https://api.x.ai/v1: XAI_API_KEY
+agent_config:
+  default:
+    litellm_provider: xai
 api_kwargs:
   default:
     reasoning_effort: low

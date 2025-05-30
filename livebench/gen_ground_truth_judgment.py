@@ -29,7 +29,7 @@ from livebench.process_results.math.AMPS_Hard.utils import amps_hard_process_res
 from livebench.process_results.writing.plot_unscrambling.utils import plot_unscrambling_process_results
 from livebench.process_results.writing.typos.utils import typos_process_results
 from livebench.process_results.writing.connections.utils import get_connections_puzzle_evaluator
-from livebench.process_results.coding.utils import LCB_generation_process_results, code_generation_process_results
+from livebench.process_results.coding.utils import LCB_generation_process_results, code_generation_process_results, agentic_coding_process_results
 from livebench.process_results.instruction_following.utils import instruction_following_process_results
 from livebench.process_results.reasoning.web_of_lies_v3.utils import web_of_lies_v3_process_results
 from livebench.common import (
@@ -79,8 +79,8 @@ def play_a_match_gt(match: MatchSingle, output_file: str | None = None, debug=Fa
         match.model,
         match.answer,
     )
-    coding_test_case_tasks = ["coding_completion", "LCB_generation", "code_generation", "code_completion"]
-    if "ground_truth" not in question and "reference" not in question and question["task"] not in coding_test_case_tasks and question["category"] != "instruction_following":
+    coding_test_case_tasks = ["coding_completion", "LCB_generation", "code_generation", "code_completion", "agentic_coding"]
+    if "ground_truth" not in question and question["task"] not in coding_test_case_tasks and question["category"] != "instruction_following":
         # aside from coding and instruction following tasks, all questions should contain the ground truth answer
         raise ValueError("Questions must have ground_truth to run gen_ground_truth_judgment.")
 
@@ -153,6 +153,8 @@ def play_a_match_gt(match: MatchSingle, output_file: str | None = None, debug=Fa
                 score = LCB_generation_process_results(question, llm_answer, debug)
             elif task_or_subtask == "code_generation" or task_or_subtask == "code_completion":
                 score = code_generation_process_results(question, llm_answer, debug)
+            elif task_or_subtask == "agentic_coding":
+                score = agentic_coding_process_results(question, answer, debug)
             category = "coding"
         else:
             raise NotImplementedError(f"This task ({task_or_subtask}) has not been implemented yet.")
@@ -162,13 +164,11 @@ def play_a_match_gt(match: MatchSingle, output_file: str | None = None, debug=Fa
     if not category:
         raise NotImplementedError(f"A category must be assigned to each task")
     question_id = question["question_id"]
-    turn = 1
     result = {
         "question_id": question_id,
         "task": task,
         "model": model,
         "score": score,
-        "turn": turn,
         "tstamp": time.time(),
         "category": category,
     }
@@ -350,9 +350,38 @@ def gen_judgments(
                     os.makedirs(os.path.dirname(output_file), exist_ok=True)
                     with open(output_file, "a") as fout:
                         fout.write(json.dumps(result) + "\n")
+    elif "agentic_coding" in bench_name:
+        for model_id in models: # TODO: parallelize at the model level too
+            model_matches = [m for m in matches if m.model == model_id]
+            questions = [m.question for m in model_matches]
+            answers = [m.answer for m in model_matches]
+            eval_result = agentic_coding_process_results(questions, answers, debug=debug, max_workers=parallel)
+            for question_id in sorted(eval_result.keys()):
+                model_answer = model_answers[model_id][question_id]
+                question = [q for q in questions if q['question_id'] == question_id][0]
+                result = {
+                    "question_id": question_id,
+                    "task": question['task'],
+                    "model": model_id,
+                    "score": eval_result[question_id],
+                    "tstamp": time.time(),
+                    "category": "agentic_coding",
+                }
+                if "answer_id" in model_answer:
+                    result["answer_id"] = model_answer["answer_id"]
+
+                print(
+                    f"question: {question_id}, model: {model_id}, "
+                    f"score: {eval_result[question_id]}, ")
+                
+                if output_file:
+                    os.makedirs(os.path.dirname(output_file), exist_ok=True)
+                    with open(output_file, "a") as fout:
+                        fout.write(json.dumps(result) + "\n")
     else:
         # Play matches
-        if parallel == 1:
+        # parallel doesn't work well with the livecodebench eval
+        if parallel == 1 or bench_name == "live_bench/coding/coding_completion" or bench_name == "live_bench/coding/LCB_generation":
             for match in tqdm(matches):
                 results = play_a_match_func(match, output_file=output_file, debug=debug)
         else:

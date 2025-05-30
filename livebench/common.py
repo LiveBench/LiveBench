@@ -9,6 +9,7 @@ import glob
 import json
 import os
 
+from pathlib import Path
 import re
 from typing import Optional, TYPE_CHECKING
 
@@ -17,7 +18,7 @@ from livebench.model.api_model_config import get_model_config
 from dotenv import load_dotenv
 
 from rich.traceback import install
-install(show_locals=True)
+install()
 
 load_dotenv(override=True)
 
@@ -42,7 +43,9 @@ LIVE_BENCH_CATEGORIES = [
     "reasoning",
     "language",
 ]
-LIVE_BENCH_RELEASES = {"2024-07-26", "2024-06-24", "2024-08-31", "2024-11-25", "2025-04-02", "2025-04-25"}
+LIVE_BENCH_RELEASES = {"2024-07-26", "2024-06-24", "2024-08-31", "2024-11-25", "2025-04-02", "2025-04-25", "2025-05-30"}
+
+LIVE_BENCH_ROOT_PATH = Path(__file__).parent
 
 
 @dataclasses.dataclass
@@ -167,6 +170,7 @@ def load_questions(
         ]
     else:
         questions = list(category)
+    assert len(questions) == len(set(q['question_id'] for q in questions)), "Duplicate question IDs found"
     for q in questions:
         if "livebench_release_date" in q.keys() and isinstance(
             q["livebench_release_date"], datetime
@@ -224,6 +228,8 @@ def load_questions_jsonl(
         for line in ques_file:
             if line:
                 questions.append(json.loads(line))
+
+    assert len(questions) == len(set(q['question_id'] for q in questions)), "Duplicate question IDs found in question file " + question_file
 
     questions = [
         q for q in questions if q["livebench_release_date"] in livebench_releases
@@ -424,6 +430,8 @@ def filter_questions(questions, answer_file, resume=False, retry_failures=False)
     if not os.path.exists(answer_file):
         # If not, try to find a case-insensitive match
         answer_dir = os.path.dirname(answer_file)
+        if not os.path.exists(answer_dir):
+            Path(answer_dir).mkdir(parents=True, exist_ok=True)
         answer_basename = os.path.basename(answer_file)
         if answer_dir:
             dir_files = os.listdir(answer_dir)
@@ -441,7 +449,7 @@ def filter_questions(questions, answer_file, resume=False, retry_failures=False)
         for line in fin:
             ans = json.loads(line)
             qid = ans["question_id"]
-            error = ans["choices"][0]["turns"][0] == API_ERROR_OUTPUT
+            error = ans["choices"][0]["turns"][0] == API_ERROR_OUTPUT or ans['choices'][0]['turns'] == API_ERROR_OUTPUT
             if qid in new_questions_ids and (resume or retry_failures) and not error:
                 new_questions_ids.remove(qid)
             elif qid in new_questions_ids and error and resume and not retry_failures:

@@ -11,9 +11,19 @@ api_kwargs:
   default:
     temperature: 0.7
     max_tokens: 64000
+    top_p: 0.95
   https://api.deepseek.com:
     temperature: null
     max_tokens: null
+agent_config:
+  default:
+    max_input_tokens: 128000
+    max_output_tokens: 32768
+    convert_system_to_user: true
+  together:
+    litellm_provider: together_ai
+  https://api.deepseek.com:
+    max_input_tokens: 64000
 ---
 display_name: deepseek-v3-0324
 api_name:
@@ -22,32 +32,75 @@ api_name:
 default_provider: together
 api_keys:
   https://api.deepseek.com: DEEPSEEK_API_KEY
+agent_config:
+  default:
+    max_input_tokens: 128000
+    convert_system_to_user: true
+  together:
+    litellm_provider: together_ai
+    max_output_tokens: 12288
+  https://api.deepseek.com:
+    max_input_tokens: 64000
+    max_output_tokens: 8000
+    
 ---
 display_name: deepseek-r1-distill-llama-70b
 api_name:
   together: deepseek-ai/DeepSeek-R1-Distill-Llama-70B
+  deepinfra: deepseek-ai/DeepSeek-R1-Distill-Llama-70B
+default_provider: deepinfra
 api_kwargs:
   default:  
     temperature: 0.7
+    top_p: 0.95
     max_tokens: 64000
+agent_config:
+  default:
+    max_input_tokens: 128000
+    convert_system_to_user: true
+  together:
+    litellm_provider: together_ai
+    max_output_tokens: 32768
+  deepinfra:
+    max_output_tokens: 120000
 ---
 display_name: deepseek-r1-distill-qwen-32b
 api_name:
   local: DeepSeek-R1-Distill-Qwen-32B
+  deepinfra: deepseek-ai/DeepSeek-R1-Distill-Qwen-32B
+default_provider: deepinfra
 api_kwargs:
   default:
     temperature: 0.7
     max_tokens: 64000
+    top_p: 0.95
+agent_config:
+  default:
+    max_input_tokens: 128000
+    convert_system_to_user: true
+  deepinfra:
+    max_output_tokens: 120000
 ---
 display_name: deepseek-r1-0528
 api_name:
   local: DeepSeek-R1
   https://api.hyperbolic.xyz/v1: deepseek-ai/DeepSeek-R1-0528
   deepinfra: deepseek-ai/DeepSeek-R1-0528
-default_provider: deepinfra
+  https://api.deepseek.com: deepseek-reasoner
+default_provider: https://api.deepseek.com
 api_keys:
   https://api.hyperbolic.xyz/v1: HYPERBOLIC_API_KEY
+  https://api.deepseek.com: DEEPSEEK_API_KEY
 api_kwargs:
   default:
     temperature: 0.7
     max_tokens: 64000
+  https://api.deepseek.com:
+    temperature: null
+agent_config:
+  default:
+    max_input_tokens: 128000
+    max_output_tokens: 32768
+  https://api.deepseek.com:
+    supports_function_calling: true
+    max_output_tokens: 64000

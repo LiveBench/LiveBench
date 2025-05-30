@@ -2,6 +2,7 @@ import json
 from collections import defaultdict
 import sys
 import argparse
+from livebench.model.api_model_config import get_model_config
 
 def find_differential_problems(filename, model1, model2):
     # Dictionary to store scores for each question_id and model
@@ -39,5 +40,8 @@ if __name__ == "__main__":
     parser.add_argument('model2', help='Second model name')
     
     args = parser.parse_args()
+
+    model_1 = get_model_config(args.model1).display_name
+    model_2 = get_model_config(args.model2).display_name
     
-    find_differential_problems(args.filename, args.model1, args.model2)
+    find_differential_problems(args.filename, model_1, model_2)

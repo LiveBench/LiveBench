@@ -3,7 +3,7 @@ import json
 import argparse
 from collections import defaultdict
 
-def check_errors(bench_names: list[str] | None = None, model_names: list[str] | None = None):
+def check_errors(bench_names: list[str] | None = None, model_names: list[str] | None = None, include_empty_turns: bool = False):
     """
     Check for errors in model answer files and display them in a nicely formatted way,
     grouped by model and file.
@@ -11,6 +11,7 @@ def check_errors(bench_names: list[str] | None = None, model_names: list[str] | 
     Args:
         bench_names: List of benchmark names to check. If None, check all benchmarks.
         model_names: List of model names to check. If None, check all models.
+        include_empty_turns: Whether to include empty turns in the output. Default is False.
     """
     
     # Navigate to the data directory
@@ -57,8 +58,8 @@ def check_errors(bench_names: list[str] | None = None, model_names: list[str] | 
                     try:
                         data = json.loads(line)
                         
-                        # Check for "ERROR" in the content
-                        if "ERROR" in str(data):
+                        # Check for the api error response in the content
+                        if "$ERROR$" in str(data):
                             question_id = data.get('question_id', 'Unknown')
                             results[model_name][full_task].append({
                                 'line': line_num,
@@ -67,8 +68,8 @@ def check_errors(bench_names: list[str] | None = None, model_names: list[str] | 
                                 'file': file_path
                             })
                         
-                        # Check for empty turns
-                        if 'choices' in data:
+                        # Check for empty turns if include_empty_turns is True
+                        if include_empty_turns and 'choices' in data:
                             for choice in data['choices']:
                                 if 'turns' in choice and choice['turns'] == [""]:
                                     question_id = data.get('question_id', 'Unknown')
@@ -133,6 +134,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Check for errors in model answer files.")
     parser.add_argument('--bench-name', nargs="+", help="Only check specific benchmark directories within data/live_bench/")
     parser.add_argument('--model', nargs="+", help="Only check specific model files (without .jsonl extension)")
+    parser.add_argument('--include-empty-turns', action="store_true", help="Include empty turn questions in the output (excluded by default)")
     args = parser.parse_args()
     
-    check_errors(args.bench_name, args.model)
+    check_errors(args.bench_name, args.model, args.include_empty_turns)

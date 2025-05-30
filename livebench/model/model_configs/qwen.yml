@@ -9,8 +9,15 @@ aliases:
 display_name: qwen2.5-72b-instruct-turbo
 api_name:
   together: Qwen/Qwen2.5-72B-Instruct-Turbo
+  deepinfra: Qwen/Qwen2.5-72B-Instruct
 aliases:
   - qwen2.5-72b-instruct
+default_provider: deepinfra
+agent_config:
+  default:
+    max_output_tokens: 8192
+    max_input_tokens: 32767
+    supports_function_calling: true
 ---
 display_name: qwen2.5-coder-32b-instruct
 api_name:
@@ -41,6 +48,11 @@ api_name:
   https://dashscope-intl.aliyuncs.com/compatible-mode/v1: qwen-max-2025-01-25
 api_keys:
   https://dashscope-intl.aliyuncs.com/compatible-mode/v1: ALIBABA_API_KEY
+agent_config:
+  default:
+    max_input_tokens: 30720
+    max_output_tokens: 8192
+    supports_function_calling: true
 ---
 display_name: qwen3-30b-a3b-thinking
 api_name:
@@ -51,6 +63,11 @@ api_kwargs:
     temperature: 0.6
     top_p: 0.95
 prompt_prefix: "/think"
+agent_config:
+  default:
+    max_input_tokens: 40960
+    max_output_tokens: 32768
+    supports_function_calling: true
 ---
 display_name: qwen3-30b-a3b
 api_name:
@@ -61,18 +78,28 @@ api_kwargs:
     top_p: 0.8
     max_tokens: 32000
 prompt_prefix: "/no_think"
+agent_config:
+  default:
+    max_input_tokens: 40960
+    max_output_tokens: 32768
+    supports_function_calling: true
 ---
 display_name: qwen3-235b-a22b-thinking
 api_name:
   deepinfra: Qwen/Qwen3-235B-A22B
   together: Qwen/Qwen3-235B-A22B-fp8-tput
-default_provider: together
+default_provider: deepinfra
 api_kwargs:
   default:
     max_tokens: 38912
     temperature: 0.6
     top_p: 0.95
 prompt_prefix: "/think"
+agent_config:
+  default:
+    max_input_tokens: 40960
+    max_output_tokens: 32768
+    supports_function_calling: true
 ---
 display_name: qwen3-32b-thinking
 api_name:
@@ -83,6 +110,11 @@ api_kwargs:
     temperature: 0.6
     top_p: 0.95
 prompt_prefix: "/think"
+agent_config:
+  default:
+    max_input_tokens: 40960
+    max_output_tokens: 32768
+    supports_function_calling: true
 ---
 display_name: qwen3-14b-thinking
 api_name:
@@ -93,3 +125,8 @@ api_kwargs:
     temperature: 0.6
     top_p: 0.95
 prompt_prefix: "/think"
+agent_config:
+  default:
+    max_input_tokens: 40960
+    max_output_tokens: 32768
+    supports_function_calling: true

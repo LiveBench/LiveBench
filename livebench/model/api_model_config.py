@@ -1,17 +1,37 @@
 from dataclasses import dataclass
+from typing import Literal
 import yaml
 import os
 from functools import cache
 
+from typing import TypedDict, NotRequired
+
+class AgentConfig(TypedDict):
+    litellm_provider: NotRequired[str]
+    max_input_tokens: NotRequired[int]
+    max_output_tokens: NotRequired[int]
+    supports_function_calling: NotRequired[bool]
+    api_type: NotRequired[Literal["completion", "responses"]]
+    convert_system_to_user: NotRequired[bool]
+    include_thinking_in_history: NotRequired[bool]
+
 @dataclass
 class ModelConfig:
-    display_name: str
-    api_name: dict[str, str]
-    default_provider: str | None = None
-    api_keys: dict[str, str] | None = None
-    aliases: list[str] | None = None
-    api_kwargs: dict[str, dict[str, str | int | float | bool | dict[str, str] | None]] | None = None
-    prompt_prefix: str | None = None
+    display_name: str # Name of the model as it will be displayed in the leaderboard; used for file naming
+    api_name: dict[str, str] # mapping of provider name to model name on that provider's API
+    default_provider: str | None = None # provider to use if not otherwise specified
+    api_keys: dict[str, str] | None = None # mapping of provider name to API key
+    aliases: list[str] | None = None # alternative names for the model
+    api_kwargs: dict[str, dict[str, str | int | float | bool | dict[str, str] | None]] | None = None # mapping of provider name to additional arguments to pass to the API call
+    prompt_prefix: str | None = None # prefix to add to the prompt
+    agent_config: dict[str, AgentConfig] | None = None # mapping of provider name to additional configuration for use in agentic coding
+
+    def __post_init__(self):
+        if self.agent_config is not None:
+            agent_config = {}
+            for provider, config in self.agent_config.items():
+                agent_config[provider] = AgentConfig(**config)
+            self.agent_config = agent_config
 
 @cache
 def load_model_configs(file_path: str) -> dict[str, ModelConfig]:

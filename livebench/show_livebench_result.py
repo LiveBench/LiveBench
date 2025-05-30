@@ -281,7 +281,7 @@ def display_result_single(args):
     df = df[df['question_id'].isin(question_id_set)]
     df['model'] = df['model'].str.lower()
     df["score"] *= 100
-
+    
     if args.model_list is not None:
         model_list = [get_model_config(x).display_name for x in args.model_list]
         df = df[df["model"].isin([x.lower() for x in model_list])]
