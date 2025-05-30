@@ -410,17 +410,27 @@ def chat_completion_anthropic(model: str, messages: Conversation, temperature: f
         'temperature': temperature
     }
 
+
     if model_api_kwargs is not None:
         model_api_kwargs = {key: value for key, value in model_api_kwargs.items()}
         api_kwargs.update(model_api_kwargs)
 
     actual_api_kwargs = {key: (value if value is not None else NOT_GIVEN) for key, value in api_kwargs.items()}
 
+    system = [message for message in messages if message['role'] == 'system']
+    if len(system) > 0:
+        system_message = system[0]['content']
+    else:
+        system_message = None
+
+    messages = [message for message in messages if message['role'] != 'system']
+
     message = []
 
     with c.messages.stream(
         model=model,
         messages=messages,
+        system=system_message if system_message else NOT_GIVEN,
         **actual_api_kwargs
     ) as stream:
         new_block = {}
@@ -530,6 +540,23 @@ def chat_completion_mistral(model: str, messages: Conversation, temperature: flo
     after=retry_log,
     retry_error_callback=retry_fail
 )
+def individual_completion_deepinfra(client, model, messages, ai_message, actual_api_kwargs):
+    response = client.chat.completions.create(
+        model=model,
+        messages=messages + [ai_message],
+        stream=False,
+        **actual_api_kwargs
+    )
+
+    if response is None:
+        raise Exception("No response returned from DeepInfra")
+    elif response.choices is None:
+        print(response)
+        raise Exception("No choices returned from DeepInfra")
+
+    return response.choices[0].message.content, response.usage.completion_tokens
+
+
 def chat_completion_deepinfra(model: str, messages: Conversation, temperature: float, max_tokens: int, model_api_kwargs: API_Kwargs | None = None, api_dict: dict[str, str] | None = None, stream: bool = False) -> tuple[str, int]:
     from openai import OpenAI, NOT_GIVEN
 
@@ -558,21 +585,10 @@ def chat_completion_deepinfra(model: str, messages: Conversation, temperature: f
     # or reach our actual max tokens
     while total_tokens < actual_api_kwargs['max_tokens']:
         actual_api_kwargs['max_tokens'] = actual_api_kwargs['max_tokens'] - total_tokens
-        response = client.chat.completions.create(
-            model=model,
-            messages=messages + [ai_message],
-            stream=False,
-            **actual_api_kwargs
-        )
 
-        if response is None:
-            raise Exception("No response returned from DeepInfra")
-        elif response.choices is None:
-            print(response)
-            raise Exception("No choices returned from DeepInfra")
-
-        ai_message['content'] += response.choices[0].message.content
-        total_tokens += response.usage.completion_tokens
+        response, tokens = individual_completion_deepinfra(client, model, messages, ai_message, actual_api_kwargs)
+        ai_message['content'] += response
+        total_tokens += tokens
 
         if response.choices[0].finish_reason != 'length':
             break

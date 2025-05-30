@@ -39,7 +39,8 @@ def get_answer(
     api_dict: dict[str, str] | None = None,
     stream: bool = False,
     answer_file: str | None = None,
-    model_display_name_override: str | None = None
+    model_display_name_override: str | None = None,
+    model_provider_override: str | None = None,
 ):
     """
     Perform inference for a single question.
@@ -69,6 +70,9 @@ def get_answer(
     total_num_tokens = 0
     for i in range(num_choices):
         messages = []
+
+        if 'system_prompt' in question:
+            messages.append({"role": "system", "content": question['system_prompt']})
 
         turns = []
         for j in range(len(question["turns"])):

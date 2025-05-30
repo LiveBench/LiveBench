@@ -31,9 +31,7 @@ def find_error_questions(root_dir, target_model_id=None, old_max_tokens=None):
                         turns = choices[0].get('turns', [])
                         if turns and isinstance(turns, list) and '$ERROR$' in turns or len(turns) == 0 or turns[0] == '' or turns[0] == '<think>':
                             model_errors[model_id].append(entry['question_id'])
-                        elif isinstance(turns, str) and turns == '$ERROR$':
-                            model_errors[model_id].append(entry['question_id'])
-                        elif old_max_tokens and entry.get('total_output_tokens') >= old_max_tokens:
+                        elif old_max_tokens and entry.get('total_output_tokens') == old_max_tokens:
                             model_errors[model_id].append(entry['question_id'])
                 except json.JSONDecodeError:
                     print(f"Warning: Skipping malformed JSON line in {jsonl_file}")

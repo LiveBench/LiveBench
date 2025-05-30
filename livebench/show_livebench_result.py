@@ -233,6 +233,9 @@ def display_result_single(args):
         files = (
             glob.glob(f"data/{bench}/**/model_judgment/ground_truth_judgment.jsonl", recursive=True)
         )
+        # files += (
+        #     glob.glob(f"prompt_testing/{bench}/**/model_judgment/ground_truth_judgment.jsonl", recursive=True)
+        # )
         input_files += files
     
     questions_all = []

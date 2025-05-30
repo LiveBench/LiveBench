@@ -94,17 +94,19 @@ def play_a_match_gt(match: MatchSingle, output_file: str | None = None, debug=Fa
     category = None
 
     # todo: find a better solution than a long if statement.
-    splits = task_or_subtask.split('_')
+
     try:
-        if splits[0] in ["amc", "smc"] or (len(splits) > 1 and splits[1] == "amc"):
-            score = mathcontest_process_results(ground_truth, llm_answer, question_text, debug)
-            category = "math"
-        elif splits[0] == "aime":
-            score = aime_process_results(ground_truth, llm_answer, debug)
-            category = "math"
-        elif splits[0] in ["imo", "usamo"]:
-            score = proof_rearrangement_process_results(ground_truth, llm_answer, edit_distance=True, debug=debug)
-            category = "math"
+        if task_or_subtask == 'math_comp':
+            splits = task_or_subtask.split('_')
+            if splits[0] in ["amc", "smc"] or (len(splits) > 1 and splits[1] == "amc"):
+                score = mathcontest_process_results(ground_truth, llm_answer, question_text, debug)
+                category = "math"
+            elif splits[0] == "aime":
+                score = aime_process_results(ground_truth, llm_answer, debug)
+                category = "math"
+            elif splits[0] in ["imo", "usamo"]:
+                score = proof_rearrangement_process_results(ground_truth, llm_answer, edit_distance=True, debug=debug)
+                category = "math"
         elif task_or_subtask == "cta":
             score = cta_process_results(ground_truth, llm_answer, debug)
             category = "data_analysis"
@@ -130,7 +132,7 @@ def play_a_match_gt(match: MatchSingle, output_file: str | None = None, debug=Fa
         elif task_or_subtask == "house_traversal":
             score = house_traversal_process_results(ground_truth, llm_answer, debug)
             category = "reasoning"
-        elif task_or_subtask == "zebra_puzzle":
+        elif 'zebra_puzzle' in task_or_subtask:
             zebra_evaluator = get_zebra_puzzle_evaluator(question["livebench_release_date"])
             score = zebra_evaluator(ground_truth, llm_answer, debug)
             category = "reasoning"
