@@ -45,7 +45,7 @@ def load_model_answers(model_name: str) -> list[dict[str, Any]]:
     """
     model_answer_path_glob = f"data/live_bench/agentic_coding/**/{model_name}.jsonl"
 
-    file_paths = glob.glob(model_answer_path_glob)
+    file_paths = glob.glob(model_answer_path_glob, recursive=True)
     
     if file_paths == []:
         print(f"Error: Could not find answer file for model {model_name}.")

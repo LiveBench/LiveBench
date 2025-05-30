@@ -88,7 +88,8 @@ OTHER_ERROR_STRINGS = [
     # "You exceeded your current quota",
     # "MistralException - Service unavailable.",
     # "'NoneType' object has no attribute 'keys'",
-    # "invalid tool call provided"
+    # "invalid tool call provided",
+    # "The length of your prompt exceeds the model's max input limit"
 ]
 
 blocklist: list[str] = [
@@ -344,8 +345,8 @@ if args.rerun:
             "--bench-name", "live_bench/agentic_coding",
             "--question-source", "jsonl",
             "--mode", "parallel",
-            "--parallel-requests", "1",
-            "--parallel-grading", "1",
+            "--parallel-requests", "10",
+            "--parallel-grading", "10",
             "--question-id"] + list(question_ids)
         
         print(f"Running command: {' '.join(cmd)}")
