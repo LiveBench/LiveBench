@@ -734,7 +734,7 @@ class LiteLLMModel(AbstractModel):
         except litellm.exceptions.ContentPolicyViolationError as e:
             raise ContentPolicyViolationError from e
         except litellm.exceptions.BadRequestError as e:
-            if "is longer than the model's context length" in str(e):
+            if "is longer than the model's context length" or "exceeds the model's max input limit" in str(e):
                 raise ContextWindowExceededError from e
             raise
         self.logger.info(f"Response: {response}")
