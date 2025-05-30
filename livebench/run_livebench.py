@@ -64,6 +64,7 @@ class LiveBenchParams:
     ignore_missing_answers: bool = False
     debug: bool = False
     model_provider_override: str | None = None
+    system_prompt: str | None = None
 
     @classmethod
     def from_args(cls, args, model: str | None = None):
@@ -102,7 +103,8 @@ class LiveBenchParams:
             remove_existing_judgment_file=args.remove_existing_judgment_file,
             ignore_missing_answers=args.ignore_missing_answers,
             debug=args.debug,
-            model_provider_override=args.model_provider_override
+            model_provider_override=args.model_provider_override,
+            system_prompt=args.system_prompt
         )
 
 def run_command(cmd: str, env: dict[str, str] | None = None) -> int:
@@ -221,7 +223,8 @@ def build_run_command(
     remove_existing_judgment_file: bool = False,
     ignore_missing_answers: bool = False,
     debug: bool = False,
-    model_provider_override: str | None = None
+    model_provider_override: str | None = None,
+    system_prompt: str | None = None
 ) -> str:
     """Build the command to run gen_api_answer and gen_ground_truth_judgment in sequence"""
     
@@ -293,6 +296,9 @@ def build_run_command(
         gen_judge_cmd += " --ignore-missing-answers"
     if model_provider_override:
         gen_api_cmd += f" --model-provider-override {model_provider_override}"
+    # Add system prompt argument if provided
+    if system_prompt:
+        gen_api_cmd += f" --system-prompt \"{system_prompt}\""
     
     # Add debug flag only to judgment command
     if debug:
@@ -337,7 +343,8 @@ def build_run_command_from_params(params: LiveBenchParams, bench_name: str | Non
         remove_existing_judgment_file=params.remove_existing_judgment_file,
         ignore_missing_answers=params.ignore_missing_answers,
         debug=params.debug,
-        model_provider_override=params.model_provider_override
+        model_provider_override=params.model_provider_override,
+        system_prompt=params.system_prompt
     )
 
 def run_model(params: LiveBenchParams) -> None:
@@ -478,6 +485,7 @@ def main():
     parser.add_argument("--debug", action="store_true", 
                       help="Enable debug mode for gen_ground_truth_judgment.py (not passed to gen_api_answer.py)")
     parser.add_argument("--model-provider-override", help="Override the model provider for gen_api_answer.py")
+    parser.add_argument("--system-prompt", help="System prompt to pass to the API")
     
     args = parser.parse_args()
 
