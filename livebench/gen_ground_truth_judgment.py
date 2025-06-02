@@ -181,7 +181,7 @@ def play_a_match_gt(match: MatchSingle, output_file: str | None = None, debug=Fa
     if "subtask" in question.keys():
         result["subtask"] = question["subtask"]
     print(
-        f"question: {question_id}, turn: {turn}, model: {model}, "
+        f"question: {question_id}, model: {model}, "
         f"score: {score}, "
        
     )

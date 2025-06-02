@@ -43,3 +43,5 @@ livebench/answer_inspections
 livebench/question_edit
 
 trajectories
+
+prompts.txt
