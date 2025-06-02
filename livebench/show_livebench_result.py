@@ -233,9 +233,10 @@ def display_result_single(args):
         files = (
             glob.glob(f"data/{bench}/**/model_judgment/ground_truth_judgment.jsonl", recursive=True)
         )
-        # files += (
-        #     glob.glob(f"prompt_testing/{bench}/**/model_judgment/ground_truth_judgment.jsonl", recursive=True)
-        # )
+        if args.prompt_testing:
+            files += (
+                glob.glob(f"prompt_testing/{bench}/**/model_judgment/ground_truth_judgment.jsonl", recursive=True)
+            )
         input_files += files
     
     questions_all = []
@@ -331,38 +332,39 @@ def display_result_single(args):
         print(df_1.sort_values(by="model"))
     df_1.to_csv('all_tasks.csv')
 
-    print("\n########## All Groups ##########")
-    df_1 = df[["model", "score", "category", "task"]]
-    df_1 = df_1.groupby(["model", "task", "category"]).mean().groupby(["model","category"]).mean()
-    df_1 = pd.pivot_table(df_1, index=['model'], values = "score", columns=["category"], aggfunc="sum")
+    if not args.prompt_testing:
+        print("\n########## All Groups ##########")
+        df_1 = df[["model", "score", "category", "task"]]
+        df_1 = df_1.groupby(["model", "task", "category"]).mean().groupby(["model","category"]).mean()
+        df_1 = pd.pivot_table(df_1, index=['model'], values = "score", columns=["category"], aggfunc="sum")
 
-    df_1 = df_1.dropna(inplace=False)
+        df_1 = df_1.dropna(inplace=False)
 
-    # Only show average column if there are multiple data columns and not explicitly skipped
-    if not args.skip_average_column and len(df_1.columns) > 1:
-        df_1['average'] = df_1.mean(axis=1)
-        first_col = df_1.pop('average')
-        df_1.insert(0, 'average', first_col)
-        sort_by = "average"
-    else:
-        sort_by = df_1.columns[0] if len(df_1.columns) > 0 else None
+        # Only show average column if there are multiple data columns and not explicitly skipped
+        if not args.skip_average_column and len(df_1.columns) > 1:
+            df_1['average'] = df_1.mean(axis=1)
+            first_col = df_1.pop('average')
+            df_1.insert(0, 'average', first_col)
+            sort_by = "average"
+        else:
+            sort_by = df_1.columns[0] if len(df_1.columns) > 0 else None
 
-    # Sort if we have a column to sort by
-    if sort_by is not None:
-        df_1 = df_1.sort_values(by=sort_by, ascending=False)
+        # Sort if we have a column to sort by
+        if sort_by is not None:
+            df_1 = df_1.sort_values(by=sort_by, ascending=False)
 
-    df_1 = df_1.round(1)
-    if args.show_average_row:
-        df_1.loc['average'] = df_1.mean()
-    with pd.option_context('display.max_rows', None):
-        print(df_1)
-    df_1.to_csv('all_groups.csv')
+        df_1 = df_1.round(1)
+        if args.show_average_row:
+            df_1.loc['average'] = df_1.mean()
+        with pd.option_context('display.max_rows', None):
+            print(df_1)
+        df_1.to_csv('all_groups.csv')
 
 
-    for column in df_1.columns[1:]:
-        max_value = df_1[column].max()
-        df_1[column] = df_1[column].apply(lambda x: f'\\textbf{{{x}}}' if x == max_value else x)
-    df_1.to_csv('latex_table.csv', sep='&', lineterminator='\\\\\n', quoting=3,escapechar=" ")
+        for column in df_1.columns[1:]:
+            max_value = df_1[column].max()
+            df_1[column] = df_1[column].apply(lambda x: f'\\textbf{{{x}}}' if x == max_value else x)
+        df_1.to_csv('latex_table.csv', sep='&', lineterminator='\\\\\n', quoting=3,escapechar=" ")
     
     if args.print_usage:
         calculate_usage(args, df, questions_all)
@@ -423,6 +425,12 @@ if __name__ == "__main__":
         default=False,
         help="Skip displaying the average column in results",
         action='store_true'
+    )
+    parser.add_argument(
+        "--prompt-testing",
+        default=False,
+        help="Use prompt testing results in addition to normal results",
+        action="store_true"
     )
     args = parser.parse_args()
 
