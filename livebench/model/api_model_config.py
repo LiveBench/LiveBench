@@ -4,7 +4,11 @@ import yaml
 import os
 from functools import cache
 
-from typing import TypedDict, NotRequired
+from typing import TypedDict
+try:
+    from typing import NotRequired
+except:
+    from typing_extensions import NotRequired
 
 class AgentConfig(TypedDict):
     litellm_provider: NotRequired[str]

@@ -8,13 +8,12 @@ import yaml
 
 from livebench.model.api_model_config import AgentConfig
 from livebench.common import LIVE_BENCH_ROOT_PATH
-from livebench.agentic_code_runner.eval.utils import docker_util
+
 from livebench.process_results.coding.utils import agentic_coding_process_results
 from livebench.model.completions import API_ERROR_OUTPUT
 
 from collections import defaultdict
 
-import litellm
 
 def update_dict_recursively(d1, d2):
     """
@@ -41,6 +40,8 @@ def run_agentic_coding_inference(
     parallel: int = 1,
     agent_config: AgentConfig | None = None
 ):
+    import litellm
+    from livebench.agentic_code_runner.eval.utils import docker_util
     if force_temperature is not None:
         temperature = force_temperature
     else:
