@@ -159,12 +159,11 @@ def chat_completion_openai_responses(model: str, messages: Conversation, tempera
 
     messages = [message for message in messages if message['role'] == 'user']
     developer_message = ''
-    if 'o1' in model or 'o3' in model:
+    if 'o1' in model or 'o3' in model or 'o4-mini' in model and 'Formatting reenabled' not in messages[0]['content']:
         developer_message = 'Formatting reenabled\n'
 
     api_kwargs: API_Kwargs = {
-        'max_completion_tokens': max_tokens if 'gpt' in model else None,
-        'max_tokens': max_tokens if 'gpt' not in model else None,
+        'max_output_tokens': max_tokens if 'gpt' in model else None,
         'temperature': temperature
     }
 
@@ -172,12 +171,16 @@ def chat_completion_openai_responses(model: str, messages: Conversation, tempera
         model_api_kwargs = {key: value for key, value in model_api_kwargs.items()}
         api_kwargs.update(model_api_kwargs)
 
-    actual_api_kwargs = {key: (value if value is not None else NOT_GIVEN) for key, value in api_kwargs.items()}
-
-    reasoning = NOT_GIVEN
     if 'reasoning_effort' in api_kwargs:
         reasoning = {'effort': api_kwargs['reasoning_effort']}
+        api_kwargs['reasoning'] = reasoning
         del api_kwargs['reasoning_effort']
+
+    if 'max_completion_tokens' in api_kwargs:
+        api_kwargs['max_output_tokens'] = api_kwargs['max_completion_tokens']
+        del api_kwargs['max_completion_tokens']
+
+    actual_api_kwargs = {key: (value if value is not None else NOT_GIVEN) for key, value in api_kwargs.items()}
 
     input = '\n'.join([message['content'] for message in messages])
 
@@ -188,13 +191,11 @@ def chat_completion_openai_responses(model: str, messages: Conversation, tempera
         model=model,
         instructions=developer_message,
         input=input,
-        reasoning=reasoning,
         **actual_api_kwargs,
         stream = True
     )
 
     for event in stream:
-        print(event)
         if event.type == "response.completed":
             output_tokens = event.response.usage.output_tokens
         elif event.type == "response.output_text.delta":
@@ -203,9 +204,6 @@ def chat_completion_openai_responses(model: str, messages: Conversation, tempera
             raise Exception(f"Failed to generate response ({event.error.code}): {event.error.message}")
         elif event.type == "response.incomplete":
             raise Exception("Response was cut short: " + event.incomplete_details.reason)
-
-    print(output_text)
-    print(output_tokens)
 
     return output_text, output_tokens
 

@@ -145,10 +145,11 @@ aliases:
 api_kwargs:
   default:
     temperature: null
-    max_completion_tokens: null
   openai:
+    max_completion_tokens: null
     reasoning_effort: high
   openai_responses:
+    max_output_tokens: null
     reasoning:
       effort: high
       summary: auto
@@ -164,10 +165,11 @@ aliases:
 api_kwargs:
   default:
     temperature: null
-    max_completion_tokens: null
   openai:
+    max_completion_tokens: null
     reasoning_effort: low
   openai_responses:
+    max_output_tokens: null
     reasoning:
       effort: low
       summary: auto
@@ -183,10 +185,11 @@ aliases:
 api_kwargs:
   default:
     temperature: null
-    max_completion_tokens: null
   openai:
     reasoning_effort: medium
+    max_completion_tokens: null
   openai_responses:
+    max_output_tokens: null
     reasoning:
       effort: medium
       summary: auto
@@ -200,7 +203,7 @@ aliases:
 api_kwargs:
   default:
     temperature: null
-    max_completion_tokens: null
+    max_output_tokens: null
     reasoning_effort: high
 prompt_prefix: "Formatting reenabled"
 ---
@@ -233,10 +236,11 @@ aliases:
 api_kwargs:
   default:
     temperature: null
-    max_completion_tokens: null
   openai:
+    max_completion_tokens: null
     reasoning_effort: high
   openai_responses:
+    max_output_tokens: null
     reasoning:
       effort: high
       summary: auto
@@ -253,10 +257,11 @@ aliases:
 api_kwargs:
   default:
     temperature: null
-    max_completion_tokens: null
   openai:
+    max_completion_tokens: null
     reasoning_effort: medium
   openai_responses:
+    max_output_tokens: null
     reasoning:
       effort: medium
       summary: auto
@@ -272,10 +277,11 @@ aliases:
 api_kwargs:
   default:
     temperature: null
-    max_completion_tokens: null
   openai:
+    max_completion_tokens: null
     reasoning_effort: high
   openai_responses:
+    max_output_tokens: null
     reasoning:
       effort: high
       summary: auto
@@ -291,10 +297,11 @@ aliases:
 api_kwargs:
   default:
     temperature: null
-    max_completion_tokens: null
   openai:
+    max_completion_tokens: null
     reasoning_effort: medium
   openai_responses:
+    max_output_tokens: null
     reasoning:
       effort: medium
       summary: auto
