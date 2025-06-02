@@ -35,12 +35,14 @@ def get_answer(
     force_temperature: float | None,
     max_tokens: int,
     num_choices: int,
+    model_config: ModelConfig,
     api_kwargs: dict[str, str] | None = None,
     api_dict: dict[str, str] | None = None,
     stream: bool = False,
     answer_file: str | None = None,
     model_display_name_override: str | None = None,
     model_provider_override: str | None = None,
+
 ):
     """
     Perform inference for a single question.
@@ -223,7 +225,8 @@ def run_questions(
                 api_dict=api_dict,
                 stream=stream,
                 model_display_name_override=model_display_name_override,
-                answer_file=answer_file
+                answer_file=answer_file,
+                model_config=model_config,
             )
     else:
 
@@ -242,7 +245,8 @@ def run_questions(
                     api_dict=api_dict,
                     stream=stream,
                     model_display_name_override=model_display_name_override,
-                    answer_file=answer_file
+                    answer_file=answer_file,
+                    model_config=model_config,
                 )
                 futures.append(future)
 

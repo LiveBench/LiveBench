@@ -240,7 +240,8 @@ def main():
                 stream=args.stream,
                 force_temperature=args.force_temperature,
                 model_provider_override=args.model_provider_override,
-                model_display_name_override=model_display_name
+                model_display_name_override=model_display_name,
+                bench_name=args.bench_name
             )
     
     print(f"\nAll prompts processed. Generated {len(answer_files)} answer files.")
