@@ -13,7 +13,7 @@ from pathlib import Path
 import re
 from typing import Optional, TYPE_CHECKING
 
-from livebench.model.api_model_config import get_model_config
+from livebench.model.api_model_config import AgentConfig, get_model_config
 
 from dotenv import load_dotenv
 
@@ -47,6 +47,11 @@ LIVE_BENCH_RELEASES = {"2024-07-26", "2024-06-24", "2024-08-31", "2024-11-25", "
 
 LIVE_BENCH_ROOT_PATH = Path(__file__).parent
 
+LIVE_BENCH_DATA_PATH = LIVE_BENCH_ROOT_PATH / "data"
+
+DEFAULT_TEMPERATURE = 0
+DEFAULT_MAX_TOKENS = 4096
+
 
 @dataclasses.dataclass
 class MatchSingle:
@@ -60,6 +65,54 @@ class MatchSingle:
     answer: dict
     ref_answer: dict = None
     multi_turn: bool = False
+
+
+def discover_local_categories_tasks(bench_name: str):
+    """
+    Discover task categories and tasks from local question.jsonl files.
+    Searches LIVE_BENCH_DATA_PATH / bench_name for all question.jsonl files and groups them
+    by task (immediate parent folder name) and category (task folder parent folder name).
+
+    Args:
+        bench_name: The name of the benchmark directory to search in.
+
+    Returns:
+        tasks: A dictionary mapping each category name to the list of tasks in that category
+    """
+    bench_path = LIVE_BENCH_DATA_PATH / bench_name
+    
+    if not bench_path.exists():
+        raise FileNotFoundError(f"Benchmark directory not found: {bench_path}")
+    
+    tasks = {}
+    
+    # Find all question.jsonl files recursively
+    question_files = list(bench_path.rglob("question.jsonl"))
+    
+    for question_file in question_files:
+        # Get the task name (immediate parent folder)
+        task_name = question_file.parent.name
+        
+        # Get the category name (parent of task folder)
+        category_name = question_file.parent.parent.name
+        
+        # Skip if this is not a valid structure (e.g., question.jsonl directly in bench_name)
+        if question_file.parent.parent == bench_path:
+            continue
+            
+        # Initialize category if not seen before
+        if category_name not in tasks:
+            tasks[category_name] = []
+        
+        # Add task to category if not already present
+        if task_name not in tasks[category_name]:
+            tasks[category_name].append({'name': task_name, 'path': question_file})
+    
+    # Sort tasks for consistent ordering
+    for category_name in tasks:
+        tasks[category_name].sort(lambda x: x['name'])
+    
+    return tasks
 
 
 def get_categories_tasks(bench_name: str):
@@ -146,7 +199,7 @@ def load_answers_judgments():
     return model_answer, model_judgment
 
 
-def load_questions(
+def load_questions_huggingface(
     category: 'Dataset',
     livebench_releases: set = LIVE_BENCH_RELEASES,
     livebench_release: Optional[str] = None,
@@ -201,11 +254,13 @@ def load_questions(
         questions = [
             q for q in questions if q['livebench_removal_date'] == "" or q['livebench_removal_date'] > livebench_release
         ]
+        questions = [
+            q for q in questions if q['livebench_release_date'] <= livebench_release
+        ]
 
     if question_ids is not None:
         questions = [q for q in questions if q['question_id'] in question_ids]
     return questions
-
 
 def load_questions_jsonl(
     question_file: str,
@@ -272,6 +327,47 @@ def load_test_cases_jsonl(question_file_path: str, questions: list[dict]):
                 print(f"Warning: Question {question['question_id']} has no test cases")
     return questions
 
+def load_questions(question_source: str, bench_name: str, livebench_release_option: str | None = None, question_ids: list[str] | None = None):
+    """
+    Load LiveBench questions for the specified benchmark subset and release option from the given question source.
+    If question_source is huggingface, will load questions from the LiveBench Huggingface datasets.
+    If question_source is jsonl, will load questions from the local data directory.
+    Returns a mapping category -> task -> list of questions.
+    """
+    questions = {}
+    if question_source == 'huggingface':
+        category_datasets, tasks = get_categories_tasks(bench_name)
+        for category_name, task_names in tasks.items():
+            if category_name not in questions:
+                questions[category_name] = {}
+            for task_name in task_names:
+                questions[category_name][task_name] = load_questions_huggingface(
+                    category=category_datasets[category_name],
+                    livebench_release=livebench_release_option,
+                    task_name=task_name,
+                    question_ids=question_ids
+                )
+    elif question_source == 'jsonl':
+        tasks = discover_local_categories_tasks(bench_name)
+        for category_name, category_tasks in tasks.items():
+            if category_name not in questions:
+                questions[category_name] = {}
+            for task_info in category_tasks:
+                task_name = task_info['name']
+                question_file = task_info['path']
+                task_questions = load_questions_jsonl(
+                    question_file=question_file,
+                    livebench_release=livebench_release_option,
+                    question_ids=question_ids
+                )
+                questions[category_name][task_name] = load_test_cases_jsonl(
+                    question_file_path=question_file,
+                    questions=task_questions
+                )
+    else:
+        raise ValueError("Unknown question source " + question_source)
+
+    return questions
 
 def load_model_answers(answer_dir: str, models: list[str] | None = None):
     """Load model answers from answer_dir.
@@ -416,15 +512,18 @@ def get_model_list(answer_dir):
     return file_names
     
 
-def filter_questions(questions, answer_file, resume=False, retry_failures=False):
+def filter_questions_for_inference(questions, bench_name, model_name, resume=False, retry_failures=False):
     """
     Filter questions based on the ones for which there are already answers in the answer_file.
     If resume is true, include only unanswered questions.
     If retry_failures is true, include questions for which the existing answer is an error.
+
+    Returns the set of unanswered question ids.
     """
     from livebench.model.completions import API_ERROR_OUTPUT
-    reorg_answer_file(answer_file)
     new_questions_ids = set([q["question_id"] for q in questions])
+    answer_file = LIVE_BENCH_DATA_PATH / bench_name / model_name + ".jsonl"
+    reorg_answer_file(answer_file)
     
     # First check if the exact file exists
     if not os.path.exists(answer_file):
@@ -454,4 +553,5 @@ def filter_questions(questions, answer_file, resume=False, retry_failures=False)
                 new_questions_ids.remove(qid)
             elif qid in new_questions_ids and error and resume and not retry_failures:
                 new_questions_ids.remove(qid)
-    return sorted([q for q in questions if q["question_id"] in new_questions_ids], key=lambda x: x["question_id"])
+    return new_questions_ids
+

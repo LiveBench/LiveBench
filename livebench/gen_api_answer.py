@@ -1,10 +1,3 @@
-"""Generate answers with GPT-4
-
-Usage:
-python3 gen_api_answer.py --model gpt-3.5-turbo
-"""
-
-import argparse
 import json
 import os
 import time
@@ -12,36 +5,22 @@ import concurrent.futures
 import glob
 import shortuuid
 import tqdm
+from typing import Any
 
-from livebench.model.api_model_config import AgentConfig
 from livebench.agentic_code_runner.sweagent.run_inference import run_agentic_coding_inference
 from livebench.common import (
-    LIVE_BENCH_RELEASES,
     reorg_answer_file,
-    get_categories_tasks,
-    load_questions,
-    load_questions_jsonl,
-    LIVE_BENCH_DATA_SUPER_PATH,
-    filter_questions
 )
 
-from livebench.model import ModelConfig, get_model_config, get_api_function
+from livebench.model import ModelConfig, get_api_function
 
 
 def get_answer(
     question: dict,
-    model_api_name: str,
-    provider: str,
-    force_temperature: float | None,
-    max_tokens: int,
     num_choices: int,
     model_config: ModelConfig,
-    api_kwargs: dict[str, str] | None = None,
-    api_dict: dict[str, str] | None = None,
     stream: bool = False,
     answer_file: str | None = None,
-    model_display_name_override: str | None = None,
-    model_provider_override: str | None = None,
 
 ):
     """
@@ -49,24 +28,9 @@ def get_answer(
 
     Args:
         question: At minimum, a dictionary with a key 'turns' that maps to a list of messages in the conversation, the last of which should ask the question.
-        model: The API name for the model (e.g. gpt-4o-mini or claude-3-5-sonnet-20240620)
-        model_display_name_override: The display name for the model (e.g. gpt-4o-mini or claude-3-5-sonnet-20240620)
         num_choices: The number of model outputs to generate for each question
-        max_tokens: The maximum number of tokens for each model response
         answer_file: The path to the file in which to write answers
-        api_dict: A dictionary specifying the base API URL and key for model requests
     """
-
-    assert (
-        force_temperature is not None and "required_temperature" in question.keys()
-    ) is False
-    if force_temperature is not None:
-        temperature = force_temperature
-    elif "required_temperature" in question.keys():
-        temperature = question["required_temperature"]
-    else:
-        temperature = 0
-
     
     choices = []
     total_num_tokens = 0
@@ -83,12 +47,10 @@ def get_answer(
                 prompt = model_config.prompt_prefix + "\n" + prompt
             messages.append({"role": "user", "content": prompt})
 
-            output, num_tokens = get_api_function(provider)(
-                model=model_api_name,
+            output, num_tokens = get_api_function(model_config.api_provider)(
+                model=model_config.api_name,
                 messages=messages,
-                temperature=temperature,
-                max_tokens=max_tokens,
-                model_api_kwargs=api_kwargs,
+                model_api_kwargs=model_config.api_kwargs,
                 api_dict=api_dict,
                 stream=stream
             )
@@ -103,14 +65,14 @@ def get_answer(
     ans = {
         "question_id": question["question_id"],
         "answer_id": shortuuid.uuid(),
-        "model_id": model_display_name_override if model_display_name_override else model_config.display_name.lower(),
+        "model_id": model_config.display_name.lower(),
         "choices": choices,
         "tstamp": time.time(),
         "total_output_tokens": total_num_tokens,
         "api_info": {
-            "provider": provider if provider != 'local' else api_dict['api_base'],
-            "api_name": model_api_name,
-            "api_kwargs": api_kwargs
+            "provider": model_config.api_provider if model_config.api_provider != 'local' else model_config.api_dict['api_base'],
+            "api_name": model_config.api_name,
+            "api_kwargs": model_config.api_kwargs
         }
     }
 
@@ -120,348 +82,180 @@ def get_answer(
             fout.write(json.dumps(ans) + "\n")
 
 
-def run_questions(
-    parallel,
-    questions: list[dict],
-    model_config: ModelConfig,
+def run_inference(
+    all_questions: dict[str, dict[str, list[dict[str, Any]]]],
+    questions_by_model: dict[str, dict[str, dict[str, set[str]]]],
+    model_configs: dict[str, ModelConfig],
+    parallel_requests: int | dict[str, int],
     num_choices: int,
-    max_tokens: int,
-    answer_file: str,
     stream: bool,
-    force_temperature: float | None,
-    model_provider_override: str | None,
-    bench_name: str,
-    model_display_name_override: str | None = None,
-    api_dict: dict[str, str] | None = None,
-    
+    bench_name_root: str = "live_bench",
 ):
     """
-    Perform inference on a list of questions. Output answers to answer_file.
+    Perform inference on questions for multiple models, organized by category and task.
 
     Args:
-        questions: The list of questions.
-        model: The display name for the model (e.g. gpt-4o-mini or claude-3-5-sonnet-20240620) or an alias
-        num_choices: The number of model outputs to generate for each question
-        max_tokens: The maximum number of tokens for each model response
-        answer_file: The path to the file in which to write answers
-        parallel: The number of workers to use to make concurrent API requests
-        api_dict: A dictionary specifying the base API URL and key for model requests
+        all_questions: Dictionary mapping category -> task -> list of question objects
+        questions_by_model: Dictionary mapping model name -> category -> task -> set of question ids
+        model_configs: Dictionary mapping model name -> ModelConfig
+        parallel_requests: Number of parallel requests per model (int) or per-model limits (dict)
+        num_choices: Number of choices to generate for each question
+        stream: Whether to stream model responses
+        bench_name_root: Root name for benchmark (defaults to "live_bench")
     """
-
-    provider = model_provider_override
-    if provider is None and api_dict is not None:
-        assert 'api_base' in api_dict, "Missing API base for model"
-        provider = 'local'
-    if provider is None:
-        provider = model_config.default_provider
-    if provider is None:
-        provider = list(model_config.api_name.keys())[0]
-
-    if 'https' in provider:
-        # provider name is a base URL
-        if api_dict is None:
-            api_dict = {
-                'api_base': provider,   
-            }
-            if model_config.api_keys and os.environ.get(model_config.api_keys[provider]):
-                api_dict['api_key'] = os.environ.get(model_config.api_keys[provider])
     
-    if provider is None:
-        raise ValueError(f"Missing provider for model {model_config.display_name}")
-
-    api_kwargs = None
-    if model_config.api_kwargs:
-        api_kwargs = {}
-        if model_config.api_kwargs.get('default'):
-            # pull default kwargs for model
-            api_kwargs = model_config.api_kwargs['default']
-        if provider in model_config.api_kwargs:
-            # update with provider-specific kwargs
-            api_kwargs.update(model_config.api_kwargs[provider])
-
-    if provider == 'local':
-        assert api_dict is not None, "Missing API dict for local model"
-        assert 'api_base' in api_dict, "Missing API base for local model"
-
-    model_api_name = model_config.api_name[provider] if provider in model_config.api_name else model_config.display_name
-    print('Model API name: ', model_api_name)
-    print('Evaluating ', len(questions), ' questions in ', bench_name, ' with model ', model_config.display_name)
-   
-    if 'agentic_coding' in bench_name:
-        agent_config = None
-        if model_config.agent_config is not None:
-            agent_config: AgentConfig = {}
-            if 'default' in model_config.agent_config:
-                agent_config = model_config.agent_config['default']
-            if provider in model_config.agent_config:
-                agent_config.update(model_config.agent_config[provider])
-            if 'litellm_provider' in agent_config:
-                provider = agent_config['litellm_provider']
-                del agent_config['litellm_provider']
-            
-        run_agentic_coding_inference(
-            questions=questions,
-            model_api_name=model_api_name,
-            provider=provider,
-            force_temperature=force_temperature,
-            num_choices=num_choices,
-            model_api_kwargs=api_kwargs,
-            api_dict=api_dict,
-            model_display_name_override=model_display_name_override,
-            answer_file=answer_file,
-            parallel=parallel,
-            agent_config=agent_config
+    def process_model_questions(model_name: str, model_config: ModelConfig):
+        """Process all questions for a single model."""
+        print(f'Model API name: {model_config.api_name}')
+        
+        model_questions = questions_by_model.get(model_name, {})
+        total_questions = sum(
+            len(question_ids) 
+            for category_tasks in model_questions.values() 
+            for question_ids in category_tasks.values()
         )
-    elif parallel == 1:
-        for question in tqdm.tqdm(questions):
-            get_answer(
-                question=question,
-                model_api_name=model_api_name,
-                provider=provider,
-                force_temperature=force_temperature,
-                max_tokens=max_tokens,
-                num_choices=num_choices,
-                api_kwargs=api_kwargs,
-                api_dict=api_dict,
-                stream=stream,
-                model_display_name_override=model_display_name_override,
-                answer_file=answer_file,
-                model_config=model_config,
-            )
-    else:
-
-        with concurrent.futures.ThreadPoolExecutor(max_workers=parallel) as executor:
-            futures = []
-            for question in questions:
-                future = executor.submit(
-                    get_answer,
-                    question=question,
-                    model_api_name=model_api_name,
-                    provider=provider,
-                    force_temperature=force_temperature,
-                    max_tokens=max_tokens,
-                    num_choices=num_choices,
-                    api_kwargs=api_kwargs,
-                    api_dict=api_dict,
-                    stream=stream,
-                    model_display_name_override=model_display_name_override,
-                    answer_file=answer_file,
-                    model_config=model_config,
-                )
-                futures.append(future)
-
-            for future in tqdm.tqdm(
-                concurrent.futures.as_completed(futures), total=len(futures)
-            ):
-                future.result()
-    if len(questions) > 0:
-        reorg_answer_file(answer_file)
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Generate benchmark question answers using an API-based model"
-    )
-    parser.add_argument(
-        "--bench-name",
-        type=str,
-        default="live_bench",
-        help="The name of the benchmark question set. Defaults to 'live_bench', or all tasks in the benchmark. Specify e.g. live_bench/reasoning/web_of_lies_v2 to generate only for that task.",
-    )
-    parser.add_argument(
-        "--api-base",
-        type=str,
-        default=None,
-        help="If provided, will be used as the base of an openai API request, along with the environment variable LIVEBENCH_API_KEY",
-    )
-    parser.add_argument("--model", type=str, default="gpt-3.5-turbo")
-    parser.add_argument(
-        "--num-choices",
-        type=int,
-        default=1,
-        help="How many completion choices to generate.",
-    )
-    parser.add_argument(
-        "--force-temperature", type=float, help="Forcibly set a sampling temperature."
-    )
-    parser.add_argument(
-        "--max-tokens",
-        type=int,
-        default=4096,
-        help="The maximum number of new generated tokens.",
-    )
-    parser.add_argument(
-        "--question-begin",
-        type=int,
-        help="A debug option. The begin index of questions.",
-    )
-    parser.add_argument(
-        "--question-end", type=int, help="A debug option. The end index of questions."
-    )
-    parser.add_argument(
-        "--parallel", type=int, default=1, help="The number of concurrent API calls."
-    )
-    parser.add_argument(
-        "--question-source",
-        type=str,
-        default="huggingface",
-        help="The source of the questions. 'huggingface' will draw questions from huggingface. 'jsonl' will gather local jsonl files at data/{bench_name}/**/question.jsonl to permit tweaking or writing custom questions.",
-    )
-    parser.add_argument(
-        "--livebench-release-option",
-        type=str,
-        default=max(LIVE_BENCH_RELEASES),
-        choices=sorted(LIVE_BENCH_RELEASES),
-        help="Livebench release to use. Provide a single date option. Will handle excluding deprecated questions for selected release.",
-    )
-    parser.add_argument(
-        "--question-id",
-        type=str,
-        default=None,
-        nargs="+",
-        help="A list of question ids to generate answers for.",
-    )
-    parser.add_argument(
-        "--resume",
-        action="store_true",
-        default=False,
-        help="Do not generate answers for questions that have already been generated, unless they were errors and --retry-failures is set."
-    )
-    parser.add_argument(
-        "--model-display-name",
-        type=str,
-        default=None,
-        help="Optional display name of the model. If not provided, will be inferred from --model.",
-    )
-    parser.add_argument(
-        "--retry-failures",
-        action="store_true",
-        default=False,
-        help="Retry generating answers for questions that have failed in the past.",
-    )
-    parser.add_argument(
-        "--stream",
-        action="store_true",
-        default=False,
-        help="Stream responses, for models that support streaming"
-    )
-    parser.add_argument(
-        "--model-provider-override",
-        type=str,
-        default=None,
-        help="Override the provider for the model. If not provided, will be inferred from --model.",
-    )
-    args = parser.parse_args()
-
-
-    if args.livebench_release_option not in LIVE_BENCH_RELEASES:
-        raise ValueError(f"Bad release {args.livebench_release_option}.")
-
-    release_set = set(
-        [r for r in LIVE_BENCH_RELEASES if r <= args.livebench_release_option]
-    )
-
-    if args.api_base is not None:
-        # use manually-specified model API
-
-        api_key = os.environ.get("LIVEBENCH_API_KEY", "EMPTY")
-
-        api_dict = {
-            "api_key": api_key,
-            "api_base": args.api_base,
-        }
-    else:
-        api_dict = None
-
-    model_config = get_model_config(args.model)
-    model_display_name = args.model_display_name if args.model_display_name else model_config.display_name
-
-    if args.question_source == "huggingface":
-        categories, tasks = get_categories_tasks(args.bench_name)
-
-        for category_name, task_names in tasks.items():
-            for task_name in task_names:
-                questions = load_questions(
-                    categories[category_name],
-                    release_set,
-                    args.livebench_release_option,
-                    task_name,
-                    args.question_id
-                )
-
-                questions = questions[args.question_begin:args.question_end]
-
-                task_full_name = (
-                    f"{LIVE_BENCH_DATA_SUPER_PATH}/{category_name}/{task_name}"
-                )
-                answer_file = (
-                    f"data/{task_full_name}/model_answer/{model_display_name.lower()}.jsonl"
-                )
-
-                questions = filter_questions(questions, answer_file, args.resume, args.retry_failures)
-
-                print(f"Questions from {task_full_name}")
-                print(f"Output to {answer_file}")
-
-                run_questions(
-                    parallel=args.parallel,
-                    questions=questions,
-                    model_config=model_config,
-                    num_choices=args.num_choices,
-                    max_tokens=args.max_tokens,
-                    answer_file=answer_file,
-                    api_dict=api_dict,
-                    stream=args.stream,
-                    force_temperature=args.force_temperature,
-                    model_provider_override=args.model_provider_override,
-                    model_display_name_override=model_display_name,
-                    bench_name=task_full_name
-                )
-
-    elif args.question_source == "jsonl":
-        # use locally-provided questions
-
-        list_of_question_files = []
-        original_question_file = f"data/{args.bench_name}/question.jsonl"
-        if os.path.exists(original_question_file):
-            # if one specific file for bench_name exists, use it (e.g. if bench_name = live_bench/math/AMPS_Hard)
-            list_of_question_files = [original_question_file]
-        else:
-            # gather all question files for bench_name (e.g. if bench_name = live_bench/math)
-            list_of_question_files = glob.glob(
-                f"data/{args.bench_name}/**/question.jsonl", recursive=True
-            )
-
-        for question_file in list_of_question_files:
-            print(question_file)
-            questions = load_questions_jsonl(
-                question_file, release_set, args.livebench_release_option, args.question_id
-            )
+        
+        if total_questions == 0:
+            print(f'No questions found for model {model_name}')
+            return
             
-            questions = questions[args.question_begin:args.question_end]
-
-            bench_name = os.path.dirname(question_file).replace("data/", "")
-            answer_file = f"data/{bench_name}/model_answer/{model_display_name.lower()}.jsonl"
-
-            questions = filter_questions(questions, answer_file, args.resume, args.retry_failures)
+        print(f'Evaluating {total_questions} questions with model {model_name}')
+        
+        # Get parallel limit for this model
+        if isinstance(parallel_requests, dict):
+            model_parallel_limit = parallel_requests.get(model_name, 1)
+        else:
+            model_parallel_limit = parallel_requests
+        
+        # Separate agentic coding questions from regular questions
+        agentic_coding_questions = []
+        agentic_coding_task_info = {}
+        regular_question_tasks = []
+        
+        for category, tasks in model_questions.items():
+            for task, question_ids in tasks.items():
+                if not question_ids:
+                    continue
                     
-            print(f"Questions from {question_file}")
-            print(f"Output to {answer_file}")
-
-            run_questions(
-                parallel=args.parallel,
-                questions=questions,
+                # Filter questions by IDs
+                category_task_questions = all_questions.get(category, {}).get(task, [])
+                filtered_questions = [
+                    q for q in category_task_questions 
+                    if q.get('question_id') in question_ids
+                ]
+                
+                if not filtered_questions:
+                    continue
+                
+                # Check if this is agentic coding
+                if 'agentic_coding' in category:
+                    # Collect all agentic coding questions for this model
+                    agentic_coding_questions.extend(filtered_questions)
+                    # Store task information for each question
+                    task_key = f"{category}/{task}"
+                    for question in filtered_questions:
+                        agentic_coding_task_info[question['question_id']] = {
+                            'task_key': task_key,
+                            'answer_file': os.path.join(
+                                bench_name_root, category, task, "model_answer", 
+                                f"{model_config.display_name}.jsonl"
+                            ),
+                            'bench_name': f"{bench_name_root}/{category}/{task}"
+                        }
+                else:
+                    # Create answer file path for regular questions
+                    answer_file = os.path.join(
+                        bench_name_root, category, task, "model_answer", 
+                        f"{model_config.display_name}.jsonl"
+                    )
+                    
+                    bench_name = f"{bench_name_root}/{category}/{task}"
+                    
+                    for question in filtered_questions:
+                        regular_question_tasks.append((question, answer_file, bench_name))
+        
+        # Process agentic coding questions if any
+        if agentic_coding_questions:
+            print(f'Processing {len(agentic_coding_questions)} agentic coding questions for model {model_name}')
+            
+            run_agentic_coding_inference(
+                questions=agentic_coding_questions,
                 model_config=model_config,
-                model_display_name_override=model_display_name,
-                num_choices=args.num_choices,
-                max_tokens=args.max_tokens,
-                answer_file=answer_file,
-                api_dict=api_dict,
-                stream=args.stream,
-                force_temperature=args.force_temperature,
-                model_provider_override=args.model_provider_override,
-                bench_name=bench_name
+                num_choices=num_choices,
+                task_info=agentic_coding_task_info,
+                parallel=model_parallel_limit,
             )
+        
+        # Process regular questions if any
+        if not regular_question_tasks:
+            if not agentic_coding_questions:
+                print(f'No valid questions found for model {model_name}')
+            return
+        
+        print(f'Processing {len(regular_question_tasks)} regular questions for model {model_name}')
+        
+        # Process regular questions with parallelization
+        if model_parallel_limit == 1:
+            for question, answer_file, bench_name in tqdm.tqdm(regular_question_tasks, desc=f"Processing {model_name}"):
+                get_answer(
+                    question=question,
+                    num_choices=num_choices,
+                    stream=stream,
+                    answer_file=answer_file,
+                    model_config=model_config,
+                )
+        else:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=model_parallel_limit) as executor:
+                futures = []
+                for question, answer_file, bench_name in regular_question_tasks:
+                    future = executor.submit(
+                        get_answer,
+                        question=question,
+                        num_choices=num_choices,
+                        stream=stream,
+                        answer_file=answer_file,
+                        model_config=model_config,
+                    )
+                    futures.append(future)
 
+                for future in tqdm.tqdm(
+                    concurrent.futures.as_completed(futures), 
+                    total=len(futures),
+                    desc=f"Processing {model_name}"
+                ):
+                    future.result()
+        
+        # Reorganize answer files for regular questions
+        processed_files = set()
+        for _, answer_file, _ in regular_question_tasks:
+            if answer_file not in processed_files:
+                if os.path.exists(answer_file):
+                    reorg_answer_file(answer_file)
+                processed_files.add(answer_file)
+    
+    # Process all models in parallel
+    models_to_process = [
+        (model_name, model_config) 
+        for model_name, model_config in model_configs.items() 
+        if model_name in questions_by_model
+    ]
+    
+    if not models_to_process:
+        print("No models found with questions to process")
+        return
+    
+    if len(models_to_process) == 1:
+        # Single model - no need for additional threading
+        model_name, model_config = models_to_process[0]
+        process_model_questions(model_name, model_config)
     else:
-        raise ValueError(f"Bad question source {args.question_source}.")
+        # Multiple models - process in parallel
+        with concurrent.futures.ThreadPoolExecutor(max_workers=len(models_to_process)) as executor:
+            model_futures = []
+            for model_name, model_config in models_to_process:
+                future = executor.submit(process_model_questions, model_name, model_config)
+                model_futures.append(future)
+            
+            # Wait for all models to complete
+            for future in concurrent.futures.as_completed(model_futures):
+                future.result()

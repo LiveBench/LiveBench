@@ -27,7 +27,7 @@ Conversation = list[dict[str, str]]
 API_Kwargs = dict[str, str | float | int | dict[str, str] | None]
 
 class ModelAPI(Protocol):
-    def __call__(self, model: str, messages: Conversation, temperature: float, max_tokens: int, model_api_kwargs: API_Kwargs | None, api_dict: dict[str, str] | None, stream: bool) -> tuple[str, int]:
+    def __call__(self, model: str, messages: Conversation, model_api_kwargs: API_Kwargs, api_dict: dict[str, str] | None, stream: bool) -> tuple[str, int]:
         ...
 
 
@@ -50,7 +50,7 @@ def retry_log(retry_state):
     retry_error_callback=retry_fail
 )
 def chat_completion_openai(
-    model: str, messages: Conversation, temperature: float, max_tokens: int, model_api_kwargs: API_Kwargs | None = None, api_dict: dict[str, str] | None = None, stream: bool = False
+    model: str, messages: Conversation, model_api_kwargs: API_Kwargs, api_dict: dict[str, str] | None = None, stream: bool = False
 ) -> tuple[str, int]:
     from openai import NOT_GIVEN, OpenAI
 
@@ -62,18 +62,11 @@ def chat_completion_openai(
     else:
         client = OpenAI(timeout=1000)
 
-    api_kwargs: API_Kwargs = {
-        'temperature': temperature
-    }
+    api_kwargs: API_Kwargs = {}
 
     if model_api_kwargs is not None:
         model_api_kwargs = {key: value for key, value in model_api_kwargs.items()}
         api_kwargs.update(model_api_kwargs)
-
-    if 'max_tokens' not in api_kwargs and 'max_completion_tokens' not in api_kwargs:
-        # gpt models can use max_completion_tokens but other apis might not support this
-        api_kwargs['max_completion_tokens'] = max_tokens if 'gpt' in model else None
-        api_kwargs['max_tokens'] = max_tokens if 'gpt' not in model else None
 
     actual_api_kwargs = {key: (value if value is not None else NOT_GIVEN) for key, value in api_kwargs.items()}
 
@@ -147,7 +140,7 @@ def chat_completion_openai(
     after=retry_log,
     retry_error_callback=retry_fail
 )
-def chat_completion_openai_responses(model: str, messages: Conversation, temperature: float, max_tokens: int, model_api_kwargs: API_Kwargs | None = None, api_dict: dict[str, str] | None = None, stream: bool = False) -> tuple[str, int]:
+def chat_completion_openai_responses(model: str, messages: Conversation, model_api_kwargs: API_Kwargs, api_dict: dict[str, str] | None = None, stream: bool = False) -> tuple[str, int]:
     from openai import NOT_GIVEN, OpenAI
 
     if api_dict is not None:
@@ -162,10 +155,7 @@ def chat_completion_openai_responses(model: str, messages: Conversation, tempera
     if 'o1' in model or 'o3' in model or 'o4-mini' in model and 'Formatting reenabled' not in messages[0]['content']:
         developer_message = 'Formatting reenabled\n'
 
-    api_kwargs: API_Kwargs = {
-        'max_output_tokens': max_tokens if 'gpt' in model else None,
-        'temperature': temperature
-    }
+    api_kwargs: API_Kwargs = {}
 
     if model_api_kwargs is not None:
         model_api_kwargs = {key: value for key, value in model_api_kwargs.items()}
@@ -177,8 +167,14 @@ def chat_completion_openai_responses(model: str, messages: Conversation, tempera
         del api_kwargs['reasoning_effort']
 
     if 'max_completion_tokens' in api_kwargs:
-        api_kwargs['max_output_tokens'] = api_kwargs['max_completion_tokens']
+        if 'max_output_tokens' not in api_kwargs:
+            api_kwargs['max_output_tokens'] = api_kwargs['max_completion_tokens']
         del api_kwargs['max_completion_tokens']
+    
+    if 'max_tokens' in api_kwargs:
+        if 'max_output_tokens' not in api_kwargs:
+            api_kwargs['max_output_tokens'] = api_kwargs['max_tokens']
+        del api_kwargs['max_tokens']
 
     actual_api_kwargs = {key: (value if value is not None else NOT_GIVEN) for key, value in api_kwargs.items()}
 
@@ -214,7 +210,7 @@ def chat_completion_openai_responses(model: str, messages: Conversation, tempera
     after=retry_log,
     retry_error_callback=retry_fail
 )
-def chat_completion_aws(model: str, messages: Conversation, temperature: float, max_tokens: int, model_api_kwargs: API_Kwargs | None = None, api_dict: dict[str, str] | None = None, stream: bool = False) -> tuple[str, int]:
+def chat_completion_aws(model: str, messages: Conversation, model_api_kwargs: API_Kwargs, api_dict: dict[str, str] | None = None, stream: bool = False) -> tuple[str, int]:
     import boto3
 
     # AWS region can be customized via api_dict
@@ -227,10 +223,7 @@ def chat_completion_aws(model: str, messages: Conversation, temperature: float, 
     prompt = user_messages[0] if user_messages else ""
 
     # Set up API kwargs
-    inference_config = {
-        "maxTokens": max_tokens,
-        "temperature": temperature,
-    }
+    inference_config = {}
 
     # Update with additional kwargs if provided
     if model_api_kwargs is not None:
@@ -278,7 +271,7 @@ def gemini_custom_wait(retry_state):
     retry_error_callback=retry_fail
 )
 def chat_completion_google_generativeai(
-    model: str, messages: Conversation, temperature: float, max_tokens: int, model_api_kwargs: API_Kwargs | None = None, api_dict: dict[str, str] | None = None, stream: bool = False
+    model: str, messages: Conversation, model_api_kwargs: API_Kwargs, api_dict: dict[str, str] | None = None, stream: bool = False
 ) -> tuple[str, int]:
     from google import genai
     from google.genai import types
@@ -308,8 +301,6 @@ def chat_completion_google_generativeai(
     api_kwargs: API_Kwargs = {
         'safety_settings': safety_settings, 
         'system_instruction': system,
-        'temperature': temperature,
-        'max_output_tokens': max_tokens
     }
     
     # Update with additional kwargs if provided
@@ -350,7 +341,7 @@ def chat_completion_google_generativeai(
     after=retry_log,
     retry_error_callback=retry_fail
 )
-def chat_completion_together(model: str, messages: Conversation, temperature: float, max_tokens: int, model_api_kwargs: API_Kwargs | None = None, api_dict: dict[str, str] | None = None, stream: bool = False) -> tuple[str, int]:
+def chat_completion_together(model: str, messages: Conversation, model_api_kwargs: API_Kwargs | None = None, api_dict: dict[str, str] | None = None, stream: bool = False) -> tuple[str, int]:
     from together import Together
 
     if api_dict is not None and "api_key" in api_dict:
@@ -362,10 +353,9 @@ def chat_completion_together(model: str, messages: Conversation, temperature: fl
 
     messages = [message for message in messages if message['role'] == 'user']
 
-    api_kwargs: API_Kwargs = {'max_tokens': max_tokens, 'temperature': temperature}
-    if model_api_kwargs is not None:
-        model_api_kwargs = {key: value for key, value in model_api_kwargs.items()}
-        api_kwargs.update(model_api_kwargs)
+    api_kwargs: API_Kwargs = {}
+    model_api_kwargs = {key: value for key, value in model_api_kwargs.items()}
+    api_kwargs.update(model_api_kwargs)
 
     response = client.chat.completions.create(
         model=model,
@@ -394,7 +384,7 @@ def chat_completion_together(model: str, messages: Conversation, temperature: fl
     after=retry_log,
     retry_error_callback=retry_fail
 )
-def chat_completion_anthropic(model: str, messages: Conversation, temperature: float, max_tokens: int, model_api_kwargs: API_Kwargs | None = None, api_dict: dict[str, str] | None = None, stream: bool = False) -> tuple[str, int]:
+def chat_completion_anthropic(model: str, messages: Conversation, model_api_kwargs: API_Kwargs, api_dict: dict[str, str] | None = None, stream: bool = False) -> tuple[str, int]:
     if api_dict is not None and "api_key" in api_dict:
         api_key = api_dict["api_key"]
     else:
@@ -403,15 +393,10 @@ def chat_completion_anthropic(model: str, messages: Conversation, temperature: f
     from anthropic import NOT_GIVEN, Anthropic
     c = Anthropic(api_key=api_key)
 
-    api_kwargs: API_Kwargs = {
-        'max_tokens': max_tokens,
-        'temperature': temperature
-    }
+    api_kwargs: API_Kwargs = {}
 
-
-    if model_api_kwargs is not None:
-        model_api_kwargs = {key: value for key, value in model_api_kwargs.items()}
-        api_kwargs.update(model_api_kwargs)
+    model_api_kwargs = {key: value for key, value in model_api_kwargs.items()}
+    api_kwargs.update(model_api_kwargs)
 
     actual_api_kwargs = {key: (value if value is not None else NOT_GIVEN) for key, value in api_kwargs.items()}
 
@@ -492,7 +477,7 @@ def chat_completion_anthropic(model: str, messages: Conversation, temperature: f
     after=retry_log,
     retry_error_callback=retry_fail
 )
-def chat_completion_mistral(model: str, messages: Conversation, temperature: float, max_tokens: int, model_api_kwargs: API_Kwargs | None = None, api_dict: dict[str, str] | None = None, stream: bool = False) -> tuple[str, int]:
+def chat_completion_mistral(model: str, messages: Conversation, model_api_kwargs: API_Kwargs, api_dict: dict[str, str] | None = None, stream: bool = False) -> tuple[str, int]:
     if api_dict is not None and "api_key" in api_dict:
         api_key = api_dict["api_key"]
     else:
@@ -502,10 +487,7 @@ def chat_completion_mistral(model: str, messages: Conversation, temperature: flo
     client = Mistral(api_key=api_key)
     
     # Set up API kwargs
-    api_kwargs: API_Kwargs = {
-        'max_tokens': max_tokens,
-        'temperature': temperature
-    }
+    api_kwargs: API_Kwargs = {}
     if model_api_kwargs is not None:
         model_api_kwargs = {key: value for key, value in model_api_kwargs.items()}
         api_kwargs.update(model_api_kwargs)
@@ -555,7 +537,7 @@ def individual_completion_deepinfra(client, model, messages, ai_message, actual_
     return response.choices[0].message.content, response.usage.completion_tokens
 
 
-def chat_completion_deepinfra(model: str, messages: Conversation, temperature: float, max_tokens: int, model_api_kwargs: API_Kwargs | None = None, api_dict: dict[str, str] | None = None, stream: bool = False) -> tuple[str, int]:
+def chat_completion_deepinfra(model: str, messages: Conversation, model_api_kwargs: API_Kwargs | None = None, api_dict: dict[str, str] | None = None, stream: bool = False) -> tuple[str, int]:
     from openai import OpenAI, NOT_GIVEN
 
     if api_dict is not None and "api_key" in api_dict:
@@ -565,10 +547,7 @@ def chat_completion_deepinfra(model: str, messages: Conversation, temperature: f
 
     client = OpenAI(api_key=api_key, base_url="https://api.deepinfra.com/v1/openai", timeout=httpx.Timeout(timeout=2400.0, connect=10.0))
 
-    api_kwargs: API_Kwargs = {
-        'max_tokens': max_tokens,
-        'temperature': temperature
-    }
+    api_kwargs: API_Kwargs = {}
 
     if model_api_kwargs is not None:
         model_api_kwargs = {key: value for key, value in model_api_kwargs.items()}
