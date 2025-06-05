@@ -211,9 +211,9 @@ api_kwargs:
   default:
     max_output_tokens: 65536
 ---
-display_name: gemini-2.5-pro-preview-05-06-highthinking
+display_name: gemini-2.5-pro-preview-06-05-highthinking
 api_name:
-  google: gemini-2.5-pro-preview-05-06
+  google: gemini-2.5-pro-preview-06-05
 aliases:
   - gemini-2.5-pro-preview-highthinking
 api_kwargs:
@@ -224,9 +224,9 @@ api_kwargs:
     thinking_config:
       thinking_budget: 32768
 ---
-display_name: gemini-2.5-pro-preview-05-06-default
+display_name: gemini-2.5-pro-preview-06-05-default
 api_name:
-  google: gemini-2.5-pro-preview-05-06
+  google: gemini-2.5-pro-preview-06-05
 aliases:
   - gemini-2.5-pro-preview
 api_kwargs:
@@ -235,9 +235,9 @@ api_kwargs:
     temperature: 1
     top_p: 0.95
 ---
-display_name: gemini-2.5-pro-preview-05-06-minthinking
+display_name: gemini-2.5-pro-preview-06-05-minthinking
 api_name:
-  google: gemini-2.5-pro-preview-05-06
+  google: gemini-2.5-pro-preview-06-05
 aliases:
   - gemini-2.5-pro-preview-minthinking
 api_kwargs:
