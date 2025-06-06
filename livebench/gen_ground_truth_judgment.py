@@ -95,9 +95,10 @@ def play_a_match_gt(match: MatchSingle, output_file: str | None = None, debug=Fa
 
     # todo: find a better solution than a long if statement.
 
+    splits = task_or_subtask.split('_')
+
     try:
-        if task_or_subtask == 'math_comp':
-            splits = task_or_subtask.split('_')
+        if len(splits) > 0 and (splits[0] in ["amc", "smc", "aime", "imo", "usamo"] or (len(splits) > 1 and splits[1] == "amc")):
             if splits[0] in ["amc", "smc"] or (len(splits) > 1 and splits[1] == "amc"):
                 score = mathcontest_process_results(ground_truth, llm_answer, question_text, debug)
                 category = "math"
@@ -107,6 +108,8 @@ def play_a_match_gt(match: MatchSingle, output_file: str | None = None, debug=Fa
             elif splits[0] in ["imo", "usamo"]:
                 score = proof_rearrangement_process_results(ground_truth, llm_answer, edit_distance=True, debug=debug)
                 category = "math"
+            else:
+                raise Exception("Invalid task or subtask provided: ", question['task'], question['subtask'])
         elif task_or_subtask == "cta":
             score = cta_process_results(ground_truth, llm_answer, debug)
             category = "data_analysis"

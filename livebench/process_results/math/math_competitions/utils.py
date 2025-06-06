@@ -41,9 +41,14 @@ def mathcontest_process_results(ground_truth: str, llm_answer: str, question_tex
 
     allow_last_line = True
     if score == 0 and allow_last_line:
-        last_line = llm_answer.split('\n')[-1]
+        last_line = llm_answer.strip().split('\n')[-1]
         if last_line.strip().replace('*', '').lower() == ground_truth.lower():
             score = 1
+        elif '(' in last_line and ')' in last_line:
+            val = last_line.split('(')[1].split(')')[0]
+            if val.lower() == ground_truth.lower():
+                score = 1
+
 
     if debug and score == 0:
         # check if the LLM guessed a letter, even if it was wrong

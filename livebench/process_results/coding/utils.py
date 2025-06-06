@@ -41,6 +41,8 @@ def LCB_generation_process_results(question: dict, llm_answer: str, debug=False)
     else:
         full_solution = extracted_answer
 
+
+
     # code mostly from LiveCodeBench, with modifications.
     public_test_cases = json.loads(question['public_test_cases'])  # type: ignore
     public_test_cases = [Test(**t) for t in public_test_cases]
@@ -104,6 +106,8 @@ def code_generation_process_results(question: dict, llm_answer: str, debug=False
 
     if 'partial_solution' in question and (not question['partial_solution'] is None) and (len(question['partial_solution']) > 0) and not extracted_code.startswith(question['partial_solution']):
         extracted_code = question['partial_solution'] + '\n' + extracted_code
+    elif 'entry_point' in question and 'def ' + question['entry_point'] not in extracted_code:
+        extracted_code = question['code_prompt'] + '\n' + extracted_code
 
     test_cases = question['tests']
     expected_time = question['expected_time']

@@ -83,8 +83,23 @@ def amps_hard_process_results(ground_truth: str, llm_answer: str, debug=False) -
     if last_boxed:
         parsed_answer = normalize_final_answer(remove_boxed(last_boxed))
 
-        # if is_equiv(ground_truth, parsed_answer):
-        #     retval = 1
+    if parsed_answer is None:
+        # try to extract from the last block of $ $
+        last_line = llm_answer.split('\n')[-1]
+        if last_line.count('$') >= 2:
+            close_pos = last_line.rfind('$')
+            if last_line[close_pos - 1] == '$':
+                # make sure this works with $$ $$ blocks too
+                close_pos -= 1
+            open_pos = last_line.rfind('$', 0, close_pos)
+            math = last_line[open_pos + 1:close_pos]
+            if '=' in math:
+                math = math.split('=')[-1].strip()
+            elif '\\quad \\text{or} \\quad' in math:
+                math = math.split('\\quad \\text{or} \\quad')[-1].strip()
+            parsed_answer = normalize_final_answer(math)
+
+    if parsed_answer is not None:
         try:
             res = run_with_timeout(is_equiv, args=(ground_truth, parsed_answer), timeout=8)
             if res:
@@ -105,7 +120,7 @@ def amps_hard_process_results(ground_truth: str, llm_answer: str, debug=False) -
         print('GROUND TRUTH', ground_truth)
         if parsed_answer:
             print('SOLUTION', parsed_answer)
-        print('END OF OUTPUT', llm_answer[-70:])
+        print('END OF OUTPUT', '\n'.join(llm_answer.split('\n')[-2:]))
     return retval
 
 

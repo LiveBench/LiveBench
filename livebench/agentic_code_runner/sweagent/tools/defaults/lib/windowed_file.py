@@ -171,6 +171,10 @@ class WindowedFile:
             out_lines.extend(lines)
         if pre_post_line:
             if end_line < self.n_lines - 1:
+                # if self.n_lines - end_line - 1 == 1:
+                #     out_lines.append(self.text.split("\n")[end_line + 1:]) # TODO: make sure this works with set_window_text too!
+                # else:
+                #     out_lines.append(f"({self.n_lines - end_line - 1} more lines below)")
                 out_lines.append(f"({self.n_lines - end_line - 1} more lines below)")
         return "\n".join(out_lines)
 
