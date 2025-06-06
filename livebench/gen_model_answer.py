@@ -23,9 +23,9 @@ from livebench.common import (
     load_questions_jsonl,
     LIVE_BENCH_DATA_SUPER_PATH,
 )
-from livebench.model.model_adapter import load_model, get_conversation_template
+from livebench.model.model_adapter import get_conversation_template
+from priveri.utils.model_utils import load_model
 from fastchat.utils import str_to_torch_dtype
-
 
 def run_eval(
     model_path: str,
@@ -89,7 +89,6 @@ def run_eval(
     if use_ray:
         ray.get(ans_handles)
 
-
 @torch.inference_mode()
 def get_model_answers(
     model_path,
@@ -103,19 +102,11 @@ def get_model_answers(
     revision,
 ):
     model, tokenizer = load_model(
-        model_path,
-        revision=revision,
-        device="cuda",
-        num_gpus=num_gpus_per_model,
-        max_gpu_memory=max_gpu_memory,
-        dtype=dtype,
-        load_8bit=False,
-        cpu_offloading=False,
-        debug=False,
+        model_path
     )
 
     for question, answer_file in tqdm(questions):
-        temperature = 0.0
+        temperature = 0.0001
 
         choices = []
         for i in range(num_choices):
@@ -131,27 +122,20 @@ def get_model_answers(
                 prompt = conv.get_prompt()
                 input_ids = tokenizer([prompt]).input_ids
 
-                if temperature < 1e-4:
-                    do_sample = False
-                else:
-                    do_sample = True
 
                 # some models may error out when generating long outputs
                 print("starting question", qs[:50])
                 try:
                     from transformers.generation.streamers import TextStreamer
 
-                    output_ids = model.generate(
-                        torch.as_tensor(input_ids).cuda(),
-                        do_sample=do_sample,
-                        temperature=temperature,
-                        max_new_tokens=max_new_token,
-                        # streamer=TextStreamer(tokenizer)
-                    )
-                    if model.config.is_encoder_decoder:
-                        output_ids = output_ids[0]
-                    else:
-                        output_ids = output_ids[0][len(input_ids[0]) :]
+                    output_ids = []
+                    for _ in range(max_new_token):
+                        enc_input_ids = crypten.cryptensor(torch.nn.functional.one_hot(torch.tensor(input_ids), num_classes=len(tokenizer)).float())
+                        encrypted_logits = model(enc_input_ids).logits
+                        logits: torch.tensor = encrypted_logits.get_plain_text()[0][-1]
+                        generated_token = torch.argmax(logits).item()
+                        output_ids.append(generated_token)
+                        input_ids[0].append(generated_token)
 
                     # be consistent with the template's stop_token_ids
                     if conv.stop_token_ids:
@@ -217,6 +201,9 @@ def get_model_answers(
 
 
 if __name__ == "__main__":
+    import crypten
+    crypten.init()
+
     parser = argparse.ArgumentParser(
         description="Generate benchmark question answers using a model on HuggingFace repo or with locally-stored weights"
     )

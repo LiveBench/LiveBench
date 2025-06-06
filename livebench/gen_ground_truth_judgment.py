@@ -96,7 +96,13 @@ def play_a_match_gt(match: MatchSingle, output_file: str | None = None, debug=Fa
     # todo: find a better solution than a long if statement.
 
     try:
-        if task_or_subtask == 'math_comp':
+        print("WEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE")
+        print(task)
+        print(task_or_subtask)
+        print(question_text)
+        print(ground_truth)
+        print(llm_answer)
+        if task == 'math_comp':
             splits = task_or_subtask.split('_')
             if splits[0] in ["amc", "smc"] or (len(splits) > 1 and splits[1] == "amc"):
                 score = mathcontest_process_results(ground_truth, llm_answer, question_text, debug)
