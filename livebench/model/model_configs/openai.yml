@@ -306,3 +306,33 @@ api_kwargs:
       effort: medium
       summary: auto
 prompt_prefix: "Formatting reenabled"
+---
+display_name: o3-pro-2025-06-10-medium
+api_name:
+  openai_responses: o3-pro-2025-06-10
+default_provider: openai_responses
+aliases:
+  - o3-pro-medium
+api_kwargs:
+  default:
+    max_output_tokens: null
+    temperature: null
+    reasoning:
+      effort: medium
+      summary: auto
+prompt_prefix: "Formatting reenabled"
+---
+display_name: o3-pro-2025-06-10-high
+api_name:
+  openai_responses: o3-pro-2025-06-10
+default_provider: openai_responses
+aliases:
+  - o3-pro-high
+api_kwargs:
+  default:
+    max_output_tokens: null
+    temperature: null
+    reasoning:
+      effort: high
+      summary: auto
+prompt_prefix: "Formatting reenabled"
