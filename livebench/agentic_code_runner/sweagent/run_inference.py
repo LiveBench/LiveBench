@@ -38,7 +38,8 @@ def run_agentic_coding_inference(
     model_display_name_override: str | None = None,
     answer_file: str | None = None,
     parallel: int = 1,
-    agent_config: AgentConfig | None = None
+    agent_config: AgentConfig | None = None,
+    task_to_answer_file: dict[str, str] | None = None
 ):
     import litellm
     from livebench.agentic_code_runner.eval.utils import docker_util
@@ -152,6 +153,11 @@ def run_agentic_coding_inference(
 
     if answer_file is not None:
         os.makedirs(os.path.dirname(answer_file), exist_ok=True)
+    
+    # Also create directories for task-specific answer files
+    if task_to_answer_file is not None:
+        for task_answer_file in task_to_answer_file.values():
+            os.makedirs(os.path.dirname(task_answer_file), exist_ok=True)
 
     env_var_path = LIVE_BENCH_ROOT_PATH / '.env'
 
@@ -337,6 +343,15 @@ def run_agentic_coding_inference(
                 'choices': [{'turns': [final_answer]}]
             })
 
-        if answer_file is not None:
-            with open(answer_file, "a") as fout:
+        # Determine which answer file to use
+        current_answer_file = answer_file
+        if task_to_answer_file is not None and 'task' in question:
+            task_name = question['task']
+            if task_name in task_to_answer_file:
+                current_answer_file = task_to_answer_file[task_name]
+                # Ensure the directory exists for the task-specific answer file
+                os.makedirs(os.path.dirname(current_answer_file), exist_ok=True)
+
+        if current_answer_file is not None:
+            with open(current_answer_file, "a") as fout:
                 fout.write(json.dumps(ans) + "\n")
