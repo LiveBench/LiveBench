@@ -263,3 +263,43 @@ agent_config:
     max_input_tokens: 1048576
     max_output_tokens: 65536
     supports_function_calling: true
+---
+display_name: gemma-3n-e4b-it
+api_name:
+  google: gemma-3n-e4b-it
+aliases:
+  - gemma-3n-e4b
+agent_config:
+  default:
+    max_input_tokens: 8192
+    max_output_tokens: 2048
+    convert_system_to_user: true
+---
+display_name: gemma-3n-e2b-it
+api_name:
+  google: gemma-3n-e2b-it
+aliases:
+  - gemma-3n-e2b
+agent_config:
+  default:
+    max_input_tokens: 8192
+    max_output_tokens: 2048
+    convert_system_to_user: true
+---
+display_name: gemini-2.5-flash-lite-preview-06-17-highthinking
+api_name:
+  google: gemini-2.5-flash-lite-preview-06-17
+aliases:
+  - gemini-2.5-flash-lite-preview
+api_kwargs:
+  default:
+    max_output_tokens: 65536
+    temperature: 1
+    top_p: 0.95
+    thinking_config:
+      thinking_budget: 24576
+agent_config:
+  default:
+    max_input_tokens: 1048576
+    max_output_tokens: 65536
+    supports_function_calling: true
