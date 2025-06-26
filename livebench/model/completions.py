@@ -184,26 +184,23 @@ def chat_completion_openai_responses(model: str, messages: Conversation, tempera
 
     input = '\n'.join([message['content'] for message in messages])
 
-    output_text = ""
-    output_tokens = None
-
-    stream = client.responses.create(
+    response = client.responses.create(
         model=model,
         instructions=developer_message,
         input=input,
-        **actual_api_kwargs,
-        stream = True
+        store=False,
+        **actual_api_kwargs
     )
 
-    for event in stream:
-        if event.type == "response.completed":
-            output_tokens = event.response.usage.output_tokens
-        elif event.type == "response.output_text.delta":
-            output_text += event.delta
-        elif event.type == "response.failed":
-            raise Exception(f"Failed to generate response ({event.error.code}): {event.error.message}")
-        elif event.type == "response.incomplete":
-            raise Exception("Response was cut short: " + event.incomplete_details.reason)
+    if response is None:
+        raise Exception("No response received from OpenAI Responses")
+    elif response.output_text is None:
+        raise Exception("No output text received from OpenAI Responses")
+    elif response.usage is None:
+        raise Exception("No usage received from OpenAI Responses")
+
+    output_text = response.output_text
+    output_tokens = response.usage.output_tokens
 
     return output_text, output_tokens
 

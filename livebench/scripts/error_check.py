@@ -3,7 +3,11 @@ import json
 import argparse
 from collections import defaultdict
 
+from livebench.model.api_model_config import get_model_config
+
+
 def check_errors(bench_names: list[str] | None = None, model_names: list[str] | None = None, include_empty_turns: bool = False):
+
     """
     Check for errors in model answer files and display them in a nicely formatted way,
     grouped by model and file.
@@ -16,6 +20,9 @@ def check_errors(bench_names: list[str] | None = None, model_names: list[str] | 
     
     # Navigate to the data directory
     os.chdir('data')
+
+    if model_names is not None:
+        model_names = [get_model_config(m).display_name for m in model_names]
 
     # Dictionary to store results organized by model and task
     results = defaultdict(lambda: defaultdict(list))
