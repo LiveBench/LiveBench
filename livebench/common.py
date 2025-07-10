@@ -2,12 +2,14 @@
 Common data structures and utilities.
 """
 
+
 import dataclasses
 
 from datetime import datetime
 import glob
 import json
 import os
+import subprocess
 
 from pathlib import Path
 import re
@@ -24,6 +26,32 @@ load_dotenv(override=True)
 
 if TYPE_CHECKING:
     from datasets import Dataset
+
+
+def check_agentic_coding_requirements():
+    """Check if litellm and Docker are available for agentic coding evaluation.
+
+    Returns:
+        bool: True if all requirements are met, False otherwise
+    """
+    # Check for litellm
+    try:
+        import litellm
+        litellm_available = True
+    except ImportError:
+        litellm_available = False
+
+    # Check for Docker
+    try:
+        result = subprocess.run(['docker', '--version'], capture_output=True, text=True, check=True)
+        docker_available = True
+    except Exception:
+        docker_available = False
+
+    if not litellm_available or not docker_available:
+        return False
+
+    return True
 
 
 # Extract scores from judgments

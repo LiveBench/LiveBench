@@ -43,7 +43,8 @@ from livebench.common import (
     make_match_single,
     MatchSingle,
     get_categories_tasks,
-    LIVE_BENCH_DATA_SUPER_PATH
+    LIVE_BENCH_DATA_SUPER_PATH,
+    check_agentic_coding_requirements
 )
 
 
@@ -159,7 +160,11 @@ def play_a_match_gt(match: MatchSingle, output_file: str | None = None, debug=Fa
             elif task_or_subtask == "code_generation" or task_or_subtask == "code_completion":
                 score = code_generation_process_results(question, llm_answer, debug)
             elif task_or_subtask == "agentic_coding":
-                score = agentic_coding_process_results(question, answer, debug)
+                # Check for litellm and Docker availability
+                if not check_agentic_coding_requirements():
+                    score = 0  # Return 0 score when requirements are not met
+                else:
+                    score = agentic_coding_process_results(question, answer, debug)
             category = "coding"
         else:
             raise NotImplementedError(f"This task ({task_or_subtask}) has not been implemented yet.")
@@ -223,6 +228,12 @@ def gen_judgments(
         parallel: The number of concurrent threads to use for evaluating answers
         resume: When true, skip question-model pairs that already have judgments in the output file
     """
+
+    if "agentic_coding" in bench_name:
+        # Check for litellm and Docker availability
+        if not check_agentic_coding_requirements():
+            print("Warning: litellm or docker missing, skipping agentic coding evaluation")
+            return
 
 
     if model_list is None:
@@ -356,6 +367,7 @@ def gen_judgments(
                     with open(output_file, "a") as fout:
                         fout.write(json.dumps(result) + "\n")
     elif "agentic_coding" in bench_name:
+
         for model_id in models: # TODO: parallelize at the model level too
             model_matches = [m for m in matches if m.model == model_id]
             questions = [m.question for m in model_matches]

@@ -12,9 +12,12 @@ import concurrent.futures
 import glob
 import shortuuid
 import tqdm
+import subprocess
+import sys
 
 from livebench.model.api_model_config import AgentConfig
 from livebench.agentic_code_runner.sweagent.run_inference import run_agentic_coding_inference
+
 from livebench.common import (
     LIVE_BENCH_RELEASES,
     reorg_answer_file,
@@ -22,7 +25,8 @@ from livebench.common import (
     load_questions,
     load_questions_jsonl,
     LIVE_BENCH_DATA_SUPER_PATH,
-    filter_questions
+    filter_questions,
+    check_agentic_coding_requirements
 )
 
 from livebench.model import ModelConfig, get_model_config, get_api_function
@@ -188,6 +192,11 @@ def run_questions(
     print('Evaluating ', len(questions), ' questions in ', bench_name, ' with model ', model_config.display_name)
    
     if 'agentic_coding' in bench_name:
+
+        if not check_agentic_coding_requirements():
+            print("Warning: litellm or docker missing, skipping agentic coding evaluation")
+            return
+
         agent_config = None
         if model_config.agent_config is not None:
             agent_config: AgentConfig = {}
@@ -198,7 +207,7 @@ def run_questions(
             if 'litellm_provider' in agent_config:
                 provider = agent_config['litellm_provider']
                 del agent_config['litellm_provider']
-            
+
         run_agentic_coding_inference(
             questions=questions,
             model_api_name=model_api_name,

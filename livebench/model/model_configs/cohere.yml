@@ -45,6 +45,8 @@ api_name:
   https://api.cohere.ai/compatibility/v1: command-a-03-2025
 api_keys:
   https://api.cohere.ai/compatibility/v1: CO_API_KEY
+aliases:
+ - command-a
 agent_config:
   default:
     max_input_tokens: 256000

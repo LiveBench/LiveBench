@@ -56,3 +56,18 @@ api_kwargs:
     reasoning_effort: low
     max_tokens: 64000
     temperature: 0.7
+---
+display_name: grok-4-0709
+api_name:
+  https://api.x.ai/v1: grok-4-0709
+api_keys:
+  https://api.x.ai/v1: XAI_API_KEY
+aliases:
+  - grok-4
+agent_config:
+  default:
+    litellm_provider: xai
+api_kwargs:
+  default:
+    max_tokens: null
+    temperature: 0.7
