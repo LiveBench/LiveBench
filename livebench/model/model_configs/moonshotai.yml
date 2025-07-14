@@ -1,0 +1,16 @@
+---
+display_name: kimi-k2-instruct
+api_name:
+  together: moonshotai/Kimi-K2-Instruct
+default_provider: together
+api_kwargs:
+  default:
+    temperature: 0.6
+    max_tokens: 128000
+agent_config:
+  default:
+    max_input_tokens: 128000
+    max_output_tokens: 128000
+    supports_function_calling: true
+  together:
+    litellm_provider: together_ai
