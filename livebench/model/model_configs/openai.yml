@@ -321,6 +321,11 @@ api_kwargs:
       effort: medium
       summary: auto
 prompt_prefix: "Formatting reenabled"
+agent_config:
+  default:
+    max_input_tokens: 200000
+    max_output_tokens: 100000
+    supports_function_calling: true
 ---
 display_name: o3-pro-2025-06-10-high
 api_name:
@@ -336,3 +341,8 @@ api_kwargs:
       effort: high
       summary: auto
 prompt_prefix: "Formatting reenabled"
+agent_config:
+  default:
+    max_input_tokens: 200000
+    max_output_tokens: 100000
+    supports_function_calling: true

@@ -734,7 +734,7 @@ class LiteLLMModel(AbstractModel):
         except litellm.exceptions.ContentPolicyViolationError as e:
             raise ContentPolicyViolationError from e
         except litellm.exceptions.BadRequestError as e:
-            if "is longer than the model's context length" or "exceeds the model's max input limit" in str(e):
+            if "is longer than the model's context length" in str(e) or "exceeds the model's max input limit" in str(e):
                 raise ContextWindowExceededError from e
             raise
         self.logger.info(f"Response: {response}")
@@ -1061,7 +1061,16 @@ class LiteLLMModel(AbstractModel):
             before_sleep=retry_warning,
         ):
             with attempt:
-                result = self._query(messages, n=n, temperature=temperature)
+                try:
+                    result = self._query(messages, n=n, temperature=temperature)
+                except litellm.exceptions.APIError as e:
+                    if "bad gateway" in str(e).lower():
+                        # convert to basic Exception so that it can be retried
+                        raise Exception("API Error: Bad gateway")
+                    elif "you can retry your request" in str(e).lower():
+                        raise Exception("API Error: Server Error")
+                    else:
+                        raise e
         if n is None or n == 1:
             return result[0]
         return result

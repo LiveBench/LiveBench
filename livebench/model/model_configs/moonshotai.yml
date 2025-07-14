@@ -2,7 +2,10 @@
 display_name: kimi-k2-instruct
 api_name:
   together: moonshotai/Kimi-K2-Instruct
-default_provider: together
+  https://api.moonshot.ai/v1: kimi-k2-0711-preview
+default_provider: https://api.moonshot.ai/v1
+api_keys:
+  https://api.moonshot.ai/v1: MOONSHOTAI_API_KEY
 api_kwargs:
   default:
     temperature: 0.6
@@ -11,6 +14,8 @@ agent_config:
   default:
     max_input_tokens: 128000
     max_output_tokens: 128000
-    supports_function_calling: true
   together:
     litellm_provider: together_ai
+    supports_function_calling: false
+  https://api.moonshot.ai/v1:
+    supports_function_calling: true

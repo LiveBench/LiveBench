@@ -87,13 +87,13 @@ print(f"Total model judgments loaded: {total_judgments_loaded}")
 MAX_WORKERS = 20
 
 SWEAGENT_ERROR_STATUSES = [
-    # 'exit_total_execution_time',
-    # 'exit_command_timeout',
+    'exit_total_execution_time',
+    'exit_command_timeout',
     # 'exit_context',
-    # 'exit_api',
-    # 'exit_environment_error',
-    # 'exit_error',
-    # 'exit_format',
+    'exit_api',
+    'exit_environment_error',
+    'exit_error',
+    'exit_format',
     # 'exit_cost',
     # 'Bad gateway'
 ]
@@ -131,10 +131,12 @@ OTHER_ERROR_STRINGS = [
     # "'NoneType' object has no attribute 'keys'",
     # "invalid tool call provided",
     # "The length of your prompt exceeds the model's max input limit",
-    "(1 more lines below)",
-    "insert <TEXT>"
+    # "(1 more lines below)",
+    # "insert <TEXT>"
     # "Your edit was not applied (file not modified):",
-    # "However, we found the following occurrences of your search string in the file"
+    # "However, we found the following occurrences of your search string in the file",
+    "argument of type 'APIError'",
+    "with role 'assistant' must not be empty"
 ]
 
 blocklist: list[str] = [
