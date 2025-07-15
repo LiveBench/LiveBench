@@ -105,6 +105,13 @@ def get_categories_tasks(bench_name: str):
             assert len(split_bench_name) == 3
             task_name = split_bench_name[2]
             tasks = {category_name: [task_name]}
+
+    # This is a hack fix for now.
+    tasks = {'data_analysis': ['tablejoin', 'tablereformat', 'cta'],
+                'instruction_following': ['story_generation', 'summarize', 'simplify', 'paraphrase'],
+                'math': ['olympiad', 'AMPS_Hard', 'math_comp'],
+                'reasoning': ['zebra_puzzle', 'spatial'],
+                'language': ['connections']}
     return categories, tasks
 
 

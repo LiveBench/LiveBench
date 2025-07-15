@@ -23,9 +23,13 @@ from livebench.common import (
     load_questions_jsonl,
     LIVE_BENCH_DATA_SUPER_PATH,
 )
-from livebench.model.model_adapter import get_conversation_template
-from priveri.utils.model_utils import load_model
+from livebench.model.model_adapter import load_model, get_conversation_template
 from fastchat.utils import str_to_torch_dtype
+
+from jsonformer import Jsonformer
+from priveri.utils.verification_utils import generate_word_key, get_marker
+from priveri.verifier.add_verification import create_verification_strategy
+
 
 def run_eval(
     model_path: str,
@@ -38,6 +42,7 @@ def run_eval(
     max_gpu_memory: str,
     dtype: str,
     revision: str,
+    priveri: bool,
 ):
     """
     Perform inference on the given questions using the model weights at model_path.
@@ -83,11 +88,13 @@ def run_eval(
                 max_gpu_memory,
                 dtype=dtype,
                 revision=revision,
+                priveri=priveri
             )
         )
 
     if use_ray:
         ray.get(ans_handles)
+
 
 @torch.inference_mode()
 def get_model_answers(
@@ -100,13 +107,22 @@ def get_model_answers(
     max_gpu_memory,
     dtype,
     revision,
+    priveri
 ):
     model, tokenizer = load_model(
-        model_path
+        model_path,
+        revision=revision,
+        device="cuda",
+        num_gpus=num_gpus_per_model,
+        max_gpu_memory=max_gpu_memory,
+        dtype=dtype,
+        load_8bit=False,
+        cpu_offloading=False,
+        debug=False,
     )
 
     for question, answer_file in tqdm(questions):
-        temperature = 0.0001
+        temperature = 0.0
 
         choices = []
         for i in range(num_choices):
@@ -122,36 +138,70 @@ def get_model_answers(
                 prompt = conv.get_prompt()
                 input_ids = tokenizer([prompt]).input_ids
 
+                if temperature < 1e-4:
+                    do_sample = False
+                else:
+                    do_sample = True
 
                 # some models may error out when generating long outputs
                 print("starting question", qs[:50])
                 try:
                     from transformers.generation.streamers import TextStreamer
 
-                    output_ids = []
-                    for _ in range(max_new_token):
-                        enc_input_ids = crypten.cryptensor(torch.nn.functional.one_hot(torch.tensor(input_ids), num_classes=len(tokenizer)).float())
-                        encrypted_logits = model(enc_input_ids).logits
-                        logits: torch.tensor = encrypted_logits.get_plain_text()[0][-1]
-                        generated_token = torch.argmax(logits).item()
-                        output_ids.append(generated_token)
-                        input_ids[0].append(generated_token)
+                    if priveri:
+                        key_length = 3
+                        marker_length = 4
+                        verification = "append_tail"
 
-                    # be consistent with the template's stop_token_ids
-                    if conv.stop_token_ids:
-                        stop_token_ids_index = [
-                            i
-                            for i, id in enumerate(output_ids)
-                            if id in conv.stop_token_ids
-                        ]
-                        if len(stop_token_ids_index) > 0:
-                            # truncate response at first found stop token
-                            output_ids = output_ids[: stop_token_ids_index[0]]
+                        key = " ".join(generate_word_key(key_length))
+                        marker = get_marker(marker_length)
+                        verification_strategy = create_verification_strategy(
+                            verification, key=key, key_length=key_length, marker=marker
+                        )
+                        verifiable_prompt = verification_strategy.augment(prompt)
 
-                    output = tokenizer.decode(
-                        output_ids,
-                        spaces_between_special_tokens=False,
-                    )
+                        schema = {
+                            "type": "object",
+                            "properties": {
+                                "response": {"type": "string"},
+                                "key": {"type": "string"}
+                            },
+                            "required": ["response", "key"]
+                        }
+
+                        jsonformer = Jsonformer(model, tokenizer, schema, verifiable_prompt,
+                                                max_string_token_length=max_new_token, debug=False)
+                        response = jsonformer()
+                        output = response['response']
+                    else:
+                        output_ids = model.generate(
+                            torch.as_tensor(input_ids).cuda(),
+                            do_sample=do_sample,
+                            temperature=temperature,
+                            max_new_tokens=max_new_token,
+                            # streamer=TextStreamer(tokenizer)
+                        )
+                        if model.config.is_encoder_decoder:
+                            output_ids = output_ids[0]
+                        else:
+                            output_ids = output_ids[0][len(input_ids[0]) :]
+
+                        # be consistent with the template's stop_token_ids
+                        if conv.stop_token_ids:
+                            stop_token_ids_index = [
+                                i
+                                for i, id in enumerate(output_ids)
+                                if id in conv.stop_token_ids
+                            ]
+                            if len(stop_token_ids_index) > 0:
+                                # truncate response at first found stop token
+                                output_ids = output_ids[: stop_token_ids_index[0]]
+
+                        output = tokenizer.decode(
+                            output_ids,
+                            spaces_between_special_tokens=False,
+                        )
+
                     if conv.stop_str and isinstance(conv.stop_str, list):
                         stop_str_indices = sorted(
                             [
@@ -201,9 +251,6 @@ def get_model_answers(
 
 
 if __name__ == "__main__":
-    import crypten
-    crypten.init()
-
     parser = argparse.ArgumentParser(
         description="Generate benchmark question answers using a model on HuggingFace repo or with locally-stored weights"
     )
@@ -288,6 +335,11 @@ if __name__ == "__main__":
         default=None,
         nargs="+",
         help="A list of question ids to generate answers for.",
+    )
+    parser.add_argument(
+        "--priveri",
+        action="store_true",
+        help="Whether to enable priveri mode.",
     )
     args = parser.parse_args()
 
@@ -379,6 +431,7 @@ if __name__ == "__main__":
         max_gpu_memory=args.max_gpu_memory,
         dtype=str_to_torch_dtype(args.dtype),
         revision=args.revision,
+        priveri=args.priveri
     )
 
     for answer_file in answer_files:
