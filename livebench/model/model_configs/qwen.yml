@@ -130,3 +130,19 @@ agent_config:
     max_input_tokens: 40960
     max_output_tokens: 32768
     supports_function_calling: true
+---
+display_name: qwen3-235b-a22b-instruct-2507
+api_name:
+  deepinfra: Qwen/Qwen3-235B-A22B-Instruct-2507
+default_provider: deepinfra
+api_kwargs:
+  default:
+    temperature: 0.7
+    top_p: 0.8
+    max_tokens: 16384
+agent_config:
+  default:
+    max_input_tokens: 262144
+    max_output_tokens: 16384
+    supports_function_calling: true
+    litellm_provider: deepinfra

@@ -549,7 +549,7 @@ def individual_completion_deepinfra(client, model, messages, ai_message, actual_
         print(response)
         raise Exception("No choices returned from DeepInfra")
 
-    return response.choices[0].message.content, response.usage.completion_tokens
+    return response.choices[0].message.content, response.usage.completion_tokens, response.choices[0].finish_reason
 
 
 def chat_completion_deepinfra(model: str, messages: Conversation, temperature: float, max_tokens: int, model_api_kwargs: API_Kwargs | None = None, api_dict: dict[str, str] | None = None, stream: bool = False) -> tuple[str, int]:
@@ -581,11 +581,11 @@ def chat_completion_deepinfra(model: str, messages: Conversation, temperature: f
     while total_tokens < actual_api_kwargs['max_tokens']:
         actual_api_kwargs['max_tokens'] = actual_api_kwargs['max_tokens'] - total_tokens
 
-        response, tokens = individual_completion_deepinfra(client, model, messages, ai_message, actual_api_kwargs)
+        response, tokens, finish_reason = individual_completion_deepinfra(client, model, messages, ai_message, actual_api_kwargs)
         ai_message['content'] += response
         total_tokens += tokens
 
-        if response.choices[0].finish_reason != 'length':
+        if finish_reason != 'length':
             break
         elif total_tokens < actual_api_kwargs['max_tokens']:
             print(f"Continuing DeepInfra request for more tokens, have {total_tokens} and requested {actual_api_kwargs['max_tokens']}")
