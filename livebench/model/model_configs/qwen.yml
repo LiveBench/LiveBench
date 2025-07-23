@@ -146,3 +146,18 @@ agent_config:
     max_output_tokens: 16384
     supports_function_calling: true
     litellm_provider: deepinfra
+---
+display_name: qwen3-coder-480b-a35b-instruct
+api_name:
+  https://dashscope-intl.aliyuncs.com/compatible-mode/v1: qwen3-coder-480b-a35b-instruct
+api_keys:
+  https://dashscope-intl.aliyuncs.com/compatible-mode/v1: ALIBABA_API_KEY
+api_kwargs:
+  default:
+    temperature: 0.7
+    top_p: 0.8
+agent_config:
+  default:
+    max_input_tokens: 262144
+    max_output_tokens: 65536
+    supports_function_calling: true
