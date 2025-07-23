@@ -156,8 +156,25 @@ api_kwargs:
   default:
     temperature: 0.7
     top_p: 0.8
+    max_tokens: 65536
 agent_config:
   default:
     max_input_tokens: 262144
+    max_output_tokens: 65536
+    supports_function_calling: true
+---
+display_name: qwen3-coder-plus-2025-07-22
+api_name:
+  https://dashscope-intl.aliyuncs.com/compatible-mode/v1: qwen3-coder-plus-2025-07-22
+api_keys:
+  https://dashscope-intl.aliyuncs.com/compatible-mode/v1: ALIBABA_API_KEY
+api_kwargs:
+  default:
+    temperature: 0.7
+    top_p: 0.8
+    max_tokens: 65536
+agent_config:
+  default:
+    max_input_tokens: 1000000
     max_output_tokens: 65536
     supports_function_calling: true
