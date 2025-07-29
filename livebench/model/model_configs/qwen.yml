@@ -182,8 +182,10 @@ agent_config:
 display_name: qwen3-235b-a22b-thinking-2507
 api_name:
   https://dashscope-intl.aliyuncs.com/compatible-mode/v1: qwen3-235b-a22b-thinking-2507
+  deepinfra: Qwen/Qwen3-235B-A22B-Thinking-2507
 api_keys:
   https://dashscope-intl.aliyuncs.com/compatible-mode/v1: ALIBABA_API_KEY
+default_provider: deepinfra
 api_kwargs:
   default:
     temperature: 0.6

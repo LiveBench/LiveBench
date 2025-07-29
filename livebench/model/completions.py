@@ -3,7 +3,7 @@ import os
 import sys
 import time
 import traceback
-from typing import Protocol
+from typing import Protocol, cast
 import httpx
 
 from openai import Stream
@@ -536,20 +536,21 @@ def chat_completion_mistral(model: str, messages: Conversation, temperature: flo
     retry_error_callback=retry_fail
 )
 def individual_completion_deepinfra(client, model, messages, ai_message, actual_api_kwargs):
+    actual_messages = messages + [ai_message] if ai_message else messages
     response = client.chat.completions.create(
         model=model,
-        messages=messages + [ai_message],
+        messages=actual_messages,
         stream=False,
         **actual_api_kwargs
     )
 
     if response is None:
         raise Exception("No response returned from DeepInfra")
-    elif response.choices is None:
+    elif response.choices is None or len(response.choices) == 0:
         print(response)
         raise Exception("No choices returned from DeepInfra")
 
-    return response.choices[0].message.content, response.usage.completion_tokens, response.choices[0].finish_reason
+    return response
 
 
 def chat_completion_deepinfra(model: str, messages: Conversation, temperature: float, max_tokens: int, model_api_kwargs: API_Kwargs | None = None, api_dict: dict[str, str] | None = None, stream: bool = False) -> tuple[str, int]:
@@ -573,7 +574,7 @@ def chat_completion_deepinfra(model: str, messages: Conversation, temperature: f
 
     actual_api_kwargs = {key: (value if value is not None else NOT_GIVEN) for key, value in api_kwargs.items()}
 
-    ai_message = {'role': 'assistant', 'content': ''}
+    ai_message = None
     total_tokens = 0
     # DeepInfra hard caps at 16384 tokens in a single request
     # so we need to resubmit the request until we get a 'stop' finish reason
@@ -581,11 +582,13 @@ def chat_completion_deepinfra(model: str, messages: Conversation, temperature: f
     while total_tokens < actual_api_kwargs['max_tokens']:
         actual_api_kwargs['max_tokens'] = actual_api_kwargs['max_tokens'] - total_tokens
 
-        response, tokens, finish_reason = individual_completion_deepinfra(client, model, messages, ai_message, actual_api_kwargs)
-        ai_message['content'] += response
-        total_tokens += tokens
+        response = individual_completion_deepinfra(client, model, messages, ai_message, actual_api_kwargs)
+        if ai_message is None:
+            ai_message = {'role': 'assistant', 'content': ''}
+        ai_message['content'] += response.choices[0].message.content
+        total_tokens += cast(int, response.usage.completion_tokens)
 
-        if finish_reason != 'length':
+        if response.choices[0].finish_reason != 'length':
             break
         elif total_tokens < actual_api_kwargs['max_tokens']:
             print(f"Continuing DeepInfra request for more tokens, have {total_tokens} and requested {actual_api_kwargs['max_tokens']}")

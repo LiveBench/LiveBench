@@ -1,0 +1,29 @@
+display_name: glm-4.5
+api_name:
+  deepinfra: zai-org/GLM-4.5
+api_kwargs:
+  default:
+    temperature: 0.6
+    top_p: 1
+    max_tokens: 96000
+agent_config:
+  default:
+    max_input_tokens: 128000
+    max_output_tokens: 96000
+    supports_function_calling: true
+    litellm_provider: deepinfra
+---
+display_name: glm-4.5-air
+api_name:
+  deepinfra: zai-org/GLM-4.5-Air
+api_kwargs:
+  default:
+    temperature: 0.6
+    top_p: 1
+    max_tokens: 96000
+agent_config:
+  default:
+    max_input_tokens: 128000
+    max_output_tokens: 96000
+    supports_function_calling: true
+    litellm_provider: deepinfra
