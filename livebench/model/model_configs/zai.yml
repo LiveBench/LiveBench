@@ -1,10 +1,10 @@
 display_name: glm-4.5
 api_name:
   deepinfra: zai-org/GLM-4.5
-  https://open.bigmodel.cn/api/paas/v4/: glm-4.5
+  https://open.bigmodel.cn/api/paas/v4: glm-4.5
 default_provider: https://open.bigmodel.cn/api/paas/v4/
 api_keys:
-  https://open.bigmodel.cn/api/paas/v4/: ZAI_API_KEY
+  https://open.bigmodel.cn/api/paas/v4: ZAI_API_KEY
 api_kwargs:
   default:
     temperature: 0.6
@@ -19,10 +19,10 @@ agent_config:
 display_name: glm-4.5-air
 api_name:
   deepinfra: zai-org/GLM-4.5-Air
-  https://open.bigmodel.cn/api/paas/v4/: glm-4.5-air
+  https://open.bigmodel.cn/api/paas/v4: glm-4.5-air
 default_provider: https://open.bigmodel.cn/api/paas/v4/
 api_keys:
-  https://open.bigmodel.cn/api/paas/v4/: ZAI_API_KEY
+  https://open.bigmodel.cn/api/paas/v4: ZAI_API_KEY
 api_kwargs:
   default:
     temperature: 0.6
