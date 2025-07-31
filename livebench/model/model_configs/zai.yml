@@ -8,12 +8,12 @@ api_keys:
 api_kwargs:
   default:
     temperature: 0.6
-    top_p: 1
-    max_tokens: 96000
+    top_p: 0.95
+    max_tokens: 81920
 agent_config:
   default:
     max_input_tokens: 128000
-    max_output_tokens: 96000
+    max_output_tokens: 81920
     supports_function_calling: true
 ---
 display_name: glm-4.5-air
@@ -26,10 +26,10 @@ api_keys:
 api_kwargs:
   default:
     temperature: 0.6
-    top_p: 1
-    max_tokens: 96000
+    top_p: 0.95
+    max_tokens: 81920
 agent_config:
   default:
     max_input_tokens: 128000
-    max_output_tokens: 96000
+    max_output_tokens: 81920
     supports_function_calling: true
