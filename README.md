@@ -60,6 +60,15 @@ cd LiveBench
 pip install -e .[flash_attn]
 ```
 
+To score results on the coding tasks (code_completion and code_generation), you will also need to install the required dependencies:
+```bash
+cd livebench/code_runner
+pip install -r requirements_eval.txt
+```
+
+Note that, to evaluate the agentic coding questions, you will need docker installed and available (i.e. the command `docker --version` should work).
+This will be checked prior to such tasks being run.
+
 **Note about fschat**: The fschat package version on pip (i.e., [lmsys/fastchat](https://github.com/lm-sys/FastChat)) is currently out of date, so we strongly recommend `pip uninstall fschat` before running the above, since it will then automatically install a more recent commit of fastchat.
 
 **Note about local models**: Local model inference is unmaintained. We highly recommend serving your model on an OpenAI compatible API using [vllm](https://github.com/vllm-project/vllm) and performing inference using `run_livebench.py`.
