@@ -765,7 +765,7 @@ class LiteLLMModel(AbstractModel):
                 # use the actual amount of output tokens used rather than the estimate if available
                 output_tokens = response.usage.completion_tokens
                 got_actual_output_tokens = True
-                if 'deepinfra' in self.config.name and output_tokens == 16384:
+                if ('deepinfra' in self.config.name or self.config.api_base == 'https://api.deepinfra.com/v1/openai') and output_tokens == 16384:
                     raise Exception("Hit deepinfra token limit")
             if response.usage.prompt_tokens is not None:
                 # override with the actual amount of input tokens used rather than the estimate

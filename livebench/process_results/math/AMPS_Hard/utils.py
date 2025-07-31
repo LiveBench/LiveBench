@@ -109,7 +109,7 @@ def amps_hard_process_results(ground_truth: str, llm_answer: str, debug=False) -
         except Exception as e:
             warnings.warn(f"Error when comparing ground truth and parsed answer: {e}")
     else:
-        if llm_answer[-1] == '.':
+        if len(llm_answer) > 0 and llm_answer[-1] == '.':
             llm_answer = llm_answer[:-1]
         if ground_truth == llm_answer[-len(ground_truth):]:
             parsed_answer = llm_answer[-len(ground_truth):]
