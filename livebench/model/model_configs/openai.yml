@@ -346,3 +346,14 @@ agent_config:
     max_input_tokens: 200000
     max_output_tokens: 100000
     supports_function_calling: true
+---
+display_name: gpt-oss-120b
+api_name:
+  https://api.groq.com/openai/v1: openai/gpt-oss-120b
+api_keys:
+  https://api.groq.com/openai/v1: GROQ_API_KEY
+agent_config:
+  default:
+    max_input_tokens: 100000
+    max_output_tokens: 100000
+    supports_function_calling: true

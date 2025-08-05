@@ -119,4 +119,17 @@ api_kwargs:
 aliases:
   - claude-4-opus-thinking-32k
   - claude-4-opus-thinking
-
+---
+display_name: claude-4-1-opus-20250805-thinking-32k
+api_name:
+  anthropic: claude-opus-4-1-20250805
+api_kwargs:
+  default:
+    temperature: 1
+    thinking:
+      type: enabled
+      budget_tokens: 31000
+    max_tokens: 32000
+aliases:
+  - claude-4-1-opus-thinking-32k
+  - claude-4-1-opus-thinking
