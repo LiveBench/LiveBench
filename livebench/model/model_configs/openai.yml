@@ -352,8 +352,11 @@ api_name:
   https://api.groq.com/openai/v1: openai/gpt-oss-120b
 api_keys:
   https://api.groq.com/openai/v1: GROQ_API_KEY
+api_kwargs:
+  default:
+    max_completion_tokens: 32766
+    temperature: null
 agent_config:
   default:
-    max_input_tokens: 100000
-    max_output_tokens: 100000
+    max_input_tokens: 131072
     supports_function_calling: true
