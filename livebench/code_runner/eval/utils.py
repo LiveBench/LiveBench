@@ -23,12 +23,12 @@
 import contextlib
 import faulthandler
 import io
+import multiprocessing
 import os
 import platform
 import signal
-import tempfile
 import subprocess
-import multiprocessing
+import tempfile
 import time
 from typing import Optional
 
@@ -235,7 +235,7 @@ def safe_environment():
                 pass
             except Exception as e:
                 print(f"Error handling process {pid}: {e}")
-        
+
         os.kill = original_kill
         os.killpg = original_killpg
         os.system = original_system
@@ -286,31 +286,33 @@ def reliability_guard(max_as_limit, max_data_limit, max_stack_limit):
     Codex paper for more information about OpenAI's code sandbox, and proceed
     with caution.
     """
-    
+
     import os
     import time
     from datetime import datetime
 
     os.environ['TZ'] = 'UTC'
     time.tzset()
-    
+
     os.environ["OMP_NUM_THREADS"] = "1"
-    os.environ['TF_CPP_MIN_LOG_LEVEL'] = "3" 
+    os.environ['TF_CPP_MIN_LOG_LEVEL'] = "3"
     os.environ['TF_ENABLE_ONEDNN_OPTS'] = "0"
-    
+
     if max_as_limit and max_data_limit and max_stack_limit:
         import resource
-        
+
         max_as_limit = max_as_limit * 1024 * 1024
         max_data_limit = max_data_limit * 1024 * 1024
         max_stack_limit = max_stack_limit * 1024 * 1024
-        
-        resource.setrlimit(
-            resource.RLIMIT_AS, (max_as_limit, max_as_limit)
-        )
-        resource.setrlimit(
-            resource.RLIMIT_DATA, (max_data_limit, max_data_limit)
-        )
+
+        if not platform.uname().system == "Darwin":
+            resource.setrlimit(
+                resource.RLIMIT_AS, (max_as_limit, max_as_limit)
+            )
+        if not platform.uname().system == "Darwin":
+            resource.setrlimit(
+                resource.RLIMIT_DATA, (max_data_limit, max_data_limit)
+            )
         if not platform.uname().system == "Darwin":
             resource.setrlimit(
                 resource.RLIMIT_STACK, (max_stack_limit, max_stack_limit)
