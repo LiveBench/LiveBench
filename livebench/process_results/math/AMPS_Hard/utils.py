@@ -1,15 +1,16 @@
 # adapted from https://github.com/EleutherAI/lm-evaluation-harness/blob/main/lm_eval/tasks/minerva_math/utils.py
 
 
+import multiprocessing.context
+import os
 import re
 import signal
+import traceback
+import warnings
 from multiprocessing import Process, Queue
-import multiprocessing.context
 
 from livebench.process_results.util import last_boxed_only_string, remove_boxed
 
-import warnings
-import traceback
 try:
     import sympy
     from sympy.parsing.latex import parse_latex
@@ -27,28 +28,28 @@ except ModuleNotFoundError:
 please install lark via pip install lark",
     )
 
-def run_with_timeout(func, args=(), timeout=8):  
-    def wrapper(queue):  
-        try:  
-            result = func(*args)  
-            queue.put(result)  
-        except Exception as e:  
-            queue.put(e)  
+def run_with_timeout(func, args=(), timeout=8):
+    def wrapper(queue):
+        try:
+            result = func(*args)
+            queue.put(result)
+        except Exception as e:
+            queue.put(e)
 
-    queue = Queue()  
-    process = Process(target=wrapper, args=(queue,))  
-    process.start()  
-    process.join(timeout)  
+    queue = Queue()
+    process = Process(target=wrapper, args=(queue,))
+    process.start()
+    process.join(timeout)
 
-    if process.is_alive():  
-        process.terminate()  
-        process.join()  
-        raise TimeoutError("Operation timed out")  
+    if process.is_alive():
+        process.terminate()
+        process.join()
+        raise TimeoutError("Operation timed out")
 
-    result = queue.get()  
-    if isinstance(result, Exception):  
-        raise result  
-    return result 
+    result = queue.get()
+    if isinstance(result, Exception):
+        raise result
+    return result
 
 def amps_hard_process_results(ground_truth: str, llm_answer: str, debug=False) -> int:
     retval = 0
@@ -100,14 +101,20 @@ def amps_hard_process_results(ground_truth: str, llm_answer: str, debug=False) -
             parsed_answer = normalize_final_answer(math)
 
     if parsed_answer is not None:
+        res = None
         try:
-            res = run_with_timeout(is_equiv, args=(ground_truth, parsed_answer), timeout=8)
-            if res:
-                retval = 1
+            res = is_equiv(ground_truth, parsed_answer)
         except TimeoutError:
             warnings.warn("Timeout when comparing ground truth and parsed answer")
         except Exception as e:
             warnings.warn(f"Error when comparing ground truth and parsed answer: {e}")
+
+        if not res and os.environ.get('OPENAI_API_KEY'):
+            # Use LLM
+            res = is_equiv_llm(ground_truth, parsed_answer)
+
+        if res:
+            retval = 1
     else:
         if len(llm_answer) > 0 and llm_answer[-1] == '.':
             llm_answer = llm_answer[:-1]
@@ -143,7 +150,7 @@ def amps_hard_process_results(ground_truth: str, llm_answer: str, debug=False) -
 def parse(x: str) -> list[sympy.Expr]:
     try:
         # first try to parse normally
-        parsed_xs = parse_latex(x, backend='lark') 
+        parsed_xs = parse_latex(x, backend='lark')
     except (
         sympy.parsing.latex.errors.LaTeXParsingError,
         sympy.SympifyError,
@@ -160,7 +167,7 @@ def parse(x: str) -> list[sympy.Expr]:
             except:
                 warnings.warn(f"couldn't parse {x}")
                 return []
-    
+
     if isinstance(parsed_xs, lark.Tree):
         # lark backend returns multiple options if there is ambiguity
         parsed_xs = parsed_xs.children
@@ -214,6 +221,27 @@ def is_equiv(x1: str, x2: str) -> bool:
         warnings.warn(f"Failed comparing {x1} and {x2}: {e}")
         traceback.print_tb(e.__traceback__)
         return False
+
+def is_equiv_llm(x1: str, x2: str) -> bool:
+    """
+    x1 and x2 are normalized latex string
+    """
+    try:
+        import openai
+        client = openai.Client()
+        response = client.chat.completions.create(model='o3', messages=[
+            {
+                'role': 'user',
+                'content': f'Are these latex expressions equivalent or negatives of each other. Reply yes or no: \n "{x1}" and "{x2}"'
+            }
+        ])
+        if response.choices[0].message.content.lower() == 'yes':
+            return True
+        return False
+    except Exception:
+        warnings.warn(f"Failed using LLM to comparing {x1} and {x2}: {e}")
+        traceback.print_tb(e.__traceback__)
+    return False
 
 
 def normalize_final_answer(final_answer: str) -> str:
