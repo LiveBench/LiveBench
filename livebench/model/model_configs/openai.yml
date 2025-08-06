@@ -359,4 +359,5 @@ api_kwargs:
 agent_config:
   default:
     max_input_tokens: 131072
+    max_output_tokens: 32000
     supports_function_calling: true
