@@ -29,6 +29,8 @@ output
 *.pkl
 *.csv
 
+*~
+
 # Build
 build
 
