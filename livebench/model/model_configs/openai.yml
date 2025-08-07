@@ -103,6 +103,7 @@ api_kwargs:
   default:
     temperature: null
     max_completion_tokens: null
+    reasoning_effort: high
 agent_config:
   default:
     max_input_tokens: 390000
@@ -116,7 +117,7 @@ api_name:
   openai_responses: gpt-5-mini
 default_provider: openai_responses
 aliases:
-  - gpt-5
+  - gpt-5-mini
 api_kwargs:
   default:
     temperature: null
@@ -138,6 +139,7 @@ api_kwargs:
   default:
     temperature: null
     max_completion_tokens: null
+    reasoning_effort: high
 agent_config:
   default:
     max_input_tokens: 390000
@@ -151,7 +153,7 @@ api_name:
   openai_responses: gpt-5-nano
 default_provider: openai_responses
 aliases:
-  - gpt-5
+  - gpt-5-nano
 api_kwargs:
   default:
     temperature: null
@@ -168,11 +170,12 @@ api_name:
   openai_responses: gpt-5-nano
 default_provider: openai_responses
 aliases:
-  - gpt-5-high
+  - gpt-5-nano-high
 api_kwargs:
   default:
     temperature: null
     max_completion_tokens: null
+    reasoning_effort: high
 agent_config:
   default:
     max_input_tokens: 390000
