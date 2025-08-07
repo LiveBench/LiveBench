@@ -75,6 +75,23 @@ api_name:
 aliases:
   - gpt-4.5-preview
 ---
+display_name: gpt-5
+api_name:
+  openai: gpt-5
+  openai_responses: gpt-5
+default_provider: openai_responses
+aliases:
+  - gpt-5
+api_kwargs:
+  default:
+    temperature: null
+    max_completion_tokens: null
+agent_config:
+  default:
+    max_input_tokens: 300000
+    max_output_tokens: 100000
+    supports_function_calling: true
+---
 display_name: o1-mini-2024-09-12
 api_name:
   openai: o1-mini-2024-09-12
