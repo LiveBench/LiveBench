@@ -349,9 +349,9 @@ agent_config:
 ---
 display_name: gpt-oss-120b
 api_name:
-  https://api.groq.com/openai/v1: openai/gpt-oss-120b
+  https://api.fireworks.ai/inference/v1: accounts/fireworks/models/gpt-oss-120b
 api_keys:
-  https://api.groq.com/openai/v1: GROQ_API_KEY
+  https://api.fireworks.ai/inference/v1: FW_API_KEY
 api_kwargs:
   default:
     max_completion_tokens: 32766
