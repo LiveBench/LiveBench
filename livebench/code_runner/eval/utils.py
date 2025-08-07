@@ -305,15 +305,13 @@ def reliability_guard(max_as_limit, max_data_limit, max_stack_limit):
         max_data_limit = max_data_limit * 1024 * 1024
         max_stack_limit = max_stack_limit * 1024 * 1024
 
-        if not platform.uname().system == "Darwin":
+        if platform.uname().system != "Darwin":
             resource.setrlimit(
                 resource.RLIMIT_AS, (max_as_limit, max_as_limit)
             )
-        if not platform.uname().system == "Darwin":
             resource.setrlimit(
                 resource.RLIMIT_DATA, (max_data_limit, max_data_limit)
             )
-        if not platform.uname().system == "Darwin":
             resource.setrlimit(
                 resource.RLIMIT_STACK, (max_stack_limit, max_stack_limit)
             )
