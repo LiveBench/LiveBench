@@ -102,14 +102,19 @@ aliases:
 api_kwargs:
   default:
     temperature: null
+  openai:
     max_completion_tokens: null
     reasoning_effort: high
+  openai_responses:
+    max_output_tokens: null
+    reasoning:
+      effort: high
+      summary: auto
 agent_config:
   default:
     max_input_tokens: 390000
     max_output_tokens: 120000
     supports_function_calling: true
-    reasoning_effort: high
 ---
 display_name: gpt-5-mini
 api_name:
@@ -138,8 +143,14 @@ aliases:
 api_kwargs:
   default:
     temperature: null
+  openai:
     max_completion_tokens: null
     reasoning_effort: high
+  openai_responses:
+    max_output_tokens: null
+    reasoning:
+      effort: high
+      summary: auto
 agent_config:
   default:
     max_input_tokens: 390000
@@ -174,8 +185,14 @@ aliases:
 api_kwargs:
   default:
     temperature: null
+  openai:
     max_completion_tokens: null
     reasoning_effort: high
+  openai_responses:
+    max_output_tokens: null
+    reasoning:
+      effort: high
+      summary: auto
 agent_config:
   default:
     max_input_tokens: 390000
