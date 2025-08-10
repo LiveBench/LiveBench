@@ -247,7 +247,6 @@ agent_config:
     max_input_tokens: 390000
     max_output_tokens: 120000
     supports_function_calling: true
-    reasoning_effort: high
 ---
 display_name: gpt-5-nano-low
 api_name:
@@ -272,7 +271,6 @@ agent_config:
     max_input_tokens: 390000
     max_output_tokens: 120000
     supports_function_calling: true
-    reasoning_effort: low
 ---
 display_name: gpt-5-nano
 api_name:
@@ -314,7 +312,6 @@ agent_config:
     max_input_tokens: 390000
     max_output_tokens: 120000
     supports_function_calling: true
-    reasoning_effort: high
 ---
 display_name: o1-mini-2024-09-12
 api_name:
