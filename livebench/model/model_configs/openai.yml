@@ -83,6 +83,8 @@ default_provider: openai_responses
 aliases:
   - gpt-5-minimal
 api_kwargs:
+  default:
+    temperature: null
   openai:
     max_completion_tokens: null
     reasoning_effort: minimal
@@ -107,16 +109,19 @@ aliases:
 api_kwargs:
   default:
     temperature: null
+  openai:
     max_completion_tokens: null
     reasoning_effort: low
+  openai_responses:
+    max_output_tokens: null
+    reasoning:
+      effort: low
+      summary: auto
 agent_config:
   default:
     max_input_tokens: 300000
     max_output_tokens: 100000
     supports_function_calling: true
-    reasoning:
-      effort: low
-      summary: auto
 ---
 display_name: gpt-5
 api_name:
