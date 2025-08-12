@@ -192,7 +192,7 @@ display_name: gpt-5-chat
 api_name:
   openai: gpt-5-chat-latest
   openai_responses: gpt-5-chat-latest
-default_provider: openai_responses
+default_provider: openai
 aliases:
   - gpt-5-chat
 api_kwargs:
@@ -205,7 +205,8 @@ api_kwargs:
 agent_config:
   default:
     max_input_tokens: 300000
-    max_output_tokens: 100000
+    max_output_tokens: 16000
+    supports_function_calling: false
 ---
 display_name: gpt-5-mini
 api_name:
