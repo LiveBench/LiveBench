@@ -248,6 +248,31 @@ agent_config:
     max_output_tokens: 120000
     supports_function_calling: true
 ---
+display_name: gpt-5-nano-minimal
+api_name:
+  openai: gpt-5-nano
+  openai_responses: gpt-5-nano
+default_provider: openai_responses
+aliases:
+  - gpt-5-nano-minimal
+api_kwargs:
+  default:
+    temperature: null
+  openai:
+    max_completion_tokens: null
+    reasoning_effort: low
+  openai_responses:
+    max_output_tokens: null
+    reasoning:
+      effort: minimal
+      summary: auto
+agent_config:
+  default:
+    max_input_tokens: 390000
+    max_output_tokens: 120000
+    supports_function_calling: true
+    reasoning_effort: minimal
+---
 display_name: gpt-5-nano-low
 api_name:
   openai: gpt-5-nano
