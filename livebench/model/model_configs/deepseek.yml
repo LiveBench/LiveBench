@@ -118,3 +118,4 @@ agent_config:
   https://api.deepseek.com:
     max_input_tokens: 64000
     max_output_tokens: 8000
+    supports_function_calling: true
