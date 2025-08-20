@@ -104,3 +104,17 @@ agent_config:
   https://api.deepseek.com:
     supports_function_calling: true
     max_output_tokens: 64000
+---
+display_name: deepseek-v3.1
+api_name:
+  https://api.deepseek.com: deepseek-chat
+default_provider: https://api.deepseek.com
+api_keys:
+  https://api.deepseek.com: DEEPSEEK_API_KEY
+agent_config:
+  default:
+    max_input_tokens: 128000
+    convert_system_to_user: true
+  https://api.deepseek.com:
+    max_input_tokens: 64000
+    max_output_tokens: 8000
