@@ -116,6 +116,22 @@ agent_config:
     max_input_tokens: 128000
     convert_system_to_user: true
   https://api.deepseek.com:
-    max_input_tokens: 64000
     max_output_tokens: 8000
     supports_function_calling: true
+---
+display_name: deepseek-v3.1-thinking
+api_name:
+  https://api.deepseek.com: deepseek-reasoner
+default_provider: https://api.deepseek.com
+api_keys:
+  https://api.deepseek.com: DEEPSEEK_API_KEY
+api_kwargs:
+  default:
+    max_tokens: 64000
+    temperature: 1.0
+agent_config:
+  default:
+    max_input_tokens: 128000
+    convert_system_to_user: true
+    max_output_tokens: 64000
+    supports_function_calling: false
