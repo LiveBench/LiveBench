@@ -69,13 +69,13 @@ def save_jsonl(file_path, questions):
 
 def main():
     # Paths to the input and output files
-    code_gen_path = "data/live_bench/coding_3/code_generation/question.jsonl"
-    code_gen_original_path = "data/live_bench/coding_3/code_generation/question_edited_12.jsonl"
-    code_comp_path = "data/live_bench/coding_3/code_completion/question.jsonl"
-    output_path = "data/live_bench/coding_3/code_completion/question_edited.jsonl"
+    code_gen_path = "data/live_bench/coding/code_generation/question.jsonl"
+    code_gen_original_path = "data/live_bench/coding/code_generation/question_edited_17.jsonl"
+    code_comp_path = "data/live_bench/coding/code_completion/question.jsonl"
+    output_path = "data/live_bench/coding/code_completion/question_edited.jsonl"
     
     # Path string for generating question IDs
-    path_string = "live_bench/coding_3/code_completion_edited_1"
+    path_string = "live_bench/coding/code_completion_edited_2"
     
     # Load all questions
     code_gen_questions = load_jsonl(code_gen_path)

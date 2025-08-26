@@ -213,7 +213,8 @@ def gen_judgments(
     bench_name: str,
     debug=False,
     ignore_missing_answers=False,
-    resume=False
+    resume=False,
+    only_incorrect=False
 ):
     """
     Evaluate answers to questions for all the given models, compared to the expected ground truth answer for each question.
@@ -227,6 +228,7 @@ def gen_judgments(
         bench_name: The subset of LiveBench for which answers should be evaluated (e.g. 'live_bench' or 'live_bench/coding')
         parallel: The number of concurrent threads to use for evaluating answers
         resume: When true, skip question-model pairs that already have judgments in the output file
+        only_incorrect: When true (and resume is true), only re-evaluate questions that previously scored 0
     """
 
     if "agentic_coding" in bench_name:
@@ -259,6 +261,7 @@ def gen_judgments(
 
     # Load existing judgments if in resume mode
     existing_answer_ids = set()
+    existing_scores = {}  # Store answer_id -> score mapping for only_incorrect mode
     if resume and os.path.exists(output_file):
         print(f"Resume mode: Reading existing judgments from {output_file}")
         with open(output_file, "r") as fin:
@@ -266,7 +269,11 @@ def gen_judgments(
                 judgment = json.loads(line)
                 # Only track answer_ids - that's all we use for resuming
                 if "answer_id" in judgment:
-                    existing_answer_ids.add(judgment["answer_id"])
+                    answer_id = judgment["answer_id"]
+                    existing_answer_ids.add(answer_id)
+                    # Store score for only_incorrect mode
+                    if only_incorrect and "score" in judgment:
+                        existing_scores[answer_id] = judgment["score"]
         print(f"Found {len(existing_answer_ids)} existing answer IDs")
 
     make_match_func = make_match_single
@@ -290,19 +297,31 @@ def gen_judgments(
     if resume:
         original_match_count = len(matches)
         filtered_matches = []
-        
+
         for match in matches:
             # Check if this answer has already been evaluated
             answer = match.answer
             answer_id = answer.get("answer_id", None)
-            
-            # Only skip evaluation if answer has an ID and that ID was already processed
-            if answer_id is not None and answer_id in existing_answer_ids:
+
+            # If no answer_id, always include (can't track)
+            if answer_id is None:
+                filtered_matches.append(match)
                 continue
-            
-            # Always include answers without answer_id or with new answer_id
-            filtered_matches.append(match)
-        
+
+            # If answer_id not in existing judgments, always include
+            if answer_id not in existing_answer_ids:
+                filtered_matches.append(match)
+                continue
+
+            # If we get here, the answer has been evaluated before
+            if only_incorrect:
+                # Only re-evaluate if the previous score was 0
+                previous_score = existing_scores.get(answer_id)
+                if previous_score == 0:
+                    filtered_matches.append(match)
+                # Skip if score was not 0 or if score is missing
+            # If not only_incorrect mode, skip all previously evaluated answers
+
         matches = filtered_matches
         print(f"Resume mode: Filtered out {original_match_count - len(matches)} already judged matches")
 
@@ -489,11 +508,19 @@ if __name__ == "__main__":
         "--resume", action="store_true", default=False,
         help="Resume evaluation, skipping question-model pairs already in the output file."
     )
+    parser.add_argument(
+        "--only-incorrect", action="store_true", default=False,
+        help="When used with --resume, only re-evaluate questions that previously scored 0. Requires --resume to be enabled."
+    )
     args = parser.parse_args()
 
     if args.livebench_release_option not in LIVE_BENCH_RELEASES:
         raise ValueError(f"Bad release {args.livebench_release_option}.")
-        
+
+    # Validate that --only-inorrect requires --resume
+    if args.only_incorrect and not args.resume:
+        raise ValueError("--only-incorrect can only be used with --resume")
+
     release_set = set([
         r for r in LIVE_BENCH_RELEASES if r <= args.livebench_release_option
     ])
@@ -534,7 +561,8 @@ if __name__ == "__main__":
                         bench_name=task_full_name,
                         debug=args.debug,
                         ignore_missing_answers=args.ignore_missing_answers,
-                        resume=args.resume
+                        resume=args.resume,
+                        only_incorrect=args.only_incorrect
                     )
 
 
@@ -570,7 +598,8 @@ if __name__ == "__main__":
                         bench_name=bench_name,
                         debug=args.debug,
                         ignore_missing_answers=args.ignore_missing_answers,
-                        resume=args.resume
+                        resume=args.resume,
+                        only_incorrect=args.only_incorrect
                     )
 
     else:

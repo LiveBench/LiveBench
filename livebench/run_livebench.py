@@ -65,6 +65,7 @@ class LiveBenchParams:
     ignore_missing_answers: bool = False
     debug: bool = False
     model_provider_override: str | None = None
+    only_incorrect: bool = False
 
     @classmethod
     def from_args(cls, args, model: str | None = None):
@@ -104,7 +105,8 @@ class LiveBenchParams:
             remove_existing_judgment_file=args.remove_existing_judgment_file,
             ignore_missing_answers=args.ignore_missing_answers,
             debug=args.debug,
-            model_provider_override=args.model_provider_override
+            model_provider_override=args.model_provider_override,
+            only_incorrect=args.only_incorrect
         )
 
 def run_command(cmd: str, env: dict[str, str] | None = None) -> int:
@@ -224,7 +226,8 @@ def build_run_command(
     remove_existing_judgment_file: bool = False,
     ignore_missing_answers: bool = False,
     debug: bool = False,
-    model_provider_override: str | None = None
+    model_provider_override: str | None = None,
+    only_incorrect: bool = False
 ) -> str:
     """Build the command to run gen_api_answer and gen_ground_truth_judgment in sequence"""
     
@@ -299,7 +302,9 @@ def build_run_command(
         gen_judge_cmd += " --ignore-missing-answers"
     if model_provider_override:
         gen_api_cmd += f" --model-provider-override {model_provider_override}"
-    
+    if only_incorrect:
+        gen_judge_cmd += " --only-incorrect"
+
     # Add debug flag only to judgment command
     if debug:
         gen_judge_cmd += " --debug"
@@ -342,6 +347,7 @@ def build_run_command_from_params(params: LiveBenchParams, bench_name: str | Non
         livebench_release_option=params.livebench_release_option,
         stream=params.stream,
         remove_existing_judgment_file=params.remove_existing_judgment_file,
+        only_incorrect=params.only_incorrect,
         ignore_missing_answers=params.ignore_missing_answers,
         debug=params.debug,
         model_provider_override=params.model_provider_override
@@ -479,8 +485,10 @@ def main():
     parser.add_argument("--question-id", nargs="+", help="Specific question IDs to process")
     parser.add_argument("--livebench-release-option", help="LiveBench release option")
     parser.add_argument("--stream", action="store_true", help="Enable streaming mode")
-    parser.add_argument("--remove-existing-judgment-file", action="store_true", 
+    parser.add_argument("--remove-existing-judgment-file", action="store_true",
                       help="Remove existing judgment file before running")
+    parser.add_argument("--only-incorrect", action="store_true",
+                      help="When used with --resume-grading or --resume, only re-evaluate questions that previously scored 0")
     parser.add_argument("--ignore-missing-answers", action="store_true",
                       help="Ignore missing answers when running gen_ground_truth_judgment.py")
     parser.add_argument("--debug", action="store_true", 
