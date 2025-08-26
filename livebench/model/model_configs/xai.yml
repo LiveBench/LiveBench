@@ -71,3 +71,22 @@ api_kwargs:
   default:
     max_tokens: null
     temperature: 0.7
+---
+display_name: grok-code-fast-1-0825
+api_name:
+  https://api.x.ai/v1: grok-code-fast-1-0825
+api_keys:
+  https://api.x.ai/v1: XAI_API_KEY
+aliases:
+  - grok-code-fast
+agent_config:
+  default:
+    supports_function_calling: true
+    max_input_tokens: 256000
+    max_output_tokens: 100000
+    litellm_provider: xai
+api_kwargs:
+  default:
+    max_completion_tokens: null
+    max_tokens: null
+    temperature: 0.7
