@@ -142,6 +142,8 @@ def run_agentic_coding_inference(
         if api_dict.get('api_base', None) is not None:
             config['agent']['model']['api_base'] = api_dict['api_base']
             provider = 'openai'
+
+    if api_dict is not None:
         if api_dict.get('api_key', None) is not None:
             config['agent']['model']['api_key'] = api_dict['api_key']
 
