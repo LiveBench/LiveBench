@@ -153,14 +153,16 @@ def run_questions(
     """
 
     provider = model_provider_override
-    if provider is None and api_dict is not None:
-        assert 'api_base' in api_dict, "Missing API base for model"
-        provider = 'local'
+
     if provider is None:
         provider = model_config.default_provider
     if provider is None:
         provider = list(model_config.api_name.keys())[0]
 
+    if provider is None and api_dict is not None:
+        assert 'api_base' in api_dict, "Missing API base for model"
+        provider = 'local'
+    
     if 'https' in provider:
         # provider name is a base URL
         if api_dict is None:
@@ -384,6 +386,10 @@ if __name__ == "__main__":
         api_dict = {
             "api_key": api_key,
             "api_base": args.api_base,
+        }
+    elif os.environ.get("LIVEBENCH_API_KEY") is not None:
+        api_dict = {
+            "api_key": os.environ.get("LIVEBENCH_API_KEY"),
         }
     else:
         api_dict = None
