@@ -295,7 +295,7 @@ def run_agentic_coding_inference(
             'model_id': model_name,
             'tstamp': time.time(),
             'api_info': {
-                'provider': api_dict['api_base'] if api_dict else provider,
+                'provider': api_dict['api_base'] if api_dict and 'api_base' in api_dict else provider,
                 'api_name': model_api_name,
                 'api_kwargs': orig_api_kwargs
             }
