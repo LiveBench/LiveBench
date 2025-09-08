@@ -9,6 +9,7 @@ import time
 import os
 import re
 import glob
+from datetime import datetime
 
 import nltk
 import numpy as np
@@ -484,6 +485,12 @@ if __name__ == "__main__":
         help="Livebench release to use. Provide a single date option. Will handle excluding deprecated questions for selected release."
     )
     parser.add_argument(
+        "--min-release-date",
+        type=str,
+        default=None,
+        help="Filter questions by minimum release date (e.g., YYYY-MM-DD)",
+    )
+    parser.add_argument(
         "--debug", action="store_true", default=False,
         help="Print debug information."
     )
@@ -542,7 +549,7 @@ if __name__ == "__main__":
 
             for category_name, task_names in tasks.items():
                 for task_name in task_names:
-                    questions = load_questions(categories[category_name], release_set, args.livebench_release_option, task_name, args.question_id)
+                    questions = load_questions(categories[category_name], release_set, args.livebench_release_option, task_name, args.question_id, args.min_release_date)
                     if args.first_n:
                         questions = questions[: args.first_n]
                     questions = questions[args.question_begin:args.question_end]
@@ -576,7 +583,7 @@ if __name__ == "__main__":
                 list_of_question_files = glob.glob(f"data/{bench_name}/**/question.jsonl", recursive=True)
             for question_file in list_of_question_files:
                 print('questions from', question_file)
-                questions = load_questions_jsonl(question_file, release_set, args.livebench_release_option, args.question_id)
+                questions = load_questions_jsonl(question_file, release_set, args.livebench_release_option, args.question_id, args.min_release_date)
                 questions = load_test_cases_jsonl(question_file, questions)
                 if args.first_n:
                     questions = questions[: args.first_n]
@@ -604,4 +611,3 @@ if __name__ == "__main__":
 
     else:
         raise ValueError(f"Bad question source {args.question_source}.")
-    

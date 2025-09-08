@@ -180,6 +180,7 @@ def load_questions(
     livebench_release: Optional[str] = None,
     task_name: Optional[str] = None,
     question_ids: Optional[list[str]] = None,
+    min_release_date: Optional[str] = None,
 ) -> list[dict]:
     """
     Load questions from a huggingface dataset.
@@ -191,6 +192,7 @@ def load_questions(
         livebench_release: The current livebench release. If specified, questions that have been removed prior to this release will be filtered out.
         task_name: The desired task within the category. If specified, only questions for this task will be returned.
         question_ids: A list of question ids to include. If None, all questions will be included.
+        min_release_date: The minimum release date for questions. If specified, only questions released on or after this date will be returned.
     """
     if task_name is not None:
         questions = [
@@ -232,6 +234,13 @@ def load_questions(
 
     if question_ids is not None:
         questions = [q for q in questions if q['question_id'] in question_ids]
+
+    if min_release_date:
+        min_date = datetime.strptime(min_release_date, "%Y-%m-%d").date()
+        questions = [
+            q for q in questions
+            if datetime.strptime(q["livebench_release_date"], "%Y-%m-%d").date() >= min_date
+        ]
     return questions
 
 
@@ -240,6 +249,7 @@ def load_questions_jsonl(
     livebench_releases: set = LIVE_BENCH_RELEASES,
     livebench_release: Optional[str] = None,
     question_ids: Optional[list[str]] = None,
+    min_release_date: Optional[str] = None,
 ):
     """
     Load questions from a jsonl file.
@@ -248,8 +258,9 @@ def load_questions_jsonl(
     Args:
         question_file: The filename of the question file
         livebench_releases: A set of valid release dates. Questions with other release dates will be filtered out.
-        livebench_release: The current livebench release. If specified, questions that have been removed prior to this release will be filtered out.\
+        livebench_release: The current livebench release. If specified, questions that have been removed prior to this release will be filtered out.
         question_ids: A list of question ids to include. If None, all questions will be included.
+        min_release_date: The minimum release date for questions. If specified, only questions released on or after this date will be returned.
     """
     questions = []
     with open(question_file, "r") as ques_file:
@@ -269,6 +280,13 @@ def load_questions_jsonl(
         
     if question_ids is not None:
         questions = [q for q in questions if str(q['question_id']) in question_ids]
+
+    if min_release_date:
+        min_date = datetime.strptime(min_release_date, "%Y-%m-%d").date()
+        questions = [
+            q for q in questions
+            if datetime.strptime(q["livebench_release_date"], "%Y-%m-%d").date() >= min_date
+        ]
     return questions
 
 def load_test_cases_jsonl(question_file_path: str, questions: list[dict]):
@@ -443,7 +461,6 @@ def get_model_list(answer_dir):
     file_names = [os.path.splitext(os.path.basename(f))[0].lower() for f in file_paths]
     return file_names
     
-
 def filter_questions(questions, answer_file, resume=False, retry_failures=False):
     """
     Filter questions based on the ones for which there are already answers in the answer_file.
