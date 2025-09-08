@@ -91,7 +91,7 @@ def play_a_match_gt(match: MatchSingle, output_file: str | None = None, debug=Fa
     question_text = question["turns"][0]
     ground_truth = question.get("ground_truth", None)
     llm_answer = answer['choices'][0]['turns'][-1]
-    llm_answer = re.sub(f"<think>.*?<\/think>", "", llm_answer, flags=re.DOTALL)
+    llm_answer = re.sub(f"<think>.*?</think>", "", llm_answer, flags=re.DOTALL)
     score = 0
     category = None
 
@@ -356,7 +356,7 @@ def gen_judgments(
 
         for m in model_answers:
             for q in model_answers[m]:
-                model_answers[m][q]['choices'][0]['turns'][0] = re.sub(f"<think>.*?<\/think>", "", model_answers[m][q]['choices'][0]['turns'][0], flags=re.DOTALL).strip()
+                model_answers[m][q]['choices'][0]['turns'][0] = re.sub(f"<think>.*?</think>", "", model_answers[m][q]['choices'][0]['turns'][0], flags=re.DOTALL).strip()
 
         for model_id in models:
             scores = instruction_following_process_results(questions, model_answers, task_name, model_id, debug)
