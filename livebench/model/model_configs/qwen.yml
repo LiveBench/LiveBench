@@ -196,3 +196,57 @@ agent_config:
     max_input_tokens: 262144
     max_output_tokens: 81920
     supports_function_calling: true
+---
+display_name: qwen3-next-80b-a3b-thinking
+api_name:
+  https://api.novita.ai/openai: qwen/qwen3-next-80b-a3b-thinking
+  https://dashscope-intl.aliyuncs.com/compatible-mode/v1: qwen3-next-80b-a3b-thinking
+api_keys:
+  https://api.novita.ai/openai: NOVITA_API_KEY
+  https://dashscope-intl.aliyuncs.com/compatible-mode/v1: ALIBABA_API_KEY
+api_kwargs:
+  default:
+    temperature: 0.6
+    top_p: 0.95
+  https://dashscope-intl.aliyuncs.com/compatible-mode/v1:
+    max_tokens: 32768
+  https://api.novita.ai/openai:
+    max_tokens: 65536
+default_provider: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
+agent_config:
+  default:
+    supports_function_calling: true
+  https://api.novita.ai/openai:
+    max_input_tokens: 65536
+    max_output_tokens: 65536
+  https://dashscope-intl.aliyuncs.com/compatible-mode/v1:
+    max_input_tokens: 126976
+    max_output_tokens: 32768
+---
+display_name: qwen3-next-80b-a3b-instruct
+api_name:
+  https://api.novita.ai/openai: qwen/qwen3-next-80b-a3b-instruct
+  https://dashscope-intl.aliyuncs.com/compatible-mode/v1: qwen3-next-80b-a3b-instruct
+api_keys:
+  https://api.novita.ai/openai: NOVITA_API_KEY
+  https://dashscope-intl.aliyuncs.com/compatible-mode/v1: ALIBABA_API_KEY
+api_kwargs:
+  default:
+    temperature: 0.6
+    top_p: 0.95
+  https://dashscope-intl.aliyuncs.com/compatible-mode/v1:
+    max_tokens: 32768
+  https://api.novita.ai/openai:
+    max_tokens: 65536
+default_provider: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
+agent_config:
+  default:
+    supports_function_calling: true
+  https://api.novita.ai/openai:
+    max_input_tokens: 65536
+    max_output_tokens: 65536
+  https://dashscope-intl.aliyuncs.com/compatible-mode/v1:
+    max_input_tokens: 126976
+    max_output_tokens: 32768
+
+
