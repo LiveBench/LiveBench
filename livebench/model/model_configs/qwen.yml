@@ -212,7 +212,7 @@ api_kwargs:
     max_tokens: 32768
   https://api.novita.ai/openai:
     max_tokens: 65536
-default_provider: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
+default_provider: https://api.novita.ai/openai
 agent_config:
   default:
     supports_function_calling: true
