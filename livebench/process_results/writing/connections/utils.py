@@ -48,13 +48,13 @@ def connections_process_results_old(ground_truth: str, llm_answer: str, debug=Fa
 def connections_process_results(ground_truth: str, llm_answer: str, debug=False) -> int:
 
     # extract text from <solution></solution> tags
-    solution_matches = re.findall(r'<solution>(.*?)<\/solution>', llm_answer)
+    solution_matches = re.findall(r'<solution>(.*?)</solution>', llm_answer)
     if len(solution_matches) == 0:
-        solution_matches = re.findall(r'<solution>(.*?)<\/solution>', llm_answer.replace('\n', ''))
+        solution_matches = re.findall(r'<solution>(.*?)</solution>', llm_answer.replace('\n', ''))
     if len(solution_matches) == 0:
-        solution_matches = re.findall(r'</solution>(.*?)<\/solution>', llm_answer)
+        solution_matches = re.findall(r'</solution>(.*?)</solution>', llm_answer)
     if len(solution_matches) == 0:
-        solution_matches = re.findall(r'</solution>(.*?)<\/solution>', llm_answer.replace('\n', ''))
+        solution_matches = re.findall(r'</solution>(.*?)</solution>', llm_answer.replace('\n', ''))
 
     ground_truth_words = ground_truth.split(',')
 

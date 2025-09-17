@@ -14,6 +14,7 @@ import shortuuid
 import tqdm
 import subprocess
 import sys
+from datetime import datetime
 
 from livebench.model.api_model_config import AgentConfig
 from livebench.agentic_code_runner.sweagent.run_inference import run_agentic_coding_inference
@@ -332,6 +333,12 @@ if __name__ == "__main__":
         help="Livebench release to use. Provide a single date option. Will handle excluding deprecated questions for selected release.",
     )
     parser.add_argument(
+        "--min-release-date",
+        type=str,
+        default=None,
+        help="Filter questions by minimum release date (e.g., YYYY-MM-DD)",
+    )
+    parser.add_argument(
         "--question-id",
         type=str,
         default=None,
@@ -415,7 +422,8 @@ if __name__ == "__main__":
                         release_set,
                         args.livebench_release_option,
                         task_name,
-                        args.question_id
+                        args.question_id,
+                        args.min_release_date
                     )
 
                     questions = questions[args.question_begin:args.question_end]
@@ -465,7 +473,8 @@ if __name__ == "__main__":
                         release_set,
                         args.livebench_release_option,
                         task_name,
-                        args.question_id
+                        args.question_id,
+                        args.min_release_date
                     )
 
                     questions = questions[args.question_begin:args.question_end]
@@ -522,7 +531,7 @@ if __name__ == "__main__":
             for question_file in list_of_question_files:
                 print(question_file)
                 questions = load_questions_jsonl(
-                    question_file, release_set, args.livebench_release_option, args.question_id
+                    question_file, release_set, args.livebench_release_option, args.question_id, args.min_release_date
                 )
                 
                 questions = questions[args.question_begin:args.question_end]
@@ -567,7 +576,7 @@ if __name__ == "__main__":
             for question_file in list_of_question_files:
                 print(question_file)
                 questions = load_questions_jsonl(
-                    question_file, release_set, args.livebench_release_option, args.question_id
+                    question_file, release_set, args.livebench_release_option, args.question_id, args.min_release_date
                 )
                 
                 questions = questions[args.question_begin:args.question_end]
