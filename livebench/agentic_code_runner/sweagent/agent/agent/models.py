@@ -1069,6 +1069,8 @@ class LiteLLMModel(AbstractModel):
                         raise Exception("API Error: Bad gateway")
                     elif "you can retry your request" in str(e).lower():
                         raise Exception("API Error: Server Error")
+                    elif "an error occurred in model serving" in str(e).lower():
+                        raise Exception("API Error: Model Serving Error")
                     else:
                         raise e
         if n is None or n == 1:

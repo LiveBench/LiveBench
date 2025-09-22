@@ -87,13 +87,13 @@ print(f"Total model judgments loaded: {total_judgments_loaded}")
 MAX_WORKERS = 20
 
 SWEAGENT_ERROR_STATUSES = [
-    'exit_total_execution_time',
-    'exit_command_timeout',
+    # 'exit_total_execution_time',
+    # 'exit_command_timeout',
     # 'exit_context',
     'exit_api',
     'exit_environment_error',
     'exit_error',
-    'exit_format',
+    # 'exit_format',
     # 'exit_cost',
     # 'Bad gateway'
 ]
