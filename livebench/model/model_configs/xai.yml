@@ -90,3 +90,37 @@ api_kwargs:
     max_completion_tokens: null
     max_tokens: null
     temperature: 0.7
+---
+display_name: grok-4-fast-non-reasoning
+api_name:
+  https://api.x.ai/v1: grok-4-fast-non-reasoning
+api_keys:
+  https://api.x.ai/v1: XAI_API_KEY
+aliases:
+  - grok-4-fast-non-reasoning
+agent_config:
+  default:
+    litellm_provider: xai
+    max_input_tokens: 2000000
+api_kwargs:
+  default:
+    max_tokens: null
+    max_completion_tokens: null
+    temperature: 0.7
+---
+display_name: grok-4-fast-reasoning
+api_name:
+  https://api.x.ai/v1: grok-4-fast-reasoning
+api_keys:
+  https://api.x.ai/v1: XAI_API_KEY
+aliases:
+  - grok-4-fast-reasoning
+agent_config:
+  default:
+    litellm_provider: xai
+    max_input_tokens: 2000000
+api_kwargs:
+  default:
+    max_tokens: null
+    max_completion_tokens: null
+    temperature: 0.7
