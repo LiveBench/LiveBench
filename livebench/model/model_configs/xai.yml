@@ -100,8 +100,10 @@ aliases:
   - grok-4-fast-non-reasoning
 agent_config:
   default:
+    supports_function_calling: true
     litellm_provider: xai
     max_input_tokens: 2000000
+    max_output_tokens: 100000
 api_kwargs:
   default:
     max_tokens: null
@@ -117,8 +119,10 @@ aliases:
   - grok-4-fast-reasoning
 agent_config:
   default:
+    supports_function_calling: true
     litellm_provider: xai
     max_input_tokens: 2000000
+    max_output_tokens: 100000
 api_kwargs:
   default:
     max_tokens: null
