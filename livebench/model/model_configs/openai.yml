@@ -648,3 +648,18 @@ agent_config:
     max_input_tokens: 131072
     max_output_tokens: 32000
     supports_function_calling: true
+---
+display_name: gpt-5-codex
+api_name:
+  openai_responses: gpt-5-codex
+aliases:
+  - gpt-5-codex
+api_kwargs:
+  default:
+    temperature: null
+    max_completion_tokens: null
+agent_config:
+  default:
+    max_input_tokens: 400000
+    max_output_tokens: 128000
+    supports_function_calling: true
