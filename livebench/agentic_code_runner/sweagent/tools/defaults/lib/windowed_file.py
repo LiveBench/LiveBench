@@ -144,8 +144,16 @@ class WindowedFile:
         This means `line_range[1] - line_range[0] == window-1` as long as there are
         at least `window` lines in the file. `first_line` does the handling
         of making sure that we don't go out of bounds.
+
+        Exception: if there is only one line below the window, we include it automatically in the window.
+        This means that we could have `window + 1` lines displayed, with `line_range[1] - line_range[0] == window`.
         """
-        return self.first_line, min(self.first_line + self.window - 1, self.n_lines - 1)
+        start_line = self.first_line
+        end_line = min(self.first_line + self.window - 1, self.n_lines - 1)
+        if self.n_lines - end_line - 1 == 1:
+            # if only one line is below the window, include it
+            end_line += 1
+        return start_line, end_line
 
     def get_window_text(
         self, *, line_numbers: bool = False, status_line: bool = False, pre_post_line: bool = False
@@ -171,10 +179,7 @@ class WindowedFile:
             out_lines.extend(lines)
         if pre_post_line:
             if end_line < self.n_lines - 1:
-                # if self.n_lines - end_line - 1 == 1:
-                #     out_lines.append(self.text.split("\n")[end_line + 1:]) # TODO: make sure this works with set_window_text too!
-                # else:
-                #     out_lines.append(f"({self.n_lines - end_line - 1} more lines below)")
+                assert self.n_lines - end_line - 1 != 1, "Saw 1 line below the window. This should have been handled in line_range."
                 out_lines.append(f"({self.n_lines - end_line - 1} more lines below)")
         return "\n".join(out_lines)
 
