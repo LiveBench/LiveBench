@@ -248,5 +248,17 @@ agent_config:
   https://dashscope-intl.aliyuncs.com/compatible-mode/v1:
     max_input_tokens: 126976
     max_output_tokens: 32768
-
-
+---
+display_name: qwen3-max-2025-09-23
+api_name:
+  https://dashscope-intl.aliyuncs.com/compatible-mode/v1: qwen3-max-2025-09-23
+api_keys:
+  https://dashscope-intl.aliyuncs.com/compatible-mode/v1: ALIBABA_API_KEY
+api_kwargs:
+  default:
+    temperature: 0.6
+agent_config:
+  default:
+    max_input_tokens: 258048
+    max_output_tokens: 65536
+    supports_function_calling: true
