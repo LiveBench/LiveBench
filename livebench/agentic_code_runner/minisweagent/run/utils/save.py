@@ -4,7 +4,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from minisweagent import Agent, __version__
+from livebench.agentic_code_runner.minisweagent import Agent, __version__
 
 
 def _get_class_name_with_module(obj: Any) -> str:

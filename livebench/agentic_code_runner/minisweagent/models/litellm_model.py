@@ -3,7 +3,7 @@ import logging
 import os
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import litellm
 from tenacity import (
@@ -22,6 +22,7 @@ logger = logging.getLogger("litellm_model")
 @dataclass
 class LitellmModelConfig:
     model_name: str
+    api_type: Literal["completion", "responses"] = "completion"
     model_kwargs: dict[str, Any] = field(default_factory=dict)
     litellm_model_registry: Path | str | None = os.getenv("LITELLM_MODEL_REGISTRY_PATH")
 
@@ -50,17 +51,23 @@ class LitellmModel:
             )
         ),
     )
-    def _query(self, messages: list[dict[str, str]], **kwargs):
-        try:
-            return litellm.completion(
-                model=self.config.model_name, messages=messages, **(self.config.model_kwargs | kwargs)
-            )
-        except litellm.exceptions.AuthenticationError as e:
-            e.message += " You can permanently set your API key with `mini-extra config set KEY VALUE`."
-            raise e
+    def _query_completion(self, messages: list[dict[str, str]], **kwargs):
+        return litellm.completion(
+            model=self.config.model_name, messages=messages, **(self.config.model_kwargs | kwargs)
+        )
+
+    def _query_responses(self, messages: list[dict[str, str]], **kwargs):
+        return litellm.responses(
+            model=self.config.model_name, messages=messages, **(self.config.model_kwargs | kwargs)
+        )
 
     def query(self, messages: list[dict[str, str]], **kwargs) -> dict:
-        response = self._query(messages, **kwargs)
+        if self.config.api_type == "completion":
+            response = self._query_completion(messages, **kwargs)
+        elif self.config.api_type == "responses":
+            response = self._query_responses(messages, **kwargs)
+        else:
+            raise ValueError(f"Invalid API type: {self.config.api_type}")
         try:
             cost = litellm.cost_calculator.completion_cost(response)
         except Exception as e:
@@ -73,6 +80,7 @@ class LitellmModel:
         self.n_calls += 1
         self.cost += cost
         GLOBAL_MODEL_STATS.add(cost)
+        logger.info(f"Response: {response}")
         return {
             "content": response.choices[0].message.content or "",  # type: ignore
             "extra": {

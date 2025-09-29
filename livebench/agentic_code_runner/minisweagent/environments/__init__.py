@@ -3,14 +3,11 @@
 import copy
 import importlib
 
-from minisweagent import Environment
+from livebench.agentic_code_runner.minisweagent import Environment
 
 _ENVIRONMENT_MAPPING = {
-    "docker": "minisweagent.environments.docker.DockerEnvironment",
-    "singularity": "minisweagent.environments.singularity.SingularityEnvironment",
-    "local": "minisweagent.environments.local.LocalEnvironment",
-    "swerex_docker": "minisweagent.environments.extra.swerex_docker.SwerexDockerEnvironment",
-    "bubblewrap": "minisweagent.environments.extra.bubblewrap.BubblewrapEnvironment",
+    "docker": "livebench.agentic_code_runner.minisweagent.environments.docker.DockerEnvironment",
+    "local": "livebench.agentic_code_runner.minisweagent.environments.local.LocalEnvironment",
 }
 
 
