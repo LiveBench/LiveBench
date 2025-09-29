@@ -16,7 +16,7 @@ import subprocess
 import sys
 
 from livebench.model.api_model_config import AgentConfig
-from livebench.agentic_code_runner.sweagent.run_inference import run_agentic_coding_inference
+from livebench.agentic_code_runner.minisweagent.run_inference import run_agentic_coding_inference
 
 from livebench.common import (
     LIVE_BENCH_RELEASES,

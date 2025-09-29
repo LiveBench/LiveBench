@@ -51,6 +51,7 @@ RUN apt update && apt install -y git nodejs npm && npm install -g pnpm@8
 
 {code}
 
+CMD ["pnpm", "exec", "playwright", "install"]
 CMD ["pnpm", "playwright", "install", "chromium"]
 
 {self.clear_env}
@@ -103,6 +104,7 @@ RUN apt update && apt install -y git nodejs npm && npm install -g pnpm@9
 
 {code}
 
+CMD ["pnpm", "exec", "playwright", "install"]
 CMD ["pnpm", "playwright", "install", "chromium"]
 
 {self.clear_env}
