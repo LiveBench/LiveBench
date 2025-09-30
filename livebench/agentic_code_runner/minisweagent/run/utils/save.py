@@ -49,6 +49,8 @@ def save_traj(
             "model_stats": {
                 "instance_cost": 0.0,
                 "api_calls": 0,
+                "total_input_tokens": 0,
+                "total_output_tokens": 0,
             },
             "mini_version": __version__,
         },
@@ -58,6 +60,8 @@ def save_traj(
     if agent is not None:
         data["info"]["model_stats"]["instance_cost"] = agent.model.cost
         data["info"]["model_stats"]["api_calls"] = agent.model.n_calls
+        data["info"]["model_stats"]["total_input_tokens"] = agent.model.input_tokens
+        data["info"]["model_stats"]["total_output_tokens"] = agent.model.output_tokens
         data["messages"] = agent.messages
         data["info"]["config"] = {
             "agent": _asdict(agent.config),

@@ -15,6 +15,7 @@ agent:
     </format_example>
 
     Failure to follow these rules will cause your response to be rejected.
+    You are very careful when escaping characters in your response, i.e. when using backslashes.
   instance_template: |
     Please solve the following issue on this repository:
     <issue_description>
@@ -168,6 +169,8 @@ agent:
 
     This command will submit your work.
     You cannot continue working (reading, editing, testing) in any way on this task after submitting.
+
+    DO NOT COMMIT YOUR WORK. If you are finished, issue the above command ONLY.
     </instructions>
   action_observation_template: |
     <returncode>{{output.returncode}}</returncode>
@@ -224,4 +227,3 @@ environment:
 
 model:
   model_kwargs:
-    drop_params: true

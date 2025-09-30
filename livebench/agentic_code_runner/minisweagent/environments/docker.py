@@ -6,6 +6,8 @@ import uuid
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
+from livebench.agentic_code_runner.minisweagent.utils.log import logger
+
 
 @dataclass
 class DockerEnvironmentConfig:
@@ -34,11 +36,11 @@ class DockerEnvironmentConfig:
 
 
 class DockerEnvironment:
-    def __init__(self, *, config_class: type = DockerEnvironmentConfig, logger: logging.Logger | None = None, **kwargs):
+    def __init__(self, *, config_class: type = DockerEnvironmentConfig, **kwargs):
         """This class executes bash commands in a Docker container using direct docker commands.
         See `DockerEnvironmentConfig` for keyword arguments.
         """
-        self.logger = logger or logging.getLogger("minisweagent.environment")
+        self.logger = logger
         self.container_id: str | None = None
         self.config = config_class(**kwargs)
         self._start_container()

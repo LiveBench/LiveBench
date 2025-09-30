@@ -61,17 +61,15 @@ def run_agentic_coding_inference(
         'temperature': temperature
     }
 
-    if model_api_kwargs is not None:
-        model_api_kwargs = {key: value for key, value in model_api_kwargs.items()}
-        api_kwargs.update(model_api_kwargs)
-
     if 'max_tokens' in api_kwargs:
         del api_kwargs['max_tokens']
 
     if 'max_completion_tokens' in api_kwargs:
         del api_kwargs['max_completion_tokens']
 
-    orig_api_kwargs = api_kwargs.copy()
+    if model_api_kwargs is not None:
+        model_api_kwargs = {key: value for key, value in model_api_kwargs.items()}
+        api_kwargs.update(model_api_kwargs)
 
     all_traj_folder = LIVE_BENCH_ROOT_PATH / f"agentic_code_runner/data/trajectories" / run_id
     all_traj_folder.mkdir(parents=True, exist_ok=True)
@@ -93,12 +91,20 @@ def run_agentic_coding_inference(
         if agent_config is None:
             raise ValueError("Model " + model_api_name + " not registered with litellm and not agent configuration provided.")
     
+    if config['model'] is None:
+        config['model'] = {}
+
+    if config['model']['model_kwargs'] is None:
+        config['model']['model_kwargs'] = {}
+
     if agent_config is not None:
         if 'litellm_provider' in agent_config:
             del agent_config['litellm_provider']
         config['model']['model_kwargs'].update(agent_config)
 
     config['model']['model_kwargs'].update(api_kwargs)
+
+    orig_api_kwargs = config['model']['model_kwargs'].copy()
 
     if api_dict is not None and 'http' in provider:
         if api_dict.get('api_base', None) is not None:
@@ -139,7 +145,6 @@ def run_agentic_coding_inference(
 
         traj_folder = all_traj_folder / str(question['question_id'])
         traj_folder.mkdir(parents=True, exist_ok=True)
-
 
     instances_path = LIVE_BENCH_ROOT_PATH / f'agentic_code_runner/data/instances/{model_name}.jsonl'
     instances_path.parent.mkdir(parents=True, exist_ok=True)
@@ -195,7 +200,7 @@ def run_agentic_coding_inference(
         }
 
         traj_folder = all_traj_folder / str(question['question_id'])
-        traj_file = traj_folder / f"{question['question_id']}.traj"
+        traj_file = traj_folder / f"{question['question_id']}.traj.json"
 
         if not traj_file.exists():
             print(f"Trajectory file {traj_file} does not exist")
@@ -212,8 +217,8 @@ def run_agentic_coding_inference(
             ans.update({
                 'trajectory': json.dumps(trajectory, indent=4),
                 'choices': [{'turns': [final_answer]}],
-                'total_output_tokens': 0,
-                'total_input_tokens': 0,
+                'total_output_tokens': trajectory['info']['model_stats']['total_output_tokens'],
+                'total_input_tokens': trajectory['info']['model_stats']['total_input_tokens'],
             })
 
     current_answer_file = answer_file
