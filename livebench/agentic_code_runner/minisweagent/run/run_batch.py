@@ -17,6 +17,7 @@ from rich.live import Live
 
 from livebench.agentic_code_runner.minisweagent import Environment
 from livebench.agentic_code_runner.minisweagent.agents.default import DefaultAgent
+from livebench.agentic_code_runner.minisweagent.agents.replay import ReplayAgent
 from livebench.agentic_code_runner.minisweagent.config import get_config_path
 from livebench.agentic_code_runner.minisweagent.environments import get_environment
 from livebench.agentic_code_runner.minisweagent.models import get_model
@@ -62,7 +63,7 @@ def get_sb_environment(config: dict, instance: dict) -> Environment:
     env_config["environment_class"] = env_config.get("environment_class", "docker")
     image_name = get_docker_image_name(instance)
     env_config["image"] = image_name
-    env = get_environment(env_config)
+    env = get_environment(env_config, cwd_override=instance.get("cwd", ""))
     if startup_command := config.get("run", {}).get("env_startup_command"):
         startup_command = Template(startup_command, undefined=StrictUndefined).render(**instance)
         out = env.execute(startup_command)
@@ -101,6 +102,7 @@ def process_instance(
     output_dir: Path,
     config: dict,
     progress_manager: RunBatchProgressManager,
+    replay_traj_dir: Path | None = None,
 ) -> None:
     """Process a single SWEBench instance."""
     instance_id = instance["instance_id"]
@@ -119,13 +121,25 @@ def process_instance(
 
     try:
         env = get_sb_environment(config, instance)
-        agent = ProgressTrackingAgent(
-            model,
-            env,
-            progress_manager=progress_manager,
-            instance_id=instance_id,
-            **config.get("agent", {}),
-        )
+        
+        # Check if we're in replay mode
+        if replay_traj_dir is not None:
+            trajectory_path = replay_traj_dir / f"{instance_id}.traj.json"
+            logger.info(f"Replay mode: loading trajectory from {trajectory_path}")
+            agent = ReplayAgent(
+                model,
+                env,
+                trajectory_path=trajectory_path,
+                **config.get("agent", {}),
+            )
+        else:
+            agent = ProgressTrackingAgent(
+                model,
+                env,
+                progress_manager=progress_manager,
+                instance_id=instance_id,
+                **config.get("agent", {}),
+            )
         exit_status, result = agent.run(task)
     except Exception as e:
         logger.error(f"Error processing instance {instance_id}: {e}", exc_info=True)
@@ -151,6 +165,7 @@ def main(
     workers: int = typer.Option(1, "-w", "--workers", help="Number of worker threads for parallel processing", rich_help_panel="Basic"),
     config_spec: Path = typer.Option( None, "-c", "--config", help="Path to a config file", rich_help_panel="Basic"),
     instances_path: Path = typer.Option(None, "-i", "--instances_path", help="Path to a instances file", rich_help_panel="Basic"),
+    replay_traj_dir: Path = typer.Option(None, "-r", "--replay-traj-dir", help="Path to directory containing trajectory files to replay (replay mode)", rich_help_panel="Replay"),
 ) -> None:
     # fmt: on
     output_path = Path(output)
@@ -184,7 +199,7 @@ def main(
     with Live(progress_manager.render_group, refresh_per_second=4):
         with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
             futures = {
-                executor.submit(process_instance, instance, output_path, config, progress_manager): instance[
+                executor.submit(process_instance, instance, output_path, config, progress_manager, replay_traj_dir): instance[
                     "instance_id"
                 ]
                 for instance in instances

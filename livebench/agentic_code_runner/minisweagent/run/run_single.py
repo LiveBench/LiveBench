@@ -8,6 +8,7 @@ import typer
 import yaml
 
 from livebench.agentic_code_runner.minisweagent.agents.interactive import InteractiveAgent
+from livebench.agentic_code_runner.minisweagent.agents.replay import ReplayAgent
 from livebench.agentic_code_runner.minisweagent.config import get_config_path
 from livebench.agentic_code_runner.minisweagent.models import get_model
 from livebench.agentic_code_runner.minisweagent.run.run_batch import (
@@ -25,6 +26,7 @@ def main(
     config_path: Path = typer.Option( None, "-c", "--config", help="Path to a config file", rich_help_panel="Basic"),
     base_output_path: Path = typer.Option(None, "-o", "--output", help="Output trajectory Directory", rich_help_panel="Basic"),
     instances_path: Path = typer.Option(None, "-i", "--instances_path", help="Path to a instances file", rich_help_panel="Basic"),
+    replay_traj: Path | None = typer.Option(None, "-r", "--replay-traj", help="Path to trajectory file to replay (replay mode)", rich_help_panel="Replay"),
 ) -> None:
     # fmt: on
     """Run on a single SWE-Bench instance."""
@@ -44,13 +46,25 @@ def main(
     config_path = get_config_path(config_path)
     logger.info(f"Loading agent config from '{config_path}'")
     config = yaml.safe_load(config_path.read_text())
-    config.setdefault("agent", {})["confirm_exit"] = False
+    if replay_traj is None:
+        config.setdefault("agent", {})["confirm_exit"] = False
     env = get_sb_environment(config, instance)
-    agent = InteractiveAgent(
-        get_model(config=config.get("model", {})),
-        env,
-        **({"mode": "yolo"} | config.get("agent", {})),
-    )
+    
+    # Check if we're in replay mode
+    if replay_traj is not None:
+        logger.info(f"Replay mode: loading trajectory from {replay_traj}")
+        agent = ReplayAgent(
+            get_model(config=config.get("model", {})),
+            env,
+            trajectory_path=replay_traj,
+            **config.get("agent", {}),
+        )
+    else:
+        agent = InteractiveAgent(
+            get_model(config=config.get("model", {})),
+            env,
+            **({"mode": "yolo"} | config.get("agent", {})),
+        )
 
     exit_status, result, extra_info = None, None, None
     try:

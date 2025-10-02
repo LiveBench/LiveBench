@@ -22,7 +22,9 @@ def get_environment_class(spec: str) -> type[Environment]:
         raise ValueError(msg)
 
 
-def get_environment(config: dict, *, default_type: str = "") -> Environment:
+def get_environment(config: dict, *, cwd_override: str = "", default_type: str = "") -> Environment:
     config = copy.deepcopy(config)
+    if cwd_override:
+        config["cwd"] = cwd_override
     environment_class = config.pop("environment_class", default_type)
     return get_environment_class(environment_class)(**config)

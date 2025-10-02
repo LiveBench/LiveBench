@@ -8,6 +8,7 @@ from dataclasses import asdict, dataclass
 from jinja2 import StrictUndefined, Template
 
 from livebench.agentic_code_runner.minisweagent import Environment, Model
+from livebench.agentic_code_runner.minisweagent.utils.log import logger
 
 
 @dataclass
@@ -52,6 +53,38 @@ class Submitted(TerminatingException):
 class LimitsExceeded(TerminatingException):
     """Raised when the agent has reached its cost or step limit."""
 
+def extract_new_changes(old_diff: str, new_diff: str) -> str:
+    """Remove pre-existing changes from new_diff, keeping only new changes."""
+    
+    # Split into file sections (each starts with "diff --git")
+    def parse_diff(diff_text: str) -> dict[str, str]:
+        files: dict[str, str] = {}
+        current_file = None
+        current_content = []
+        
+        for line in diff_text.split('\n'):
+            if line.startswith('diff --git'):
+                if current_file:
+                    files[current_file] = '\n'.join(current_content)
+                current_file = line.rstrip()
+                current_content = [line.rstrip()]
+            elif current_file:
+                current_content.append(line.rstrip())
+        
+        if current_file:
+            files[current_file] = '\n'.join(current_content)
+        
+        return files
+    
+    old_files = parse_diff(old_diff)
+    new_files = parse_diff(new_diff)
+    # Keep only files/changes that differ from old diff
+    result: list[str] = []
+    for file_header, content in new_files.items():
+        if file_header not in old_files or old_files[file_header].strip() != content.strip():
+            result.append(content)
+    
+    return '\n'.join(result)
 
 class DefaultAgent:
     def __init__(self, model: Model, env: Environment, *, config_class: Callable = AgentConfig, **kwargs):
@@ -60,6 +93,7 @@ class DefaultAgent:
         self.model = model
         self.env = env
         self.extra_template_vars = {}
+        self.existing_git_diff = ""
 
     def render_template(self, template: str, **kwargs) -> str:
         template_vars = asdict(self.config) | self.env.get_template_vars() | self.model.get_template_vars()
@@ -72,6 +106,10 @@ class DefaultAgent:
 
     def run(self, task: str, **kwargs) -> tuple[str, str]:
         """Run step() until agent is finished. Return exit status & message"""
+        out = self.env.execute("git add -A && git diff --cached")
+        if out["returncode"] != 0:
+            raise RuntimeError(f"Error checking for existing changes: {out}")
+        self.existing_git_diff = out["output"]
         self.extra_template_vars |= {"task": task, **kwargs}
         self.messages = []
         self.add_message("system", self.render_template(self.config.system_template))
@@ -80,8 +118,14 @@ class DefaultAgent:
             try:
                 self.step()
             except NonTerminatingException as e:
+                logger.warning(f"Non-terminating exception: {e}")
                 self.add_message("user", str(e))
             except TerminatingException as e:
+                logger.warning(f"Terminating exception: {type(e).__name__}")
+                self.add_message("user", str(e))
+                return type(e).__name__, str(e)
+            except Exception as e:
+                logger.warning(f"Exception: {e}")
                 self.add_message("user", str(e))
                 return type(e).__name__, str(e)
 
@@ -92,7 +136,16 @@ class DefaultAgent:
     def query(self) -> dict:
         """Query the model and return the response."""
         if 0 < self.config.step_limit <= self.model.n_calls or 0 < self.config.cost_limit <= self.model.cost:
-            raise LimitsExceeded()
+            logger.info(f"Autosubmitting after Limits exceeded: {self.model.n_calls} steps, {self.model.cost} cost")
+            out = self.env.execute("git add -A && git diff --cached")
+            if out["returncode"] != 0:
+                raise RuntimeError(f"Error checking for existing changes: {out}")
+            new_diff = out["output"]
+            if self.existing_git_diff != "":
+                # need to remove the changes from the existing diff from the new diff
+                # so that the final diff only includes the changes from the agent
+                new_diff = extract_new_changes(self.existing_git_diff, new_diff)
+            raise LimitsExceeded(new_diff)
         response = self.model.query(self.messages)
         self.add_message("assistant", **response)
         return response
@@ -128,4 +181,9 @@ class DefaultAgent:
         """Raises Submitted exception with final output if the agent has finished its task."""
         lines = output.get("output", "").lstrip().splitlines(keepends=True)
         if lines and lines[0].strip() in ["MINI_SWE_AGENT_FINAL_OUTPUT", "COMPLETE_TASK_AND_SUBMIT_FINAL_OUTPUT"]:
-            raise Submitted("".join(lines[1:]))
+            new_diff = "".join(lines[1:])
+            if self.existing_git_diff != "":
+                # need to remove the changes from the existing diff from the new diff
+                # so that the final diff only includes the changes from the agent
+                new_diff = extract_new_changes(self.existing_git_diff, new_diff)
+            raise Submitted(new_diff)

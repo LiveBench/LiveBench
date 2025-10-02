@@ -675,6 +675,42 @@ class CliArgs:
 
         self.logger.info("Images built successfully.")
 
+    def _extract_valid_changes(self, test_patch: str, fix_patch: str) -> str:
+        """Filter changes in fix patch to only include changes to files that aren't modified in test patch."""
+    
+        # Split into file sections (each starts with "diff --git")
+        def parse_diff(diff_text: str) -> dict[str, str]:
+            files: dict[str, str] = {}
+            current_file = None
+            current_content = []
+            
+            for line in diff_text.split('\n'):
+                if line.startswith('diff --git'):
+                    if current_file:
+                        files[current_file] = '\n'.join(current_content)
+                    current_file = line.rstrip()
+                    current_content = [line.rstrip()]
+                elif current_file:
+                    current_content.append(line.rstrip())
+            
+            if current_file:
+                files[current_file] = '\n'.join(current_content)
+            
+            return files
+        
+        test_files = parse_diff(test_patch)
+        fix_files = parse_diff(fix_patch)
+        result: list[str] = []
+        for file_header, content in fix_files.items():
+            if file_header not in test_files:
+                # fix patch can only include changes to files that aren't modified in test patch
+                result.append(content)
+            else:
+                file_name = file_header.split('a/')[1].split('b/')[0]
+                self.logger.info(f"Discarding changes in {file_name} in fix patch because this file was modified in test patch.")
+        
+        return '\n'.join(result)
+
     def run_instance(self, instance: Instance):
         instance_dir = (
             self.workdir
@@ -686,8 +722,11 @@ class CliArgs:
         instance_dir.mkdir(parents=True, exist_ok=True)
 
         fix_patch_path = instance_dir.absolute() / "fix.patch"
+        fix_patch = self.patches[instance.pr.id].fix_patch
+        test_patch = instance.pr.test_patch
+        valid_fix_patch = self._extract_valid_changes(test_patch, fix_patch)
         with open(fix_patch_path, "w", encoding="utf-8", newline="\n") as f:
-            f.write(self.patches[instance.pr.id].fix_patch)
+            f.write(valid_fix_patch)
 
         report_path = instance_dir / REPORT_FILE
         if report_path.exists():

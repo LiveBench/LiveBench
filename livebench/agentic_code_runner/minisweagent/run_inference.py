@@ -1,8 +1,7 @@
 import json
 import os
-import subprocess
 import time
-
+import subprocess
 import shortuuid
 import yaml
 
@@ -24,7 +23,6 @@ def update_dict_recursively(d1, d2):
             d1[k] = v
     return d1
 
-# python agentic_code_runner/sweagent/agent/run/run.py run --agent.model.name anthropic/claude-3-5-sonnet-20241022 --env.deployment.image mswebench/ponylang_m_ponyc:pr-4583 --env.repo.path agentic_code_runner/data/repos/ponylang/ponyc --problem_statement.text "make a small change to some file in the repo (just add a meaningless comment somewhere)" --config agentic_code_runner/sweagent/config/livebench.yaml --problem_statement.id test --env_var_path .env
 def run_agentic_coding_inference(
     questions: list[dict],
     model_api_name: str,
@@ -37,7 +35,9 @@ def run_agentic_coding_inference(
     answer_file: str | None = None,
     parallel: int = 1,
     agent_config: AgentConfig | None = None,
-    task_to_answer_file: dict[str, str] | None = None
+    task_to_answer_file: dict[str, str] | None = None,
+    replay_traj_dir: str | None = None,
+    custom_run_id: str | None = None,
 ):
 
     if len(questions) == 0:
@@ -53,7 +53,7 @@ def run_agentic_coding_inference(
     if num_choices != 1:
         raise ValueError("num_choices must be 1 for agentic coding")
     
-    run_id = shortuuid.uuid()
+    run_id = custom_run_id if custom_run_id else shortuuid.uuid()
 
     model_name = model_display_name_override if model_display_name_override else model_api_name
 
@@ -88,8 +88,6 @@ def run_agentic_coding_inference(
     litellm_info = litellm.model_cost.get(model_api_name, None) or litellm.model_cost.get(provider + '/' + model_api_name, None)
     if litellm_info is None:
         print('Model ' + provider + '/' + model_api_name + ' not registered with litellm')
-        if agent_config is None:
-            raise ValueError("Model " + model_api_name + " not registered with litellm and not agent configuration provided.")
     
     if config['model'] is None:
         config['model'] = {}
@@ -116,6 +114,7 @@ def run_agentic_coding_inference(
     if api_dict is not None:
         if api_dict.get('api_key', None) is not None:
             config['model']['model_kwargs']['api_key'] = api_dict['api_key']
+    
 
     config_path = all_traj_folder / 'config.yaml'
     with open(config_path, 'w') as f:
@@ -154,12 +153,18 @@ def run_agentic_coding_inference(
                 print(f"Skipping {question['question_id']} because it already exists")
                 continue
             instance_image_id = f"mswebench/{question['org']}_m_{question['repo']}:pr-{question['number']}"
+            if not question.get('task', None):
+                raise ValueError("Task is required for minisweagent")
+            if not question.get('repo', None):
+                raise ValueError("Repo is required for minisweagent")
             instance_obj = {
                 'instance_id': str(question['question_id']),
                 'image_name': instance_image_id,
                 'problem_statement': question['turns'][0],
                 'environment_class': 'docker',
             }
+            if question['task'] != 'python':
+                instance_obj['cwd'] = '/' + question['repo']
             f.write(json.dumps(instance_obj) + '\n')
     
     run_script = LIVE_BENCH_ROOT_PATH / 'agentic_code_runner/minisweagent/run/run_single.py' if parallel == 1 else LIVE_BENCH_ROOT_PATH / 'agentic_code_runner/minisweagent/run/run_batch.py'
@@ -175,6 +180,12 @@ def run_agentic_coding_inference(
     ]
     if parallel > 1:
         cmd.extend(['--workers', str(parallel)])
+    
+    if replay_traj_dir is not None:
+        if parallel == 1:
+            cmd.extend(['--replay-traj', replay_traj_dir])
+        else:
+            cmd.extend(['--replay-traj-dir', replay_traj_dir])
 
     print('Running command: ', ' '.join([str(c) for c in cmd]))
 
@@ -182,6 +193,9 @@ def run_agentic_coding_inference(
         subprocess.run(cmd, check=True)
     except KeyboardInterrupt:
         print("KeyboardInterrupt received. Stopping subprocess and continuing to collect results...")
+        pass
+    except subprocess.CalledProcessError as e:
+        print(f"Subprocess error: {e}")
         pass
 
     for question in questions:
@@ -221,14 +235,14 @@ def run_agentic_coding_inference(
                 'total_input_tokens': trajectory['info']['model_stats']['total_input_tokens'],
             })
 
-    current_answer_file = answer_file
-    if task_to_answer_file is not None and 'task' in question:
-        task_name = question['task']
-        if task_name in task_to_answer_file:
-            current_answer_file = task_to_answer_file[task_name]
-            # Ensure the directory exists for the task-specific answer file
-            os.makedirs(os.path.dirname(current_answer_file), exist_ok=True)
+        current_answer_file = answer_file
+        if task_to_answer_file is not None and 'task' in question:
+            task_name = question['task']
+            if task_name in task_to_answer_file:
+                current_answer_file = task_to_answer_file[task_name]
+                # Ensure the directory exists for the task-specific answer file
+                os.makedirs(os.path.dirname(current_answer_file), exist_ok=True)
 
-    if current_answer_file is not None:
-        with open(current_answer_file, "a") as fout:
-            fout.write(json.dumps(ans) + "\n")
+        if current_answer_file is not None:
+            with open(current_answer_file, "a") as fout:
+                fout.write(json.dumps(ans) + "\n")

@@ -37,7 +37,7 @@ agent:
     2. Provide exactly ONE bash command to execute
 
     ## Important Boundaries
-    - MODIFY: Regular source code files in /testbed (this is the working directory for all your subsequent commands)
+    - MODIFY: Regular source code files in the current directory and its subdirectories
     - DO NOT MODIFY: Tests, configuration files (pyproject.toml, setup.cfg, etc.)
 
     ## Recommended Workflow

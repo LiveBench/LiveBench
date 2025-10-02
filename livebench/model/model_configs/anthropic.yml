@@ -140,11 +140,6 @@ api_name:
 api_kwargs:
   default:
     temperature: 1
-agent_config:
-  default:
-    supports_function_calling: true
-    max_input_tokens: 200000
-    max_output_tokens: 64000
 aliases:
   - claude-sonnet-4-5
 ---
@@ -161,8 +156,3 @@ api_kwargs:
 aliases:
   - claude-sonnet-4-5-20250929-thinking
   - claude-sonnet-4-5-thinking
-agent_config:
-  default:
-    supports_function_calling: true
-    max_input_tokens: 200000
-    max_output_tokens: 64000

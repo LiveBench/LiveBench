@@ -37,8 +37,8 @@ class LitellmModel:
             litellm.utils.register_model(json.loads(Path(self.config.litellm_model_registry).read_text()))
 
     @retry(
-        stop=stop_after_attempt(10),
-        wait=wait_exponential(multiplier=1, min=4, max=60),
+        stop=stop_after_attempt(15),
+        wait=wait_exponential(multiplier=2, min=4, max=120),
         before_sleep=before_sleep_log(logger, logging.WARNING),
         retry=retry_if_not_exception_type(
             (
@@ -46,13 +46,16 @@ class LitellmModel:
                 litellm.exceptions.NotFoundError,
                 litellm.exceptions.PermissionDeniedError,
                 litellm.exceptions.ContextWindowExceededError,
-                litellm.exceptions.APIError,
                 litellm.exceptions.AuthenticationError,
                 KeyboardInterrupt,
             )
         ),
     )
     def _query_completion(self, messages: list[dict[str, str]], **kwargs):
+        if 'deepseek' in self.config.model_name:
+            for message in messages:
+                if message['role'] == 'system':
+                    message['role'] = 'user'
         res = litellm.completion(
             model=self.config.model_name, messages=messages, **(self.config.model_kwargs | kwargs)
         )
@@ -68,6 +71,21 @@ class LitellmModel:
             result['output_tokens'] = res.usage.completion_tokens
         return result
 
+    @retry(
+        stop=stop_after_attempt(10),
+        wait=wait_exponential(multiplier=2, min=4, max=60),
+        before_sleep=before_sleep_log(logger, logging.WARNING),
+        retry=retry_if_not_exception_type(
+            (
+                litellm.exceptions.UnsupportedParamsError,
+                litellm.exceptions.NotFoundError,
+                litellm.exceptions.PermissionDeniedError,
+                litellm.exceptions.ContextWindowExceededError,
+                litellm.exceptions.AuthenticationError,
+                KeyboardInterrupt,
+            )
+        ),
+    )
     def _query_responses(self, messages: list[dict[str, str]], **kwargs):
         system_messages = [m for m in messages if m['role'] == 'system']
         system_prompt = system_messages[0]['content'] if system_messages else None
@@ -109,18 +127,17 @@ class LitellmModel:
         output_tokens = result['output_tokens']
         try:
             cost = litellm.cost_calculator.completion_cost(response)
+            self.cost += cost
+            GLOBAL_MODEL_STATS.add(cost)
         except Exception as e:
-            logger.critical(
+            logger.warning(
                 f"Error calculating cost for model {self.config.model_name}: {e}. "
                 "Please check the 'Updating the model registry' section in the documentation at "
                 "https://klieret.short.gy/litellm-model-registry Still stuck? Please open a github issue for help!"
             )
-            raise
         self.n_calls += 1
-        self.cost += cost
         self.input_tokens += input_tokens
         self.output_tokens += output_tokens
-        GLOBAL_MODEL_STATS.add(cost)
         return {
             "content": content or "",
             "extra": {
