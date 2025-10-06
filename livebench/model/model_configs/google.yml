@@ -178,7 +178,7 @@ api_kwargs:
 ---
 display_name: gemini-2.5-flash-preview-05-20-thinking
 api_name:
-  google: gemini-2.5-flash-preview-05-20
+  google: gemini-2.5-flash
 aliases:
   - gemini-2.5-flash-preview-thinking
 api_kwargs:
@@ -189,11 +189,11 @@ api_kwargs:
     thinking_config:
       thinking_budget: 24576
 ---
-display_name: gemini-2.5-flash-preview-05-20-base
+display_name: gemini-2.5-flash-preview-05-20-nothinking
 api_name:
-  google: gemini-2.5-flash-preview-05-20
+  google: gemini-2.5-flash
 aliases:
-  - gemini-2.5-flash-preview-base
+  - gemini-2.5-flash-preview-nothinking
 api_kwargs:
   default:
     max_output_tokens: 65536
@@ -204,7 +204,7 @@ api_kwargs:
 ---
 display_name: gemini-2.5-flash-preview-05-20
 api_name:
-  google: gemini-2.5-flash-preview-05-20
+  google: gemini-2.5-flash
 aliases:
   - gemini-2.5-flash-preview
 api_kwargs:
@@ -213,7 +213,7 @@ api_kwargs:
 ---
 display_name: gemini-2.5-pro-preview-06-05-highthinking
 api_name:
-  google: gemini-2.5-pro-preview-06-05
+  google: gemini-2.5-pro
 aliases:
   - gemini-2.5-pro-preview-highthinking
 api_kwargs:
@@ -231,7 +231,7 @@ agent_config:
 ---
 display_name: gemini-2.5-pro-preview-06-05-default
 api_name:
-  google: gemini-2.5-pro-preview-06-05
+  google: gemini-2.5-pro
 aliases:
   - gemini-2.5-pro-preview
   - gemini-2.5-pro-preview-default
@@ -248,7 +248,7 @@ agent_config:
 ---
 display_name: gemini-2.5-pro-preview-06-05-minthinking
 api_name:
-  google: gemini-2.5-pro-preview-06-05
+  google: gemini-2.5-pro
 aliases:
   - gemini-2.5-pro-preview-minthinking
 api_kwargs:
@@ -288,7 +288,7 @@ agent_config:
 ---
 display_name: gemini-2.5-flash-lite-preview-06-17-highthinking
 api_name:
-  google: gemini-2.5-flash-lite-preview-06-17
+  google: gemini-2.5-flash-lite
 aliases:
   - gemini-2.5-flash-lite-preview
 api_kwargs:

@@ -119,6 +119,9 @@ def run_command(cmd: str, env: dict[str, str] | None = None) -> int:
         print(f"Error running command: {cmd}")
         print(f"Exit code: {e.returncode}")
         return e.returncode
+    except KeyboardInterrupt:
+        print("KeyboardInterrupt received. Stopping command and continuing to collect results...")
+        return 1
 
 def setup_tmux_session(session_name: str, benchmarks: list[str], commands: list[str], venv_path: str | None = None) -> None:
     """

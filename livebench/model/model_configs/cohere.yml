@@ -23,22 +23,12 @@ api_name:
   https://api.cohere.ai/compatibility/v1: command-r-08-2024
 api_keys:
   https://api.cohere.ai/compatibility/v1: CO_API_KEY
-agent_config:
-  default:
-    max_input_tokens: 128000
-    max_output_tokens: 4000
-    supports_function_calling: true
 ---
 display_name: command-r-plus-08-2024
 api_name:
   https://api.cohere.ai/compatibility/v1: command-r-plus-08-2024
 api_keys:
   https://api.cohere.ai/compatibility/v1: CO_API_KEY
-agent_config:
-  default:
-    max_input_tokens: 128000
-    max_output_tokens: 4000
-    supports_function_calling: true
 ---
 display_name: command-a-03-2025
 api_name:
@@ -47,8 +37,3 @@ api_keys:
   https://api.cohere.ai/compatibility/v1: CO_API_KEY
 aliases:
  - command-a
-agent_config:
-  default:
-    max_input_tokens: 256000
-    max_output_tokens: 8000
-    supports_function_calling: true
