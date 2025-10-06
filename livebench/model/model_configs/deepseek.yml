@@ -70,42 +70,64 @@ api_name:
   local: DeepSeek-R1
   https://api.hyperbolic.xyz/v1: deepseek-ai/DeepSeek-R1-0528
   deepinfra: deepseek-ai/DeepSeek-R1-0528
-  https://api.deepseek.com: deepseek-reasoner
-default_provider: deepinfra
+  https://api.novita.ai/openai: deepseek/deepseek-r1-0528
+  https://openrouter.ai/api/v1: deepseek/deepseek-r1-0528
+default_provider: https://openrouter.ai/api/v1
 api_keys:
   https://api.hyperbolic.xyz/v1: HYPERBOLIC_API_KEY
-  https://api.deepseek.com: DEEPSEEK_API_KEY
+  https://api.novita.ai/openai: NOVITA_API_KEY
+  https://openrouter.ai/api/v1: OPENROUTER_API_KEY
 api_kwargs:
   default:
     temperature: 0.7
     max_tokens: 64000
-  https://api.deepseek.com:
-    temperature: null
+  https://api.novita.ai/openai:
+    max_tokens: 32768
+  https://openrouter.ai/api/v1:
+    max_tokens: 32768
+    provider:
+      quantizations:
+        - fp8
+        - fp16
+      require_parameters: true
+      sort: throughput
 ---
 display_name: deepseek-v3.1
 api_name:
   https://api.deepseek.com: deepseek-chat
-default_provider: https://api.deepseek.com
+  https://openrouter.ai/api/v1: deepseek/deepseek-chat-v3.1
+default_provider: https://openrouter.ai/api/v1
 api_keys:
   https://api.deepseek.com: DEEPSEEK_API_KEY
+  https://openrouter.ai/api/v1: OPENROUTER_API_KEY
 ---
 display_name: deepseek-v3.1-thinking
 api_name:
   https://api.deepseek.com: deepseek-reasoner
-default_provider: https://api.deepseek.com
+  https://openrouter.ai/api/v1: deepseek/deepseek-chat-v3.1
+default_provider: https://openrouter.ai/api/v1
 api_keys:
   https://api.deepseek.com: DEEPSEEK_API_KEY
+  https://openrouter.ai/api/v1: OPENROUTER_API_KEY
 api_kwargs:
   default:
     max_tokens: 64000
     temperature: 1.0
+  https://openrouter.ai/api/v1:
+    reasoning_effort: "high"
+agent_config:
+  https://openrouter.ai/api/v1:
+    allowed_openai_params:
+      - reasoning_effort
 ---
 display_name: deepseek-v3.1-terminus
 api_name:
   https://api.deepseek.com: deepseek-chat
-default_provider: https://api.deepseek.com
+  https://openrouter.ai/api/v1: deepseek/deepseek-v3.1-terminus
+default_provider: https://openrouter.ai/api/v1
 api_keys:
   https://api.deepseek.com: DEEPSEEK_API_KEY
+  https://openrouter.ai/api/v1: OPENROUTER_API_KEY
 api_kwargs:
   default:
     temperature: 0.7
@@ -113,10 +135,18 @@ api_kwargs:
 display_name: deepseek-v3.1-terminus-thinking
 api_name:
   https://api.deepseek.com: deepseek-reasoner
-default_provider: https://api.deepseek.com
+  https://openrouter.ai/api/v1: deepseek/deepseek-v3.1-terminus
+default_provider: https://openrouter.ai/api/v1
 api_keys:
   https://api.deepseek.com: DEEPSEEK_API_KEY
+  https://openrouter.ai/api/v1: OPENROUTER_API_KEY
 api_kwargs:
   default:
     max_tokens: 64000
     temperature: 1.0
+  https://openrouter.ai/api/v1:
+    reasoning_effort: "high"
+agent_config:
+  https://openrouter.ai/api/v1:
+    allowed_openai_params:
+      - reasoning_effort

@@ -134,6 +134,16 @@ aliases:
   - claude-4-1-opus-thinking-32k
   - claude-4-1-opus-thinking
 ---
+display_name: claude-4-1-opus-20250805-base
+api_name:
+  anthropic: claude-opus-4-1-20250805
+api_kwargs:
+  default:
+    temperature: 1
+aliases:
+  - claude-4-1-opus-base
+  - claude-4-1-opus
+---
 display_name: claude-sonnet-4-5-20250929
 api_name:
   anthropic: claude-sonnet-4-5-20250929
