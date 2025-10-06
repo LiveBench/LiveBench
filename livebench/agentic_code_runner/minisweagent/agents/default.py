@@ -4,6 +4,7 @@ import re
 import subprocess
 from collections.abc import Callable
 from dataclasses import asdict, dataclass
+import traceback
 
 from jinja2 import StrictUndefined, Template
 
@@ -27,7 +28,7 @@ class AgentConfig:
     format_error_template: str = "Please always provide EXACTLY ONE action in triple backticks."
     action_observation_template: str = "Observation: {{output}}"
     step_limit: int = 0
-    cost_limit: float = 3.0
+    cost_limit: float = 0
 
 
 class NonTerminatingException(Exception):
@@ -88,7 +89,7 @@ def extract_new_changes(old_diff: str, new_diff: str) -> str:
 
 class DefaultAgent:
     def __init__(self, model: Model, env: Environment, *, config_class: Callable = AgentConfig, **kwargs):
-        self.config = config_class(**kwargs)
+        self.config: AgentConfig = config_class(**kwargs)
         self.messages: list[dict] = []
         self.model = model
         self.env = env
@@ -126,8 +127,9 @@ class DefaultAgent:
                 return type(e).__name__, str(e)
             except Exception as e:
                 logger.warning(f"Exception: {e}")
+                traceback.print_exc()
                 self.add_message("user", str(e))
-                return type(e).__name__, str(e)
+                return "UnknownError " + type(e).__name__, str(e)
 
     def step(self) -> dict:
         """Query the LM, execute the action, return the observation."""
@@ -135,8 +137,8 @@ class DefaultAgent:
 
     def query(self) -> dict:
         """Query the model and return the response."""
-        if 0 < self.config.step_limit <= self.model.n_calls or 0 < self.config.cost_limit <= self.model.cost:
-            logger.info(f"Autosubmitting after Limits exceeded: {self.model.n_calls} steps, {self.model.cost} cost")
+        if 0 < self.config.step_limit <= self.model.n_calls:
+            logger.info(f"Autosubmitting after Limits exceeded: {self.model.n_calls} steps")
             out = self.env.execute("git add -A && git diff --cached")
             if out["returncode"] != 0:
                 raise RuntimeError(f"Error checking for existing changes: {out}")

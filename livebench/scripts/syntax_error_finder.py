@@ -88,10 +88,11 @@ MAX_WORKERS = 20
 
 SWEAGENT_ERROR_STATUSES = [
     'LimitsExceeded',
-    'RetryError'
 ]
 
 OTHER_ERROR_STRINGS = [
+    # '\\"instance_cost\\": 3'
+    "This endpoint's maximum context length"
 ]
 
 ALL_ERROR_STRINGS = SWEAGENT_ERROR_STATUSES + OTHER_ERROR_STRINGS
@@ -336,32 +337,32 @@ for model, error_pairs in model_errors.items():
                 print(f"    Question IDs (all have ALL error strings AND score=0): {' '.join(question_ids_with_info)}")
             else:
                 print(f"    Question IDs (all have ALL error strings): {' '.join(question_ids_with_info)}")
-    elif args.only_incorrect:
-        # For --only-incorrect, show simplified output with just question IDs and scores
-        run_id_to_question_ids = defaultdict(set)
-        question_id_counts = defaultdict(int)
+    # elif args.only_incorrect:
+    #     # For --only-incorrect, show simplified output with just question IDs and scores
+    #     run_id_to_question_ids = defaultdict(set)
+    #     question_id_counts = defaultdict(int)
         
-        for run_id, question_id, error in error_pairs:
-            run_id_to_question_ids[run_id].add(question_id)
-            # Count the maximum occurrences for this question ID across all error types
-            error_type = error[6:] if error.startswith("JSONL:") else error
-            error_id = (model, run_id, question_id, error_type)
-            count = found_errors[error_id]
-            question_id_counts[question_id] = max(question_id_counts[question_id], count)
+    #     for run_id, question_id, error in error_pairs:
+    #         run_id_to_question_ids[run_id].add(question_id)
+    #         # Count the maximum occurrences for this question ID across all error types
+    #         error_type = error[6:] if error.startswith("JSONL:") else error
+    #         error_id = (model, run_id, question_id, error_type)
+    #         count = found_errors[error_id]
+    #         question_id_counts[question_id] = max(question_id_counts[question_id], count)
         
-        for run_id, question_ids in run_id_to_question_ids.items():
-            print(f"  Run ID: {run_id}")
-            # Show question IDs with their maximum counts and judgment scores (all should be score=0)
-            question_ids_with_info = []
-            for qid in sorted(question_ids):
-                count = question_id_counts[qid]
-                judgment_key = (model, qid)
-                score = model_judgments.get(judgment_key, "N/A")
-                score_str = f"score:{score}" if score != "N/A" else "score:N/A"
-                # question_ids_with_info.append(f"{qid}({count},{score_str})")
-                question_ids_with_info.append(f"{qid}")
+    #     for run_id, question_ids in run_id_to_question_ids.items():
+    #         print(f"  Run ID: {run_id}")
+    #         # Show question IDs with their maximum counts and judgment scores (all should be score=0)
+    #         question_ids_with_info = []
+    #         for qid in sorted(question_ids):
+    #             count = question_id_counts[qid]
+    #             judgment_key = (model, qid)
+    #             score = model_judgments.get(judgment_key, "N/A")
+    #             score_str = f"score:{score}" if score != "N/A" else "score:N/A"
+    #             # question_ids_with_info.append(f"{qid}({count},{score_str})")
+    #             question_ids_with_info.append(f"{qid}")
             
-            print(f"    Question IDs (score=0): {' '.join(question_ids_with_info)}")
+    #         print(f"    Question IDs (score=0): {' '.join(question_ids_with_info)}")
     else:
         # Original detailed output for normal mode
         run_id_to_errors = defaultdict(lambda: defaultdict(list))

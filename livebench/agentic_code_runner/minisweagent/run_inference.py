@@ -34,7 +34,6 @@ def run_agentic_coding_inference(
     model_display_name_override: str | None = None,
     answer_file: str | None = None,
     parallel: int = 1,
-    agent_config: AgentConfig | None = None,
     task_to_answer_file: dict[str, str] | None = None,
     replay_traj_dir: str | None = None,
     custom_run_id: str | None = None,
@@ -95,26 +94,18 @@ def run_agentic_coding_inference(
     if config['model']['model_kwargs'] is None:
         config['model']['model_kwargs'] = {}
 
-    if agent_config is not None:
-        if 'litellm_provider' in agent_config:
-            del agent_config['litellm_provider']
-        config['model']['model_kwargs'].update(agent_config)
-
     config['model']['model_kwargs'].update(api_kwargs)
 
     orig_api_kwargs = config['model']['model_kwargs'].copy()
 
-    if api_dict is not None and 'http' in provider:
+    if api_dict is not None:
         if api_dict.get('api_base', None) is not None:
             config['model']['model_kwargs']['api_base'] = api_dict['api_base']
             provider = 'openai'
-
-    config['model']['model_name'] = provider + '/' + model_api_name
-
-    if api_dict is not None:
         if api_dict.get('api_key', None) is not None:
             config['model']['model_kwargs']['api_key'] = api_dict['api_key']
-    
+
+    config['model']['model_name'] = provider + '/' + model_api_name
 
     config_path = all_traj_folder / 'config.yaml'
     with open(config_path, 'w') as f:

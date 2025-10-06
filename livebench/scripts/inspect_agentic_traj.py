@@ -168,18 +168,20 @@ def print_info(info: dict[str, Any], answer: dict[str, Any], console: Console) -
     console.print(Panel(table, title="Run Info", expand=False))
 
 
-def print_messages(messages: list[dict[str, Any]], console: Console, max_content_length: int, final_fix_patch: str | None = None) -> None:
+def print_messages(messages: list[dict[str, Any]], console: Console, max_content_length: int, final_fix_patch: str | None = None, final_answer: str | None = None) -> None:
     if not messages:
         console.print("[bold red]No messages in trajectory[/bold red]")
         return
     for i, msg in enumerate(messages, start=1):
         role = msg.get("role", "-")
-        content = msg.get("content", "")
+        content = msg.get("content")
         if not isinstance(content, str):
             try:
                 content = json.dumps(content, ensure_ascii=False)
             except Exception:
                 content = str(content)
+        if not content.strip():
+            content = final_answer if final_answer else ""
         # content = truncate_text(content, max_content_length)
         console.print(f"\n[bold]Step {i}[/bold]  [dim]({role})[/dim]")
         # For the final message, if fix_patch is available, render side-by-side
@@ -222,7 +224,7 @@ def main():
         fix_patch = load_question_fix_patch(answer, args.question_id)
         print_info(info, answer, console)
         console.print(f"\n[bold]Messages:[/bold]")
-        print_messages(messages, console, args.max_content_length, final_fix_patch=fix_patch)
+        print_messages(messages, console, args.max_content_length, final_fix_patch=fix_patch, final_answer=answer['choices'][0]['turns'][0])
 
 if __name__ == "__main__":
     main()

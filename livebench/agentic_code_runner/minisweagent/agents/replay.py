@@ -2,9 +2,10 @@
 
 import json
 from pathlib import Path
+from typing import Callable
 
 from livebench.agentic_code_runner.minisweagent import Environment, Model
-from livebench.agentic_code_runner.minisweagent.agents.default import DefaultAgent, LimitsExceeded, Submitted, extract_new_changes
+from livebench.agentic_code_runner.minisweagent.agents.default import AgentConfig, DefaultAgent
 from livebench.agentic_code_runner.minisweagent.utils.log import logger
 
 
@@ -15,7 +16,7 @@ class ReplayAgent(DefaultAgent):
     from a trajectory file to execute actions in sequence.
     """
 
-    def __init__(self, model: Model, env: Environment, trajectory_path: str | Path, **kwargs):
+    def __init__(self, model: Model, env: Environment, trajectory_path: str | Path, *, config_class: Callable = AgentConfig, **kwargs):
         """Initialize the replay agent.
         
         Args:
@@ -24,11 +25,10 @@ class ReplayAgent(DefaultAgent):
             trajectory_path: Path to the trajectory file to replay
             **kwargs: Additional arguments passed to DefaultAgent
         """
-        super().__init__(model, env, **kwargs)
+        super().__init__(model, env, config_class=config_class, **kwargs)
         self.trajectory_path = Path(trajectory_path)
         self.trajectory_messages: list[dict] = []
         self.current_message_idx = 0
-        self.n_calls = 0
         self._load_trajectory()
 
     def _load_trajectory(self):
@@ -52,31 +52,16 @@ class ReplayAgent(DefaultAgent):
 
     def query(self) -> dict:
         """Return the next pre-recorded response instead of querying the model.
+        Turns into DefaultAgent once all messages have been replayed.
         
         Returns:
             The next assistant message from the trajectory
-            
-        Raises:
-            IndexError: If we've run out of messages to replay
         """
-        if 0 < self.config.step_limit <= self.n_calls:
-            logger.info(f"Autosubmitting after Limits exceeded: {self.n_calls} steps")
-            out = self.env.execute("git add -A && git diff --cached")
-            if out["returncode"] != 0:
-                raise RuntimeError(f"Error checking for existing changes: {out}")
-            new_diff = out["output"]
-            if self.existing_git_diff != "":
-                new_diff = extract_new_changes(self.existing_git_diff, new_diff)
-            raise LimitsExceeded(new_diff)
         if self.current_message_idx >= len(self.trajectory_messages):
-            logger.info(f"Trajectory ended after {self.n_calls} steps")
-            out = self.env.execute("git add -A && git diff --cached")
-            if out["returncode"] != 0:
-                raise RuntimeError(f"Error checking for existing changes: {out}")
-            new_diff = out["output"]
-            if self.existing_git_diff != "":
-                new_diff = extract_new_changes(self.existing_git_diff, new_diff)
-            raise Submitted(new_diff)
+            res = super().query()
+            logger.info("Actual query " + str(self.model.n_calls))
+            # logger.info(res['content'])
+            return res
         
         # Get the next message from the trajectory
         message = self.trajectory_messages[self.current_message_idx]
@@ -91,14 +76,14 @@ class ReplayAgent(DefaultAgent):
         
         # Add the message to our messages list (so the trajectory is consistent)
         self.add_message(**message)
-        self.n_calls += 1
+        self.model.n_calls += 1
         
         # Return the message in the same format as Model.query() would
         return message
 
     def get_observation(self, response: dict) -> dict:
         output = super().get_observation(response)
-        # logger.info("Got observation")
         # observation = self.render_template(self.config.action_observation_template, output=output)
-        # logger.info(observation)
+        # logger.info("Got Observation")
+        # print(observation)
         return output

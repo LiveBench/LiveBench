@@ -23,6 +23,7 @@ from pathlib import Path
 
 import shortuuid
 
+from livebench.gen_api_answer import setup_model
 from livebench.common import LIVE_BENCH_ROOT_PATH
 from livebench.model.api_model_config import get_model_config
 from livebench.agentic_code_runner.minisweagent.run_inference import run_agentic_coding_inference
@@ -182,19 +183,14 @@ def main():
     # For batch mode or multiple questions, pass the directory
     # For single mode with one question, pass the specific file
     if args.parallel_requests == 1 and len(questions_to_replay) == 1:
-        replay_traj_path = str(replay_traj_dir / f"{questions_to_replay[0]['instance_id']}.traj.json")
+        replay_traj_path = str(replay_traj_dir / f"{questions_to_replay[0]['question_id']}.traj.json")
         effective_parallel = 1
     else:
         # Use batch mode for multiple questions or when parallel > 1
         replay_traj_path = str(replay_traj_dir)
         effective_parallel = max(args.parallel_requests, 1)
     
-    # Extract provider and api_name from model_config
-    provider = model_config.default_provider
-    if provider is None:
-        provider = list(model_config.api_name.keys())[0]
-    
-    api_name = model_config.api_name[provider]
+    provider, api_kwargs, api_name = setup_model(model_config)
     
     run_agentic_coding_inference(
         questions=questions_to_replay,
@@ -202,12 +198,11 @@ def main():
         provider=provider,
         force_temperature=None,
         num_choices=1,
-        model_api_kwargs=None,
+        model_api_kwargs=api_kwargs,
         api_dict=None,
         model_display_name_override=model_display_name,
         answer_file=None,  # We'll write answer files manually after
         parallel=effective_parallel,
-        agent_config=None,
         task_to_answer_file=None,
         replay_traj_dir=replay_traj_path,
         custom_run_id=replay_run_id,
@@ -283,10 +278,10 @@ def main():
             if question_id in answer_index:
                 idx = answer_index[question_id]
                 existing_answers[idx].update({
-                    # 'trajectory': json.dumps(trajectory_copy, indent=4),
+                    'trajectory': json.dumps(trajectory_copy, indent=4),
                     'choices': [{'turns': [final_answer]}],
-                    # 'total_output_tokens': new_trajectory['info']['model_stats']['total_output_tokens'],
-                    # 'total_input_tokens': new_trajectory['info']['model_stats']['total_input_tokens'],
+                    'total_output_tokens': new_trajectory['info']['model_stats']['total_output_tokens'],
+                    'total_input_tokens': new_trajectory['info']['model_stats']['total_input_tokens'],
                 })
                 print(f"Updated answer for question_id {question_id}")
         

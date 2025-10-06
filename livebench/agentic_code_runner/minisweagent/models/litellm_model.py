@@ -3,7 +3,7 @@ import logging
 import os
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 import litellm
 from tenacity import (
@@ -28,6 +28,10 @@ class LitellmModelConfig:
 
 class LitellmModel:
     def __init__(self, **kwargs):
+        if 'https' in kwargs['model_name']:
+            base_url = cast(str, kwargs['model_name']).rsplit('/', 1)[0]
+            kwargs['model_name'] = kwargs['model_name'].replace('https://', 'openai/')
+            kwargs['model_kwargs']['api_base'] = base_url
         self.config = LitellmModelConfig(**kwargs)
         self.cost = 0.0
         self.n_calls = 0
@@ -56,9 +60,13 @@ class LitellmModel:
             for message in messages:
                 if message['role'] == 'system':
                     message['role'] = 'user'
+        actual_kwargs = self.config.model_kwargs | kwargs
         res = litellm.completion(
-            model=self.config.model_name, messages=messages, **(self.config.model_kwargs | kwargs)
+            model=self.config.model_name, messages=messages, **actual_kwargs
         )
+
+        if res['choices'][0]['finish_reason'] == 'length' and res.usage.completion_tokens < actual_kwargs['max_tokens']:
+            raise Exception("Model returned length error but max tokens were not reached")
 
         # return res, res.choices[0].message.content if res and res.choices and len(res.choices) > 0 else None
 
@@ -129,12 +137,13 @@ class LitellmModel:
             cost = litellm.cost_calculator.completion_cost(response)
             self.cost += cost
             GLOBAL_MODEL_STATS.add(cost)
-        except Exception as e:
-            logger.warning(
-                f"Error calculating cost for model {self.config.model_name}: {e}. "
-                "Please check the 'Updating the model registry' section in the documentation at "
-                "https://klieret.short.gy/litellm-model-registry Still stuck? Please open a github issue for help!"
-            )
+        except Exception as _:
+            # logger.warning(
+            #     f"Error calculating cost for model {self.config.model_name}: {e}. "
+            #     "Please check the 'Updating the model registry' section in the documentation at "
+            #     "https://klieret.short.gy/litellm-model-registry Still stuck? Please open a github issue for help!"
+            # )
+            pass
         self.n_calls += 1
         self.input_tokens += input_tokens
         self.output_tokens += output_tokens

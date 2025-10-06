@@ -15,7 +15,7 @@ import tqdm
 import subprocess
 import sys
 
-from livebench.model.api_model_config import AgentConfig
+from livebench.model.api_model_config import APIKwargs, AgentConfig
 from livebench.agentic_code_runner.minisweagent.run_inference import run_agentic_coding_inference
 
 from livebench.common import (
@@ -124,6 +124,51 @@ def get_answer(
             fout.write(json.dumps(ans) + "\n")
 
 
+def setup_model(model_config: ModelConfig, api_dict: dict[str, str] | None = None, model_provider_override: str | None = None) -> tuple[str, APIKwargs | None, str, dict[str, str] | None]:
+    
+    provider = model_provider_override
+
+    if provider is None:
+        provider = model_config.default_provider
+    if provider is None:
+        provider = list(model_config.api_name.keys())[0] if len(model_config.api_name.keys()) > 0 else None
+
+    if provider is None and api_dict is not None:
+        assert 'api_base' in api_dict, "Missing API base for model"
+        provider = 'local'
+
+    if provider is None:
+        raise ValueError(f"Missing provider for model {model_config.display_name}")
+    
+    if 'https' in provider:
+        # provider name is a base URL
+        if api_dict is None:
+            api_dict = {
+                'api_base': provider,   
+            }
+            if model_config.api_keys and os.environ.get(model_config.api_keys[provider]):
+                api_dict['api_key'] = os.environ.get(model_config.api_keys[provider])
+    
+
+    api_kwargs = None
+    if model_config.api_kwargs:
+        api_kwargs = {}
+        if model_config.api_kwargs.get('default'):
+            # pull default kwargs for model
+            api_kwargs = model_config.api_kwargs['default']
+        if provider in model_config.api_kwargs:
+            # update with provider-specific kwargs
+            api_kwargs.update(model_config.api_kwargs[provider])
+
+    if provider == 'local':
+        assert api_dict is not None, "Missing API dict for local model"
+        assert 'api_base' in api_dict, "Missing API base for local model"
+
+    model_api_name = model_config.api_name[provider] if provider in model_config.api_name else model_config.display_name
+
+    return provider, api_kwargs, model_api_name, api_dict
+
+
 def run_questions(
     parallel,
     questions: list[dict],
@@ -152,63 +197,24 @@ def run_questions(
         api_dict: A dictionary specifying the base API URL and key for model requests
     """
 
-    provider = model_provider_override
+    provider, api_kwargs, model_api_name, api_dict = setup_model(model_config, api_dict, model_provider_override)
 
-    if provider is None:
-        provider = model_config.default_provider
-    if provider is None:
-        provider = list(model_config.api_name.keys())[0]
-
-    if provider is None and api_dict is not None:
-        assert 'api_base' in api_dict, "Missing API base for model"
-        provider = 'local'
-    
-    if 'https' in provider:
-        # provider name is a base URL
-        if api_dict is None:
-            api_dict = {
-                'api_base': provider,   
-            }
-            if model_config.api_keys and os.environ.get(model_config.api_keys[provider]):
-                api_dict['api_key'] = os.environ.get(model_config.api_keys[provider])
-    
-    if provider is None:
-        raise ValueError(f"Missing provider for model {model_config.display_name}")
-
-    api_kwargs = None
-    if model_config.api_kwargs:
-        api_kwargs = {}
-        if model_config.api_kwargs.get('default'):
-            # pull default kwargs for model
-            api_kwargs = model_config.api_kwargs['default']
-        if provider in model_config.api_kwargs:
-            # update with provider-specific kwargs
-            api_kwargs.update(model_config.api_kwargs[provider])
-
-    if provider == 'local':
-        assert api_dict is not None, "Missing API dict for local model"
-        assert 'api_base' in api_dict, "Missing API base for local model"
-
-    model_api_name = model_config.api_name[provider] if provider in model_config.api_name else model_config.display_name
     print('Model API name: ', model_api_name)
     print('Evaluating ', len(questions), ' questions in ', bench_name, ' with model ', model_config.display_name)
    
     if 'agentic_coding' in bench_name:
 
+        if model_config.agent_config is not None:
+            if api_kwargs is None:
+                api_kwargs = {}
+            if 'default' in model_config.agent_config:
+                api_kwargs.update(model_config.agent_config['default'])
+            if provider in model_config.agent_config:
+                api_kwargs.update(model_config.agent_config[provider])
+
         if not check_agentic_coding_requirements():
             print("Warning: litellm or docker missing, skipping agentic coding evaluation")
             return
-
-        agent_config = None
-        if model_config.agent_config is not None:
-            agent_config: AgentConfig = {}
-            if 'default' in model_config.agent_config:
-                agent_config = model_config.agent_config['default']
-            if provider in model_config.agent_config:
-                agent_config.update(model_config.agent_config[provider])
-            if 'litellm_provider' in agent_config:
-                provider = agent_config['litellm_provider']
-                del agent_config['litellm_provider']
 
         run_agentic_coding_inference(
             questions=questions,
@@ -221,7 +227,6 @@ def run_questions(
             model_display_name_override=model_display_name_override,
             answer_file=answer_file,
             parallel=parallel,
-            agent_config=agent_config,
             task_to_answer_file=task_to_answer_file
         )
     elif parallel == 1:
