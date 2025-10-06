@@ -11,9 +11,6 @@ api_name:
   openai: chatgpt-4o-latest
 aliases:
   - chatgpt-4o-latest
-agent_config:
-  default:
-    supports_function_calling: false
 ---
 display_name: gpt-3.5-turbo
 api_name:
@@ -93,11 +90,6 @@ api_kwargs:
     reasoning:
       effort: minimal
       summary: auto
-agent_config:
-  default:
-    max_input_tokens: 300000
-    max_output_tokens: 100000
-    supports_function_calling: true
 ---
 display_name: gpt-5-low
 api_name:
@@ -117,11 +109,6 @@ api_kwargs:
     reasoning:
       effort: low
       summary: auto
-agent_config:
-  default:
-    max_input_tokens: 300000
-    max_output_tokens: 100000
-    supports_function_calling: true
 ---
 display_name: gpt-5
 api_name:
@@ -134,11 +121,6 @@ api_kwargs:
   default:
     temperature: null
     max_completion_tokens: null
-agent_config:
-  default:
-    max_input_tokens: 300000
-    max_output_tokens: 100000
-    supports_function_calling: true
 ---
 display_name: gpt-5-high
 api_name:
@@ -158,11 +140,6 @@ api_kwargs:
     reasoning:
       effort: high
       summary: auto
-agent_config:
-  default:
-    max_input_tokens: 390000
-    max_output_tokens: 120000
-    supports_function_calling: true
 ---
 display_name: gpt-5-mini-low
 api_name:
@@ -182,11 +159,6 @@ api_kwargs:
     reasoning:
       effort: low
       summary: auto
-agent_config:
-  default:
-    max_input_tokens: 300000
-    max_output_tokens: 100000
-    supports_function_calling: true
 ---
 display_name: gpt-5-mini-minimal
 api_name:
@@ -206,11 +178,6 @@ api_kwargs:
     reasoning:
       effort: minimal
       summary: auto
-agent_config:
-  default:
-    max_input_tokens: 300000
-    max_output_tokens: 100000
-    supports_function_calling: true
 ---
 display_name: gpt-5-chat
 api_name:
@@ -226,11 +193,6 @@ api_kwargs:
     max_completion_tokens: null
   openai_responses:
     max_output_tokens: null
-agent_config:
-  default:
-    max_input_tokens: 300000
-    max_output_tokens: 16000
-    supports_function_calling: false
 ---
 display_name: gpt-5-mini
 api_name:
@@ -243,11 +205,6 @@ api_kwargs:
   default:
     temperature: null
     max_completion_tokens: null
-agent_config:
-  default:
-    max_input_tokens: 390000
-    max_output_tokens: 120000
-    supports_function_calling: true
 ---
 display_name: gpt-5-mini-high
 api_name:
@@ -267,11 +224,6 @@ api_kwargs:
     reasoning:
       effort: high
       summary: auto
-agent_config:
-  default:
-    max_input_tokens: 390000
-    max_output_tokens: 120000
-    supports_function_calling: true
 ---
 display_name: gpt-5-nano-minimal
 api_name:
@@ -291,11 +243,6 @@ api_kwargs:
     reasoning:
       effort: minimal
       summary: auto
-agent_config:
-  default:
-    max_input_tokens: 390000
-    max_output_tokens: 120000
-    supports_function_calling: true
 ---
 display_name: gpt-5-nano-low
 api_name:
@@ -315,11 +262,6 @@ api_kwargs:
     reasoning:
       effort: low
       summary: auto
-agent_config:
-  default:
-    max_input_tokens: 390000
-    max_output_tokens: 120000
-    supports_function_calling: true
 ---
 display_name: gpt-5-nano
 api_name:
@@ -332,11 +274,6 @@ api_kwargs:
   default:
     temperature: null
     max_completion_tokens: null
-agent_config:
-  default:
-    max_input_tokens: 390000
-    max_output_tokens: 120000
-    supports_function_calling: true
 ---
 display_name: gpt-5-nano-high
 api_name:
@@ -356,11 +293,6 @@ api_kwargs:
     reasoning:
       effort: high
       summary: auto
-agent_config:
-  default:
-    max_input_tokens: 390000
-    max_output_tokens: 120000
-    supports_function_calling: true
 ---
 display_name: o1-mini-2024-09-12
 api_name:
@@ -608,11 +540,6 @@ api_kwargs:
       effort: medium
       summary: auto
 prompt_prefix: "Formatting reenabled"
-agent_config:
-  default:
-    max_input_tokens: 200000
-    max_output_tokens: 100000
-    supports_function_calling: true
 ---
 display_name: o3-pro-2025-06-10-high
 api_name:
@@ -628,11 +555,6 @@ api_kwargs:
       effort: high
       summary: auto
 prompt_prefix: "Formatting reenabled"
-agent_config:
-  default:
-    max_input_tokens: 200000
-    max_output_tokens: 100000
-    supports_function_calling: true
 ---
 display_name: gpt-oss-120b
 api_name:
@@ -643,11 +565,6 @@ api_kwargs:
   default:
     max_completion_tokens: 32766
     temperature: null
-agent_config:
-  default:
-    max_input_tokens: 131072
-    max_output_tokens: 32000
-    supports_function_calling: true
 ---
 display_name: gpt-5-codex
 api_name:
@@ -658,8 +575,14 @@ api_kwargs:
   default:
     temperature: null
     max_completion_tokens: null
-agent_config:
+---
+display_name: gpt-5-pro-2025-10-06
+api_name:
+  openai_responses: gpt-5-pro-2025-10-06
+default_provider: openai_responses
+aliases:
+  - gpt-5-pro
+api_kwargs:
   default:
-    max_input_tokens: 400000
-    max_output_tokens: 128000
-    supports_function_calling: true
+    temperature: null
+    max_completion_tokens: null
