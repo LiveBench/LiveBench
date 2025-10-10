@@ -3,7 +3,7 @@ import os
 import sys
 import time
 import traceback
-from typing import Protocol, cast
+from typing import Protocol, cast, Any
 import httpx
 
 from openai import Stream
@@ -27,7 +27,7 @@ Conversation = list[dict[str, str]]
 API_Kwargs = dict[str, str | float | int | dict[str, str] | None]
 
 class ModelAPI(Protocol):
-    def __call__(self, model: str, messages: Conversation, temperature: float, max_tokens: int, model_api_kwargs: API_Kwargs | None, api_dict: dict[str, str] | None, stream: bool) -> tuple[str, int]:
+    def __call__(self, model: str, messages: Conversation, temperature: float, max_tokens: int, model_api_kwargs: API_Kwargs | None, api_dict: dict[str, str] | None, stream: bool) -> tuple[str, int, dict[str, Any] | None]:
         ...
 
 
@@ -51,7 +51,7 @@ def retry_log(retry_state):
 )
 def chat_completion_openai(
     model: str, messages: Conversation, temperature: float, max_tokens: int, model_api_kwargs: API_Kwargs | None = None, api_dict: dict[str, str] | None = None, stream: bool = False
-) -> tuple[str, int]:
+) -> tuple[str, int, dict[str, Any] | None]:
     from openai import NOT_GIVEN, OpenAI
 
     if api_dict is not None:
@@ -133,7 +133,13 @@ def chat_completion_openai(
             num_tokens = -1
         output = message
 
-        return output, num_tokens
+        metadata: dict[str, Any] | None = None
+        if hasattr(response, 'provider') and response.provider is not None:
+            metadata = {
+                'provider': response.provider
+            }
+
+        return output, num_tokens, metadata
     except Exception as e:
         if "invalid_prompt" in str(e).lower():
             print("invalid prompt (model refusal), giving up")
@@ -549,6 +555,9 @@ def individual_completion_deepinfra(client, model, messages, ai_message, actual_
     elif response.choices is None or len(response.choices) == 0:
         print(response)
         raise Exception("No choices returned from DeepInfra")
+    elif response.choices[0].message is None or response.choices[0].message.content is None:
+        print(response)
+        raise Exception("No message returned from DeepInfra")
 
     return response
 

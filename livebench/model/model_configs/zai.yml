@@ -43,7 +43,6 @@ api_kwargs:
     extra_body:
       provider:
         allow_fallbacks: false
-        order:
-          - z-ai
-          - gmicloud/bf16
-          - deepinfra/fp8
+        quantizations:
+          - bf16
+          - fp8

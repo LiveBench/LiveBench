@@ -182,7 +182,7 @@ def setup_tmux_session(session_name: str, benchmarks: list[str], commands: list[
                 print(f"Activating virtual environment: {venv_path}")
                 pane.send_keys(f"source {venv_path}")
                 time.sleep(0.5)
-        
+
         # Run the command
         pane.send_keys(cmd)
         time.sleep(0.5)

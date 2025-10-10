@@ -156,7 +156,7 @@ api_kwargs:
     max_tokens: 32768
   https://api.novita.ai/openai:
     max_tokens: 65536
-default_provider: https://api.novita.ai/openai
+default_provider: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
 ---
 display_name: qwen3-next-80b-a3b-instruct
 api_name:

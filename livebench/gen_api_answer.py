@@ -71,6 +71,8 @@ def get_answer(
     else:
         temperature = 0
 
+    metadata = {}
+
     
     choices = []
     total_num_tokens = 0
@@ -87,7 +89,7 @@ def get_answer(
                 prompt = model_config.prompt_prefix + "\n" + prompt
             messages.append({"role": "user", "content": prompt})
 
-            output, num_tokens = get_api_function(provider)(
+            res = get_api_function(provider)(
                 model=model_api_name,
                 messages=messages,
                 temperature=temperature,
@@ -96,6 +98,15 @@ def get_answer(
                 api_dict=api_dict,
                 stream=stream
             )
+
+            if len(res) == 3:
+                output, num_tokens, m = res
+            else:
+                output, num_tokens = res
+                m = None
+
+            if m is not None:
+                metadata.update(m)
 
             messages.append({"role": "assistant", "content": output})
             turns.append(output)
@@ -114,7 +125,8 @@ def get_answer(
         "api_info": {
             "provider": provider if provider != 'local' else api_dict['api_base'],
             "api_name": model_api_name,
-            "api_kwargs": api_kwargs
+            "api_kwargs": api_kwargs,
+            **metadata
         }
     }
 
