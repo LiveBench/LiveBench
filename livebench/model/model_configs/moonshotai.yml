@@ -16,8 +16,10 @@ api_kwargs:
 display_name: kimi-k2-instruct-0905
 api_name:
   https://api.moonshot.ai/v1: kimi-k2-0905-preview
+  deepinfra: moonshotai/Kimi-K2-Instruct-0905
 api_keys:
   https://api.moonshot.ai/v1: MOONSHOTAI_API_KEY
+default_provider: deepinfra
 api_kwargs:
   default:
     temperature: 0.6
