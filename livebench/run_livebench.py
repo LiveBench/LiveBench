@@ -60,6 +60,7 @@ class LiveBenchParams:
     question_end: int | None = None
     question_id: list[str] | None = None
     livebench_release_option: str | None = None
+    min_release_date: str | None = None
     stream: bool = False
     remove_existing_judgment_file: bool = False
     ignore_missing_answers: bool = False
@@ -101,6 +102,7 @@ class LiveBenchParams:
             question_end=args.question_end,
             question_id=args.question_id,
             livebench_release_option=args.livebench_release_option,
+            min_release_date=args.min_release_date,
             stream=args.stream,
             remove_existing_judgment_file=args.remove_existing_judgment_file,
             ignore_missing_answers=args.ignore_missing_answers,
@@ -225,6 +227,7 @@ def build_run_command(
     question_end: int | None = None,
     question_id: list[str] | None = None,
     livebench_release_option: str | None = None,
+    min_release_date: str | None = None,
     stream: bool = False,
     remove_existing_judgment_file: bool = False,
     ignore_missing_answers: bool = False,
@@ -297,6 +300,9 @@ def build_run_command(
     if livebench_release_option:
         gen_api_cmd += f" --livebench-release-option {livebench_release_option}"
         gen_judge_cmd += f" --livebench-release-option {livebench_release_option}"
+    if min_release_date:
+        gen_api_cmd += f" --min-release-date {min_release_date}"
+        gen_judge_cmd += f" --min-release-date {min_release_date}"
     if stream:
         gen_api_cmd += " --stream"
     if remove_existing_judgment_file:
@@ -348,6 +354,7 @@ def build_run_command_from_params(params: LiveBenchParams, bench_name: str | Non
         question_end=params.question_end,
         question_id=params.question_id,
         livebench_release_option=params.livebench_release_option,
+        min_release_date=params.min_release_date,
         stream=params.stream,
         remove_existing_judgment_file=params.remove_existing_judgment_file,
         only_incorrect=params.only_incorrect,
@@ -487,6 +494,7 @@ def main():
     parser.add_argument("--question-end", type=int, help="Ending question index")
     parser.add_argument("--question-id", nargs="+", help="Specific question IDs to process")
     parser.add_argument("--livebench-release-option", help="LiveBench release option")
+    parser.add_argument("--min-release-date", help="Filter questions by minimum release date (e.g., YYYY-MM-DD)")
     parser.add_argument("--stream", action="store_true", help="Enable streaming mode")
     parser.add_argument("--remove-existing-judgment-file", action="store_true",
                       help="Remove existing judgment file before running")
