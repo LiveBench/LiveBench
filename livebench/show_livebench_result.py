@@ -260,7 +260,7 @@ def display_result_single(args):
 
         for category_name, task_names in tasks.items():
             for task_name in task_names:
-                questions = load_questions(categories[category_name], release_set, args.livebench_release_option, task_name, None)
+                questions = load_questions(categories[category_name], release_set, args.livebench_release_option, task_name, None, args.min_release_date)
                 questions_all.extend(questions)
     elif args.question_source == "jsonl":
         for bench in args.bench_name:
@@ -273,7 +273,7 @@ def display_result_single(args):
 
             for question_file in list_of_question_files:
                 print(question_file)
-                questions = load_questions_jsonl(question_file, release_set, args.livebench_release_option, None)
+                questions = load_questions_jsonl(question_file, release_set, args.livebench_release_option, None, args.min_release_date)
                 questions_all.extend(questions)
 
     print('loaded ', len(questions_all), ' questions')
@@ -395,6 +395,12 @@ if __name__ == "__main__":
         default=max(LIVE_BENCH_RELEASES),
         choices=LIVE_BENCH_RELEASES,
         help="Livebench release to use. Provide a single date option. Will handle excluding deprecated questions for selected release."
+    )
+    parser.add_argument(
+        "--min-release-date",
+        type=str,
+        default=None,
+        help="Filter questions by minimum release date (e.g., YYYY-MM-DD)",
     )
     parser.add_argument(
         "--show-average-row",
