@@ -176,7 +176,7 @@ api_kwargs:
 aliases:
   - claude-haiku-4-5
 ---
-display_name: claude-haiku-4-5-20251001-thinking
+display_name: claude-haiku-4-5-20251001-thinking-64k
 api_name:
   anthropic: claude-haiku-4-5-20251001
 api_kwargs:
