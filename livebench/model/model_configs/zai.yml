@@ -10,11 +10,6 @@ api_kwargs:
     temperature: 0.6
     top_p: 0.95
     max_tokens: 81920
-agent_config:
-  default:
-    max_input_tokens: 128000
-    max_output_tokens: 81920
-    supports_function_calling: true
 ---
 display_name: glm-4.5-air
 api_name:
@@ -28,8 +23,26 @@ api_kwargs:
     temperature: 0.6
     top_p: 0.95
     max_tokens: 81920
-agent_config:
+---
+display_name: glm-4.6
+api_name:
+  https://api.z.ai/api/paas/v4: glm-4.6
+  https://openrouter.ai/api/v1: z-ai/glm-4.6
+  deepinfra: zai-org/GLM-4.6
+default_provider: deepinfra
+api_keys:
+  https://api.z.ai/api/paas/v4: ZAI_API_KEY
+  https://openrouter.ai/api/v1: OPENROUTER_API_KEY
+  deepinfra: ZAI_API_KEY
+api_kwargs:
   default:
-    max_input_tokens: 128000
-    max_output_tokens: 81920
-    supports_function_calling: true
+    temperature: 1.0
+    top_p: 0.95
+    max_tokens: 81920
+  https://openrouter.ai/api/v1:
+    extra_body:
+      provider:
+        allow_fallbacks: false
+        quantizations:
+          - bf16
+          - fp8

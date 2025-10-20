@@ -119,6 +119,9 @@ def run_command(cmd: str, env: dict[str, str] | None = None) -> int:
         print(f"Error running command: {cmd}")
         print(f"Exit code: {e.returncode}")
         return e.returncode
+    except KeyboardInterrupt:
+        print("KeyboardInterrupt received. Stopping command and continuing to collect results...")
+        return 1
 
 def setup_tmux_session(session_name: str, benchmarks: list[str], commands: list[str], venv_path: str | None = None) -> None:
     """
@@ -179,7 +182,7 @@ def setup_tmux_session(session_name: str, benchmarks: list[str], commands: list[
                 print(f"Activating virtual environment: {venv_path}")
                 pane.send_keys(f"source {venv_path}")
                 time.sleep(0.5)
-        
+
         # Run the command
         pane.send_keys(cmd)
         time.sleep(0.5)

@@ -3,19 +3,24 @@ display_name: kimi-k2-instruct
 api_name:
   together: moonshotai/Kimi-K2-Instruct
   https://api.moonshot.ai/v1: kimi-k2-0711-preview
-default_provider: https://api.moonshot.ai/v1
+  https://openrouter.ai/api/v1: moonshotai/kimi-k2
+default_provider: https://openrouter.ai/api/v1
 api_keys:
   https://api.moonshot.ai/v1: MOONSHOTAI_API_KEY
+  https://openrouter.ai/api/v1: OPENROUTER_API_KEY
 api_kwargs:
   default:
     temperature: 0.6
     max_tokens: 128000
-agent_config:
+---
+display_name: kimi-k2-instruct-0905
+api_name:
+  https://api.moonshot.ai/v1: kimi-k2-0905-preview
+  deepinfra: moonshotai/Kimi-K2-Instruct-0905
+api_keys:
+  https://api.moonshot.ai/v1: MOONSHOTAI_API_KEY
+default_provider: deepinfra
+api_kwargs:
   default:
-    max_input_tokens: 128000
-    max_output_tokens: 128000
-  together:
-    litellm_provider: together_ai
-    supports_function_calling: false
-  https://api.moonshot.ai/v1:
-    supports_function_calling: true
+    temperature: 0.6
+    max_tokens: 128000

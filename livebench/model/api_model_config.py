@@ -19,6 +19,8 @@ class AgentConfig(TypedDict):
     convert_system_to_user: NotRequired[bool]
     include_thinking_in_history: NotRequired[bool]
 
+APIKwargs = dict[str, dict[str, str | int | float | bool | dict[str, str] | None]]
+
 @dataclass
 class ModelConfig:
     display_name: str # Name of the model as it will be displayed in the leaderboard; used for file naming
@@ -26,7 +28,7 @@ class ModelConfig:
     default_provider: str | None = None # provider to use if not otherwise specified
     api_keys: dict[str, str] | None = None # mapping of provider name to API key
     aliases: list[str] | None = None # alternative names for the model
-    api_kwargs: dict[str, dict[str, str | int | float | bool | dict[str, str] | None]] | None = None # mapping of provider name to additional arguments to pass to the API call
+    api_kwargs: APIKwargs | None = None # mapping of provider name to additional arguments to pass to the API call
     prompt_prefix: str | None = None # prefix to add to the prompt
     agent_config: dict[str, AgentConfig] | None = None # mapping of provider name to additional configuration for use in agentic coding
 

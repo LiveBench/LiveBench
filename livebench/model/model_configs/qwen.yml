@@ -13,11 +13,6 @@ api_name:
 aliases:
   - qwen2.5-72b-instruct
 default_provider: deepinfra
-agent_config:
-  default:
-    max_output_tokens: 8192
-    max_input_tokens: 32767
-    supports_function_calling: true
 ---
 display_name: qwen2.5-coder-32b-instruct
 api_name:
@@ -48,11 +43,6 @@ api_name:
   https://dashscope-intl.aliyuncs.com/compatible-mode/v1: qwen-max-2025-01-25
 api_keys:
   https://dashscope-intl.aliyuncs.com/compatible-mode/v1: ALIBABA_API_KEY
-agent_config:
-  default:
-    max_input_tokens: 30720
-    max_output_tokens: 8192
-    supports_function_calling: true
 ---
 display_name: qwen3-30b-a3b-thinking
 api_name:
@@ -63,11 +53,6 @@ api_kwargs:
     temperature: 0.6
     top_p: 0.95
 prompt_prefix: "/think"
-agent_config:
-  default:
-    max_input_tokens: 40960
-    max_output_tokens: 32768
-    supports_function_calling: true
 ---
 display_name: qwen3-30b-a3b
 api_name:
@@ -78,11 +63,6 @@ api_kwargs:
     top_p: 0.8
     max_tokens: 32000
 prompt_prefix: "/no_think"
-agent_config:
-  default:
-    max_input_tokens: 40960
-    max_output_tokens: 32768
-    supports_function_calling: true
 ---
 display_name: qwen3-235b-a22b-thinking
 api_name:
@@ -95,11 +75,6 @@ api_kwargs:
     temperature: 0.6
     top_p: 0.95
 prompt_prefix: "/think"
-agent_config:
-  default:
-    max_input_tokens: 40960
-    max_output_tokens: 32768
-    supports_function_calling: true
 ---
 display_name: qwen3-32b-thinking
 api_name:
@@ -110,11 +85,6 @@ api_kwargs:
     temperature: 0.6
     top_p: 0.95
 prompt_prefix: "/think"
-agent_config:
-  default:
-    max_input_tokens: 40960
-    max_output_tokens: 32768
-    supports_function_calling: true
 ---
 display_name: qwen3-14b-thinking
 api_name:
@@ -125,11 +95,6 @@ api_kwargs:
     temperature: 0.6
     top_p: 0.95
 prompt_prefix: "/think"
-agent_config:
-  default:
-    max_input_tokens: 40960
-    max_output_tokens: 32768
-    supports_function_calling: true
 ---
 display_name: qwen3-235b-a22b-instruct-2507
 api_name:
@@ -140,12 +105,6 @@ api_kwargs:
     temperature: 0.7
     top_p: 0.8
     max_tokens: 16384
-agent_config:
-  default:
-    max_input_tokens: 262144
-    max_output_tokens: 16384
-    supports_function_calling: true
-    litellm_provider: deepinfra
 ---
 display_name: qwen3-coder-480b-a35b-instruct
 api_name:
@@ -157,11 +116,6 @@ api_kwargs:
     temperature: 0.7
     top_p: 0.8
     max_tokens: 65536
-agent_config:
-  default:
-    max_input_tokens: 262144
-    max_output_tokens: 65536
-    supports_function_calling: true
 ---
 display_name: qwen3-coder-plus-2025-07-22
 api_name:
@@ -173,11 +127,6 @@ api_kwargs:
     temperature: 0.7
     top_p: 0.8
     max_tokens: 65536
-agent_config:
-  default:
-    max_input_tokens: 1000000
-    max_output_tokens: 65536
-    supports_function_calling: true
 ---
 display_name: qwen3-235b-a22b-thinking-2507
 api_name:
@@ -191,11 +140,6 @@ api_kwargs:
     temperature: 0.6
     top_p: 0.95
     max_tokens: 81920
-agent_config:
-  default:
-    max_input_tokens: 262144
-    max_output_tokens: 81920
-    supports_function_calling: true
 ---
 display_name: qwen3-next-80b-a3b-thinking
 api_name:
@@ -212,16 +156,7 @@ api_kwargs:
     max_tokens: 32768
   https://api.novita.ai/openai:
     max_tokens: 65536
-default_provider: https://api.novita.ai/openai
-agent_config:
-  default:
-    supports_function_calling: true
-  https://api.novita.ai/openai:
-    max_input_tokens: 65536
-    max_output_tokens: 65536
-  https://dashscope-intl.aliyuncs.com/compatible-mode/v1:
-    max_input_tokens: 126976
-    max_output_tokens: 32768
+default_provider: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
 ---
 display_name: qwen3-next-80b-a3b-instruct
 api_name:
@@ -239,15 +174,6 @@ api_kwargs:
   https://api.novita.ai/openai:
     max_tokens: 65536
 default_provider: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
-agent_config:
-  default:
-    supports_function_calling: true
-  https://api.novita.ai/openai:
-    max_input_tokens: 65536
-    max_output_tokens: 65536
-  https://dashscope-intl.aliyuncs.com/compatible-mode/v1:
-    max_input_tokens: 126976
-    max_output_tokens: 32768
 ---
 display_name: qwen3-max-2025-09-23
 api_name:
@@ -257,8 +183,6 @@ api_keys:
 api_kwargs:
   default:
     temperature: 0.6
-agent_config:
-  default:
-    max_input_tokens: 258048
-    max_output_tokens: 65536
-    supports_function_calling: true
+    max_tokens: 16384
+aliases:
+  - qwen3-max

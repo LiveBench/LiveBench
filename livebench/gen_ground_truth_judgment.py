@@ -492,6 +492,10 @@ if __name__ == "__main__":
         help="A debug option. The question id to be evaluated."
     )
     parser.add_argument(
+        "--exclude-question-id", type=str, nargs="+", default=None,
+        help="A debug option. The question id to be excluded from the evaluation."
+    )
+    parser.add_argument(
         "--model-display-name", type=str, nargs="+",default=None,
         help="The display name of the model(s). If provided, will be used to name the output file. Will match order to --model-list. If not provided, will be generated from --model-list."
     )
@@ -546,6 +550,8 @@ if __name__ == "__main__":
                     if args.first_n:
                         questions = questions[: args.first_n]
                     questions = questions[args.question_begin:args.question_end]
+                    if args.exclude_question_id:
+                        questions = [q for q in questions if q['question_id'] not in args.exclude_question_id]
 
                     task_full_name = f"{LIVE_BENCH_DATA_SUPER_PATH}/{category_name}/{task_name}"
                     output_file = f"data/{task_full_name}/model_judgment/ground_truth_judgment.jsonl" if args.output_file is None else args.output_file
@@ -582,7 +588,8 @@ if __name__ == "__main__":
                     questions = questions[: args.first_n]
                 
                 questions = questions[args.question_begin:args.question_end]
-
+                if args.exclude_question_id:
+                    questions = [q for q in questions if q['question_id'] not in args.exclude_question_id]
                 bench_name = os.path.dirname(question_file).replace("data/","")
 
                 output_file = f"data/{bench_name}/model_judgment/ground_truth_judgment.jsonl" if args.output_file is None else args.output_file

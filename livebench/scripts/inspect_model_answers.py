@@ -565,10 +565,14 @@ def process_model_comparison(question_id, model1, model2, model1_answers, model2
 
 
 def process_benchmark(bench_name, model1, model2, model1_answers, model2_answers, include_judgment_debug, 
-                     console, only_incorrect=False, include_mistake_explanations=False, output_to_file=False,
-                     exclude_ids=None):
+                     console, only_incorrect=False, only_different=False, include_mistake_explanations=False, 
+                     output_to_file=False, exclude_ids=None):
     if bench_name not in model1_answers:
         console.print(f"No answers found for benchmark {bench_name} from model {model1}", style="bold red")
+        return
+    
+    if only_different and not model2:
+        console.print("Error: --only-different requires two models to be specified", style="bold red")
         return
     
     if model2 and model2_answers and bench_name not in model2_answers:
@@ -607,16 +611,28 @@ def process_benchmark(bench_name, model1, model2, model1_answers, model2_answers
             console.print(f"Skipping question {question_id} - answer not found from model {model2}", style="yellow")
             continue
         
+        # Apply filtering based on flags
+        model1_score = model_scores.get(question_id, {}).get(model1)
+        model2_score = None
+        if model2:
+            model2_score = model_scores.get(question_id, {}).get(model2)
+        
         # Skip if only_incorrect is set and both models got a perfect score (or missing scores)
         if only_incorrect:
-            model1_score = model_scores.get(question_id, {}).get(model1)
-            model2_score = None
-            if model2:
-                model2_score = model_scores.get(question_id, {}).get(model2)
-            
             # Only process questions where at least one model got a score other than 1
             if (model1_score == 1 or model1_score is None) and (model2_score == 1 or model2_score is None):
                 continue
+        
+        # Skip if only_different is set and both models got the same score
+        if only_different:
+            # Skip if scores are the same (including both being None)
+            if model1_score == model2_score:
+                continue
+            
+            # When combined with only_incorrect, only show cases where model2 got 0 and model1 got 1
+            if only_incorrect:
+                if not (model1_score == 1 and model2_score == 0):
+                    continue
         
         # Print separator for better readability
         console.print(f"\n\n{'='*80}", style="bold")
@@ -650,6 +666,7 @@ def main():
     parser.add_argument("--model2", help="Second model ID or path to JSONL file (optional)")
     parser.add_argument("--include-judgment-debug", action="store_true", help="Include debug output from judgment")
     parser.add_argument("--only-incorrect", action="store_true", help="When processing a benchmark, only show questions where at least one model received a score other than 1")
+    parser.add_argument("--only-different", action="store_true", help="When processing a benchmark with two models, only show questions where model2 got a different score than model1. When combined with --only-incorrect, shows only cases where model2 got 0 and model1 got 1")
     parser.add_argument("--include-mistake-explanations", action="store_true", help="Include explanations for why a model's answer is incorrect when score is not 1")
     parser.add_argument("--output-to-file", action="store_true", help="Output results to markdown files in answer_inspections directory")
     parser.add_argument("--exclude-ids", nargs="+", help="List of question IDs to exclude when processing a benchmark")
@@ -685,7 +702,7 @@ def main():
         # Process all questions in the benchmark
         process_benchmark(args.bench_name, model1, model2, model1_answers, model2_answers, 
                          args.include_judgment_debug, console, args.only_incorrect, 
-                         args.include_mistake_explanations, args.output_to_file, 
+                         args.only_different, args.include_mistake_explanations, args.output_to_file, 
                          args.exclude_ids)
 
 

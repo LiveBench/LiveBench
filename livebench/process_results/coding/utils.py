@@ -155,6 +155,9 @@ def code_generation_process_results(question: dict, llm_answer: str, debug=False
 # python agentic_code_runner/eval/harness/run_evaluation.py --config agentic_code_runner/eval/config.json
 def agentic_coding_process_results(questions: list[dict], answers: list[dict], debug=False, max_workers=1, only_build_image=False) -> dict[str, int]:
 
+    if len(answers) == 0:
+        return dict()
+    
     eval_id = shortuuid.uuid()
 
     config_path = Path(LIVE_BENCH_ROOT_PATH / 'agentic_code_runner/eval/config.json')
@@ -214,7 +217,7 @@ def agentic_coding_process_results(questions: list[dict], answers: list[dict], d
         "need_clone": True,
         "global_env": [],
         "clear_env": True,
-        "stop_on_error": True,
+        "stop_on_error": False,
         "max_workers": max_workers,
         "max_workers_build_image": max_workers,
         "max_workers_run_instance": max_workers,
@@ -267,6 +270,8 @@ def agentic_coding_process_results(questions: list[dict], answers: list[dict], d
             elif instance_id in report['error_ids']:
                 print(f"ERROR, {model_name} {question_id} ({instance_id})")
             print('RUN ID', answer['run_id'])
+            print('EVAL ID', eval_id)
+            print('WORKDIR', workdir_path)
     
     assert len(result) == len(questions)
     assert sum(result.values()) == report['resolved_instances']

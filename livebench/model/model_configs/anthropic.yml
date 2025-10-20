@@ -134,17 +134,22 @@ aliases:
   - claude-4-1-opus-thinking-32k
   - claude-4-1-opus-thinking
 ---
+display_name: claude-4-1-opus-20250805-base
+api_name:
+  anthropic: claude-opus-4-1-20250805
+api_kwargs:
+  default:
+    temperature: 1
+aliases:
+  - claude-4-1-opus-base
+  - claude-4-1-opus
+---
 display_name: claude-sonnet-4-5-20250929
 api_name:
   anthropic: claude-sonnet-4-5-20250929
 api_kwargs:
   default:
     temperature: 1
-agent_config:
-  default:
-    supports_function_calling: true
-    max_input_tokens: 200000
-    max_output_tokens: 64000
 aliases:
   - claude-sonnet-4-5
 ---
@@ -161,8 +166,25 @@ api_kwargs:
 aliases:
   - claude-sonnet-4-5-20250929-thinking
   - claude-sonnet-4-5-thinking
-agent_config:
+---
+display_name: claude-haiku-4-5-20251001
+api_name:
+  anthropic: claude-haiku-4-5-20251001
+api_kwargs:
   default:
-    supports_function_calling: true
-    max_input_tokens: 200000
-    max_output_tokens: 64000
+    temperature: 1
+aliases:
+  - claude-haiku-4-5
+---
+display_name: claude-haiku-4-5-20251001-thinking-64k
+api_name:
+  anthropic: claude-haiku-4-5-20251001
+api_kwargs:
+  default:
+    temperature: 1
+    thinking:
+      type: enabled
+      budget_tokens: 63000
+    max_tokens: 64000
+aliases:
+  - claude-haiku-4-5-thinking

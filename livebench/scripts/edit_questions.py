@@ -79,7 +79,12 @@ def evaluate(question_id: str, model: str | None = None):
     edit_dir = glob.glob(os.path.join("question_edit", "live_bench", "**", str(question_id)), recursive=True)
     
     if not edit_dir:
-        raise ValueError(f"Could not find edited question with ID {question_id}")
+        print(f"Question {question_id} not prepared yet, preparing now...")
+        prepare_edit([question_id])
+        # Search again after preparation
+        edit_dir = glob.glob(os.path.join("question_edit", "live_bench", "**", str(question_id)), recursive=True)
+        if not edit_dir:
+            raise ValueError(f"Could not find edited question with ID {question_id} even after preparing")
     
     edit_dir = edit_dir[0]
     
@@ -269,35 +274,33 @@ def save_edit(question_ids: list[str]):
 
 def main():
     parser = argparse.ArgumentParser(description="Edit questions in LiveBench dataset")
-    subparsers = parser.add_subparsers(dest="mode", help="Mode of operation")
     
-    # Prepare for edit mode
-    prepare_parser = subparsers.add_parser("prepare", help="Prepare questions for editing")
-    prepare_parser.add_argument("--question-id", nargs="+", required=True, 
-                                help="List of question IDs to prepare for editing")
+    # Mode as first positional argument
+    parser.add_argument("mode", choices=["prepare", "evaluate", "save"], 
+                        help="Mode of operation")
     
-    # Evaluate mode
-    evaluate_parser = subparsers.add_parser("evaluate", help="Evaluate edited questions")
-    evaluate_parser.add_argument("--question-id", required=True, 
-                                help="Question ID to evaluate")
-    evaluate_parser.add_argument("--model", 
-                                help="Model to evaluate against instead of ground truth")
-    
-    # Save edit mode
-    save_parser = subparsers.add_parser("save", help="Save edited questions")
-    save_parser.add_argument("--question-id", nargs="+", required=True,
-                             help="List of question IDs to save edits for")
+    # All arguments available for all modes
+    parser.add_argument("--question-id", nargs="+",
+                        help="List of question IDs to prepare/save for editing, or single question ID to evaluate")
+    parser.add_argument("--model", 
+                        help="Model to evaluate against instead of ground truth (evaluate mode only)")
     
     args = parser.parse_args()
     
     if args.mode == "prepare":
+        if not args.question_id:
+            parser.error("--question-id is required for prepare mode")
         prepare_edit(args.question_id)
     elif args.mode == "evaluate":
-        evaluate(args.question_id, args.model)
+        if not args.question_id:
+            parser.error("--question-id is required for evaluate mode")
+        # For evaluate mode, we expect a single question ID
+        question_id = args.question_id[0] if isinstance(args.question_id, list) else args.question_id
+        evaluate(question_id, args.model)
     elif args.mode == "save":
+        if not args.question_id:
+            parser.error("--question-id is required for save mode")
         save_edit(args.question_id)
-    else:
-        parser.print_help()
 
 
 if __name__ == "__main__":
