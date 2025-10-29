@@ -29,7 +29,7 @@ api_name:
   https://api.z.ai/api/paas/v4: glm-4.6
   https://openrouter.ai/api/v1: z-ai/glm-4.6
   deepinfra: zai-org/GLM-4.6
-default_provider: deepinfra
+default_provider: https://api.z.ai/api/paas/v4
 api_keys:
   https://api.z.ai/api/paas/v4: ZAI_API_KEY
   https://openrouter.ai/api/v1: OPENROUTER_API_KEY
