@@ -54,6 +54,7 @@ class LitellmModel:
                 KeyboardInterrupt,
             )
         ),
+        reraise=True,
     )
     def _query_completion(self, messages: list[dict[str, str]], **kwargs):
         if 'deepseek' in self.config.model_name:
@@ -61,14 +62,17 @@ class LitellmModel:
                 if message['role'] == 'system':
                     message['role'] = 'user'
         actual_kwargs = self.config.model_kwargs | kwargs
-        res = litellm.completion(
-            model=self.config.model_name, messages=messages, **actual_kwargs
-        )
+        try:
+            res = litellm.completion(
+                model=self.config.model_name, messages=messages, **actual_kwargs
+            )
+        except litellm.exceptions.InternalServerError as e:
+            if "This model's maximum context length is" in str(e):
+                raise litellm.exceptions.ContextWindowExceededError(str(e), model=self.config.model_name, llm_provider=self.config.model_name) from e
+            raise e
 
-        if res['choices'][0]['finish_reason'] == 'length' and res.usage.completion_tokens < actual_kwargs['max_tokens']:
+        if res['choices'][0]['finish_reason'] == 'length' and 'max_tokens' in actual_kwargs and res.usage.completion_tokens < actual_kwargs['max_tokens']:
             raise Exception("Model returned length error but max tokens were not reached")
-
-        # return res, res.choices[0].message.content if res and res.choices and len(res.choices) > 0 else None
 
         result = {
             'response': res
@@ -93,16 +97,14 @@ class LitellmModel:
                 KeyboardInterrupt,
             )
         ),
+        reraise=True,
     )
     def _query_responses(self, messages: list[dict[str, str]], **kwargs):
         system_messages = [m for m in messages if m['role'] == 'system']
         system_prompt = system_messages[0]['content'] if system_messages else None
-        actual_messages = [m.copy() for m in messages if m['role'] != 'system']
-        for message in actual_messages:
-            if 'extra' in message:
-                del message['extra']
+
         res = litellm.responses(
-            model=self.config.model_name, input=actual_messages, instructions=system_prompt, **(self.config.model_kwargs | kwargs),
+            model=self.config.model_name, input=messages, instructions=system_prompt, **(self.config.model_kwargs | kwargs),
         )
 
         output_text = ""
@@ -123,10 +125,15 @@ class LitellmModel:
         return result
 
     def query(self, messages: list[dict[str, str]], **kwargs) -> dict:
+
+        actual_messages = [m.copy() for m in messages if m['role'] != 'system']
+        for message in actual_messages:
+            if 'extra' in message:
+                del message['extra']
         if self.config.api_type == "completion":
-            result = self._query_completion(messages, **kwargs)
+            result = self._query_completion(actual_messages, **kwargs)
         elif self.config.api_type == "responses":
-            result = self._query_responses(messages, **kwargs)
+            result = self._query_responses(actual_messages, **kwargs)
         else:
             raise ValueError(f"Invalid API type: {self.config.api_type}")
         response = result['response']
