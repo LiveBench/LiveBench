@@ -5,36 +5,24 @@ api_name:
   https://api.x.ai/v1: grok-beta
 api_keys:
   https://api.x.ai/v1: XAI_API_KEY
-agent_config:
-  default:
-    litellm_provider: xai
 ---
 display_name: grok-2-1212
 api_name:
   https://api.x.ai/v1: grok-2-1212
 api_keys:
   https://api.x.ai/v1: XAI_API_KEY
-agent_config:
-  default:
-    litellm_provider: xai
 ---
 display_name: grok-3-beta
 api_name:
   https://api.x.ai/v1: grok-3-beta
 api_keys:
   https://api.x.ai/v1: XAI_API_KEY
-agent_config:
-  default:
-    litellm_provider: xai
 ---
 display_name: grok-3-mini-beta-high
 api_name:
   https://api.x.ai/v1: grok-3-mini-beta
 api_keys:
   https://api.x.ai/v1: XAI_API_KEY
-agent_config:
-  default:
-    litellm_provider: xai
 aliases:
   - grok-3-mini-beta
 api_kwargs:
@@ -48,9 +36,6 @@ api_name:
   https://api.x.ai/v1: grok-3-mini-beta
 api_keys:
   https://api.x.ai/v1: XAI_API_KEY
-agent_config:
-  default:
-    litellm_provider: xai
 api_kwargs:
   default:
     reasoning_effort: low
@@ -64,9 +49,6 @@ api_keys:
   https://api.x.ai/v1: XAI_API_KEY
 aliases:
   - grok-4
-agent_config:
-  default:
-    litellm_provider: xai
 api_kwargs:
   default:
     max_tokens: null
@@ -79,12 +61,6 @@ api_keys:
   https://api.x.ai/v1: XAI_API_KEY
 aliases:
   - grok-code-fast
-agent_config:
-  default:
-    supports_function_calling: true
-    max_input_tokens: 256000
-    max_output_tokens: 100000
-    litellm_provider: xai
 api_kwargs:
   default:
     max_completion_tokens: null
@@ -98,12 +74,6 @@ api_keys:
   https://api.x.ai/v1: XAI_API_KEY
 aliases:
   - grok-4-fast-non-reasoning
-agent_config:
-  default:
-    supports_function_calling: true
-    litellm_provider: xai
-    max_input_tokens: 2000000
-    max_output_tokens: 100000
 api_kwargs:
   default:
     max_tokens: null
@@ -117,12 +87,6 @@ api_keys:
   https://api.x.ai/v1: XAI_API_KEY
 aliases:
   - grok-4-fast-reasoning
-agent_config:
-  default:
-    supports_function_calling: true
-    litellm_provider: xai
-    max_input_tokens: 2000000
-    max_output_tokens: 100000
 api_kwargs:
   default:
     max_tokens: null

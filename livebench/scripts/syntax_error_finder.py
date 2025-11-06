@@ -87,15 +87,19 @@ print(f"Total model judgments loaded: {total_judgments_loaded}")
 MAX_WORKERS = 20
 
 SWEAGENT_ERROR_STATUSES = [
-    'LimitsExceeded',
+    # 'LimitsExceeded',
+    'UnknownError',
+    'ContextWindowExceededError',
 ]
 
 OTHER_ERROR_STRINGS = [
     # '\\"instance_cost\\": 3'
-    "This endpoint's maximum context length"
 ]
 
 ALL_ERROR_STRINGS = SWEAGENT_ERROR_STATUSES + OTHER_ERROR_STRINGS
+
+EXCLUDE_STRINGS = [
+]
 
 
 # Dictionary to store model -> (run_id, question_id) pairs
@@ -138,6 +142,8 @@ def process_jsonl_file(jsonl_file, valid_question_ids=None):
                     # Check for error pattern in the original JSONL line
                     for error_string in ALL_ERROR_STRINGS:
                         if error_string in line:
+                            if any(exclude_string in line for exclude_string in EXCLUDE_STRINGS):
+                                continue
                             error_found = error_string
                             # Track which error strings this question has
                             local_question_errors[question_id].add(error_found)
@@ -541,8 +547,8 @@ if args.rerun:
             "--bench-name", "live_bench/agentic_coding",
             "--question-source", "jsonl",
             "--mode", "parallel",
-            "--parallel-requests", "10",
-            "--parallel-grading", "10",
+            "--parallel-requests", "1",
+            "--parallel-grading", "1",
             "--question-id"] + list(question_ids)
         
         print(f"Running command: {' '.join(cmd)}")

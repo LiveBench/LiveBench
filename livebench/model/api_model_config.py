@@ -1,23 +1,7 @@
 from dataclasses import dataclass
-from typing import Literal
 import yaml
 import os
 from functools import cache
-
-from typing import TypedDict
-try:
-    from typing import NotRequired
-except:
-    from typing_extensions import NotRequired
-
-class AgentConfig(TypedDict):
-    litellm_provider: NotRequired[str]
-    max_input_tokens: NotRequired[int]
-    max_output_tokens: NotRequired[int]
-    supports_function_calling: NotRequired[bool]
-    api_type: NotRequired[Literal["completion", "responses"]]
-    convert_system_to_user: NotRequired[bool]
-    include_thinking_in_history: NotRequired[bool]
 
 APIKwargs = dict[str, dict[str, str | int | float | bool | dict[str, str] | None]]
 
@@ -30,14 +14,7 @@ class ModelConfig:
     aliases: list[str] | None = None # alternative names for the model
     api_kwargs: APIKwargs | None = None # mapping of provider name to additional arguments to pass to the API call
     prompt_prefix: str | None = None # prefix to add to the prompt
-    agent_config: dict[str, AgentConfig] | None = None # mapping of provider name to additional configuration for use in agentic coding
-
-    def __post_init__(self):
-        if self.agent_config is not None:
-            agent_config = {}
-            for provider, config in self.agent_config.items():
-                agent_config[provider] = AgentConfig(**config)
-            self.agent_config = agent_config
+    preserve_reasoning: bool | None = None # whether to preserve reasoning in multi-turn tasks
 
 @cache
 def load_model_configs(file_path: str) -> dict[str, ModelConfig]:

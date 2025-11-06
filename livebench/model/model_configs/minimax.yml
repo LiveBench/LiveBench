@@ -7,3 +7,4 @@ api_kwargs:
   default:
     temperature: 1
     max_tokens: 131072
+preserve_reasoning: true

@@ -15,15 +15,6 @@ api_kwargs:
   https://api.deepseek.com:
     temperature: null
     max_tokens: null
-agent_config:
-  default:
-    max_input_tokens: 128000
-    max_output_tokens: 32768
-    convert_system_to_user: true
-  together:
-    litellm_provider: together_ai
-  https://api.deepseek.com:
-    max_input_tokens: 64000
 ---
 display_name: deepseek-v3-0324
 api_name:
@@ -32,16 +23,6 @@ api_name:
 default_provider: together
 api_keys:
   https://api.deepseek.com: DEEPSEEK_API_KEY
-agent_config:
-  default:
-    max_input_tokens: 128000
-    convert_system_to_user: true
-  together:
-    litellm_provider: together_ai
-    max_output_tokens: 12288
-  https://api.deepseek.com:
-    max_input_tokens: 64000
-    max_output_tokens: 8000
 ---
 display_name: deepseek-r1-distill-llama-70b
 api_name:
@@ -115,10 +96,6 @@ api_kwargs:
     temperature: 1.0
   https://openrouter.ai/api/v1:
     reasoning_effort: "high"
-agent_config:
-  https://openrouter.ai/api/v1:
-    allowed_openai_params:
-      - reasoning_effort
 ---
 display_name: deepseek-v3.1-terminus
 api_name:
@@ -146,10 +123,6 @@ api_kwargs:
     temperature: 1.0
   https://openrouter.ai/api/v1:
     reasoning_effort: "high"
-agent_config:
-  https://openrouter.ai/api/v1:
-    allowed_openai_params:
-      - reasoning_effort
 ---
 display_name: deepseek-v3.2-exp
 api_name:

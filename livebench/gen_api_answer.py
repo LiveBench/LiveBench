@@ -12,10 +12,8 @@ import concurrent.futures
 import glob
 import shortuuid
 import tqdm
-import subprocess
-import sys
 
-from livebench.model.api_model_config import APIKwargs, AgentConfig
+from livebench.model.api_model_config import APIKwargs
 from livebench.agentic_code_runner.minisweagent.run_inference import run_agentic_coding_inference
 
 from livebench.common import (
@@ -216,14 +214,6 @@ def run_questions(
    
     if 'agentic_coding' in bench_name:
 
-        if model_config.agent_config is not None:
-            if api_kwargs is None:
-                api_kwargs = {}
-            if 'default' in model_config.agent_config:
-                api_kwargs.update(model_config.agent_config['default'])
-            if provider in model_config.agent_config:
-                api_kwargs.update(model_config.agent_config[provider])
-
         if not check_agentic_coding_requirements():
             print("Warning: litellm or docker missing, skipping agentic coding evaluation")
             return
@@ -239,7 +229,8 @@ def run_questions(
             model_display_name_override=model_display_name_override,
             answer_file=answer_file,
             parallel=parallel,
-            task_to_answer_file=task_to_answer_file
+            task_to_answer_file=task_to_answer_file,
+            preserve_reasoning=model_config.preserve_reasoning
         )
     elif parallel == 1:
         for question in tqdm.tqdm(questions):

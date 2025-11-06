@@ -24,7 +24,7 @@ class LitellmModelConfig:
     api_type: Literal["completion", "responses"] = "completion"
     model_kwargs: dict[str, Any] = field(default_factory=dict)
     litellm_model_registry: Path | str | None = os.getenv("LITELLM_MODEL_REGISTRY_PATH")
-
+    preserve_reasoning: bool | None = None
 
 class LitellmModel:
     def __init__(self, **kwargs):
@@ -62,6 +62,10 @@ class LitellmModel:
                 if message['role'] == 'system':
                     message['role'] = 'user'
         actual_kwargs = self.config.model_kwargs | kwargs
+        if 'allowed_openai_params' in actual_kwargs:
+            actual_kwargs['allowed_openai_params'] = actual_kwargs['allowed_openai_params'] + ['reasoning_effort']
+        else:
+            actual_kwargs['allowed_openai_params'] = ['reasoning_effort']
         try:
             res = litellm.completion(
                 model=self.config.model_name, messages=messages, **actual_kwargs
@@ -74,11 +78,23 @@ class LitellmModel:
         if res['choices'][0]['finish_reason'] == 'length' and 'max_tokens' in actual_kwargs and res.usage.completion_tokens < actual_kwargs['max_tokens']:
             raise Exception("Model returned length error but max tokens were not reached")
 
+        content = res['choices'][0]['message']['content']
+        if self.config.preserve_reasoning:
+            reasoning_content: str | None = None
+            if hasattr(res['choices'][0]['message'], 'reasoning_content'):
+                reasoning_content = res['choices'][0]['message'].reasoning_content
+            elif hasattr(res['choices'][0]['message'], 'provider_specific_fields') and 'reasoning_content' in res['choices'][0]['message'].provider_specific_fields:
+                reasoning_content = res['choices'][0]['message'].provider_specific_fields['reasoning_content']
+            
+            if reasoning_content:
+                content = '<think>' + reasoning_content + '</think>' + content
+
+
         result = {
             'response': res
         }
         if res and res.choices and len(res.choices) > 0:
-            result['content'] = res.choices[0].message.content
+            result['content'] = content
             result['input_tokens'] = res.usage.prompt_tokens
             result['output_tokens'] = res.usage.completion_tokens
         return result

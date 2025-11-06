@@ -238,22 +238,12 @@ api_name:
   google: gemma-3n-e4b-it
 aliases:
   - gemma-3n-e4b
-agent_config:
-  default:
-    max_input_tokens: 8192
-    max_output_tokens: 2048
-    convert_system_to_user: true
 ---
 display_name: gemma-3n-e2b-it
 api_name:
   google: gemma-3n-e2b-it
 aliases:
   - gemma-3n-e2b
-agent_config:
-  default:
-    max_input_tokens: 8192
-    max_output_tokens: 2048
-    convert_system_to_user: true
 ---
 display_name: gemini-2.5-flash-lite-preview-06-17-highthinking
 api_name:

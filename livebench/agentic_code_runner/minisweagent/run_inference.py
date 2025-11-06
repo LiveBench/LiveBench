@@ -5,7 +5,6 @@ import subprocess
 import shortuuid
 import yaml
 
-from livebench.model.api_model_config import AgentConfig
 from livebench.common import LIVE_BENCH_ROOT_PATH
 
 from livebench.process_results.coding.utils import agentic_coding_process_results
@@ -37,6 +36,7 @@ def run_agentic_coding_inference(
     task_to_answer_file: dict[str, str] | None = None,
     replay_traj_dir: str | None = None,
     custom_run_id: str | None = None,
+    preserve_reasoning: bool | None = None,
 ):
 
     if len(questions) == 0:
@@ -106,6 +106,9 @@ def run_agentic_coding_inference(
             config['model']['model_kwargs']['api_key'] = api_dict['api_key']
 
     config['model']['model_name'] = provider + '/' + model_api_name
+
+    if preserve_reasoning:
+        config['model']['preserve_reasoning'] = True
 
     config_path = all_traj_folder / 'config.yaml'
     with open(config_path, 'w') as f:
