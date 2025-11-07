@@ -24,3 +24,17 @@ api_kwargs:
   default:
     temperature: 0.6
     max_tokens: 128000
+---
+display_name: kimi-k2-thinking
+api_name:
+  https://api.moonshot.ai/v1: kimi-k2-thinking
+  https://openrouter.ai/api/v1: moonshotai/kimi-k2-thinking
+api_keys:
+  https://api.moonshot.ai/v1: MOONSHOTAI_API_KEY
+  https://openrouter.ai/api/v1: OPENROUTER_API_KEY
+default_provider: https://openrouter.ai/api/v1
+api_kwargs:
+  default:
+    temperature: 1
+    max_tokens: 128000
+preserve_reasoning: true
