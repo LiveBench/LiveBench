@@ -1,5 +1,8 @@
 ## Changelog
 
+### 2025-10-03
+Switched the agent used for agentic coding to [Mini-SWE-Agent](https://mini-swe-agent.com/latest/) instead of SWE-Agent due to its simpler design, consistent interface with all models, and easier maintainability. Additionally, we updated the step limit to 250 rather than 50. The agentic coding tasks were rerun for all models with these changes and the existing 2025-05-30 leaderboard was updated with the new results.
+
 ### 2025-05-30
 This update introduces a new agentic coding category, where models must operate in a multi-turn, realistic development environment to resolve issues from real Github repositories. It contains Python, JavaScript, and TypeScript tasks, and we plan to add more tasks and languages in the future. Inference is performed using the [SWE-Agent](https://swe-agent.com) framework, and evaluation uses the [Multi-SWE-Bench](https://multi-swe-bench.github.io/#/) harness. This task provides the most realistic possible evaluation of LLM coding capabilities and prediction of which will be most useful for developers.
 
