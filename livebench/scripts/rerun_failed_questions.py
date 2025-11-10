@@ -7,15 +7,22 @@ from collections import defaultdict
 import os
 from livebench.model.api_model_config import get_model_config
 
-def find_error_questions(root_dir, target_model_id=None, old_max_tokens=None):
+def find_error_questions(root_dir, target_model_id=None, old_max_tokens=None, old_providers=None, replace_provider=None, bench_name=None):
     model_errors = defaultdict(list)
 
     model_display_name = get_model_config(target_model_id).display_name
 
+    from_files = []
+
     for jsonl_file in Path(root_dir).rglob('*.jsonl'):
+        if bench_name and bench_name not in str(jsonl_file.resolve()):
+            continue
+
         name = get_model_config(jsonl_file.stem).display_name
         if name != model_display_name:
             continue
+
+        added_questions_for_file = False
 
         with open(jsonl_file, 'r') as f:
             for line in f:
@@ -31,12 +38,26 @@ def find_error_questions(root_dir, target_model_id=None, old_max_tokens=None):
                         turns = choices[0].get('turns', [])
                         if turns and isinstance(turns, list) and '$ERROR$' in turns or len(turns) == 0 or turns[0] == '' or turns[0] == '<think>':
                             model_errors[model_id].append(entry['question_id'])
-                        elif old_max_tokens and entry.get('total_output_tokens') == old_max_tokens:
-                            model_errors[model_id].append(entry['question_id'])
+                            added_questions_for_file = True
+                            continue
+                    if old_max_tokens and entry.get('total_output_tokens') == old_max_tokens:
+                        model_errors[model_id].append(entry['question_id'])
+                        added_questions_for_file = True
+                    elif old_providers and entry.get('api_info', {}).get('provider') in old_providers:
+                        model_errors[model_id].append(entry['question_id'])
+                        added_questions_for_file = True
+                    elif replace_provider and entry.get('api_info', {}).get('provider') != replace_provider:
+                        model_errors[model_id].append(entry['question_id'])
+                        added_questions_for_file = True
                 except json.JSONDecodeError:
                     print(f"Warning: Skipping malformed JSON line in {jsonl_file}")
                 except KeyError as e:
                     print(f"Warning: Missing required field {e} in {jsonl_file}")
+        if added_questions_for_file:
+            from_files.append(jsonl_file)
+
+    for file in from_files:
+        print(file)
 
     return model_errors
 
@@ -87,6 +108,9 @@ def main():
     parser.add_argument('--mode', type=str, choices=['single', 'parallel', 'sequential'], 
                        help='Execution mode for run_livebench.py: single benchmark, parallel benchmarks, or sequential benchmarks')
     parser.add_argument('--parallel-requests', type=int, help='Number of parallel requests for API calls')
+    parser.add_argument('--old-provider', type=str, nargs='+', help='Rerun questions for which this/these providers were used')
+    parser.add_argument('--replace-provider', type=str, help='Replace the provider with this one')
+    parser.add_argument('--bench-name', type=str, help='Benchmark name')
     
     args = parser.parse_args()
     
@@ -112,9 +136,17 @@ def main():
     parallel_requests = args.parallel_requests
     if parallel_requests:
         print(f"Parallel requests: {parallel_requests}")
-
+    old_providers = args.old_provider
+    if old_providers:
+        print(f"Old providers: {old_providers}")
+    replace_provider = args.replace_provider
+    if replace_provider:
+        print(f"Replace provider: {replace_provider}")
+    bench_name = args.bench_name
+    if bench_name:
+        print(f"Benchmark name: {bench_name}")
     # Find all question IDs with errors
-    model_errors = find_error_questions(root_dir, target_model_id, old_max_tokens)
+    model_errors = find_error_questions(root_dir, target_model_id, old_max_tokens, old_providers, replace_provider, bench_name)
 
     if not model_errors:
         print("No errors found!")

@@ -77,6 +77,10 @@ def chat_completion_openai(
 
     actual_api_kwargs = {key: (value if value is not None else NOT_GIVEN) for key, value in api_kwargs.items()}
 
+    if 'stream' in actual_api_kwargs:
+        stream = actual_api_kwargs['stream']
+        del actual_api_kwargs['stream']
+
     try:
         if stream:
             stream: Stream[ChatCompletionChunk] = client.chat.completions.create(
@@ -126,18 +130,21 @@ def chat_completion_openai(
             else:
                 num_tokens = None
 
+            if hasattr(response, 'provider') and response.provider is not None:
+                metadata = {
+                    'provider': response.provider
+                }
+
+            if message is None or message == '':
+                print(response)
+
         if message is None or message == '':
-            print(response)
             raise Exception("No message returned from OpenAI")
         if num_tokens is None:
             num_tokens = -1
         output = message
 
         metadata: dict[str, Any] | None = None
-        if hasattr(response, 'provider') and response.provider is not None:
-            metadata = {
-                'provider': response.provider
-            }
 
         return output, num_tokens, metadata
     except Exception as e:
