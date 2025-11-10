@@ -165,6 +165,8 @@ class DefaultAgent:
         if '<think>' in content and '</think>' in content:
             content = content.split('</think>')[1].strip() # don't parse actions from thinking content
         actions = re.findall(r"```bash\s*\n(.*?)\n```", content, re.DOTALL)
+        if len(actions) == 0:
+            actions = re.findall(r"```bash\s*\n(.*?)```", content, re.DOTALL)
         if len(actions) == 1:
             return {"action": actions[0].strip(), **response}
         raise FormatError(self.render_template(self.config.format_error_template, actions=actions))

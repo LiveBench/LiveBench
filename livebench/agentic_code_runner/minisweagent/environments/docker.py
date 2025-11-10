@@ -29,7 +29,7 @@ class DockerEnvironmentConfig:
     """Additional arguments to pass to the docker/container executable.
     Default is ["--rm"], which removes the container after it exits.
     """
-    container_timeout: str = "2h"
+    container_timeout: str = "5h"
     """Max duration to keep container running. Uses the same format as the sleep command."""
     pull_timeout: int = 120
     """Timeout in seconds for pulling images."""

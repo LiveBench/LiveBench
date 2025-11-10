@@ -66,10 +66,17 @@ class LitellmModel:
             actual_kwargs['allowed_openai_params'] = actual_kwargs['allowed_openai_params'] + ['reasoning_effort']
         else:
             actual_kwargs['allowed_openai_params'] = ['reasoning_effort']
+
         try:
             res = litellm.completion(
                 model=self.config.model_name, messages=messages, **actual_kwargs
             )
+
+            if actual_kwargs.get('stream', False):
+                chunks = []
+                for chunk in res:
+                    chunks.append(chunk)
+                res = litellm.stream_chunk_builder(chunks, messages=messages)
         except litellm.exceptions.InternalServerError as e:
             if "This model's maximum context length is" in str(e):
                 raise litellm.exceptions.ContextWindowExceededError(str(e), model=self.config.model_name, llm_provider=self.config.model_name) from e
@@ -79,19 +86,11 @@ class LitellmModel:
             raise Exception("Model returned length error but max tokens were not reached")
 
         content = res['choices'][0]['message']['content']
-        if self.config.preserve_reasoning:
-            reasoning_content: str | None = None
-            if hasattr(res['choices'][0]['message'], 'reasoning_content'):
-                reasoning_content = res['choices'][0]['message'].reasoning_content
-            elif hasattr(res['choices'][0]['message'], 'provider_specific_fields') and 'reasoning_content' in res['choices'][0]['message'].provider_specific_fields:
-                reasoning_content = res['choices'][0]['message'].provider_specific_fields['reasoning_content']
-            
-            if reasoning_content:
-                content = '<think>' + reasoning_content + '</think>' + content
 
 
         result = {
-            'response': res
+            'response': res,
+            'message': res['choices'][0]['message']
         }
         if res and res.choices and len(res.choices) > 0:
             result['content'] = content
@@ -102,7 +101,7 @@ class LitellmModel:
     @retry(
         stop=stop_after_attempt(10),
         wait=wait_exponential(multiplier=2, min=4, max=60),
-        before_sleep=before_sleep_log(logger, logging.WARNING),
+        before_sleep=before_sleep_log(logger, logging.WARNING, exc_info=True),
         retry=retry_if_not_exception_type(
             (
                 litellm.exceptions.UnsupportedParamsError,
@@ -133,7 +132,7 @@ class LitellmModel:
 
         result = {
             'response': res,
-            'content': output_text
+            'content': output_text,
         }
         if res and res.usage is not None:
             result['input_tokens'] = res.usage.input_tokens
@@ -142,10 +141,18 @@ class LitellmModel:
 
     def query(self, messages: list[dict[str, str]], **kwargs) -> dict:
 
-        actual_messages = [m.copy() for m in messages if m['role'] != 'system']
-        for message in actual_messages:
-            if 'extra' in message:
-                del message['extra']
+        actual_messages: list[dict[str, str]] = []
+        for message in messages:
+            message_copy = message.copy()
+            if 'extra' in message_copy:
+                if message_copy['extra'].get('message') is not None:
+                    actual_messages.append(message_copy['extra']['message'])
+                else:
+                    del message_copy['extra']
+                    actual_messages.append(message_copy)
+            else:
+                actual_messages.append(message_copy)
+
         if self.config.api_type == "completion":
             result = self._query_completion(actual_messages, **kwargs)
         elif self.config.api_type == "responses":
@@ -170,12 +177,15 @@ class LitellmModel:
         self.n_calls += 1
         self.input_tokens += input_tokens
         self.output_tokens += output_tokens
-        return {
+        res = {
             "content": content or "",
             "extra": {
                 "response": response.model_dump(),
+                "message": result['message'].model_dump() if 'message' in result else None
             },
         }
+
+        return res
 
     def get_template_vars(self) -> dict[str, Any]:
         return asdict(self.config) | {"n_model_calls": self.n_calls, "model_cost": self.cost, "total_input_tokens": self.input_tokens, "total_output_tokens": self.output_tokens}
