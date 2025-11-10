@@ -14,13 +14,16 @@ from rich.progress import (
     BarColumn,
     MofNCompleteColumn,
     Progress,
+    ProgressColumn,
     SpinnerColumn,
+    Task,
     TaskID,
     TaskProgressColumn,
     TextColumn,
     TimeElapsedColumn,
 )
 from rich.table import Table
+from rich.text import Text
 
 import livebench.agentic_code_runner.minisweagent.models as minisweagent_models
 
@@ -31,6 +34,20 @@ def _shorten_str(s: str, max_len: int, shorten_left=False) -> str:
     else:
         s = "..." + s[-max_len + 3 :] if len(s) > max_len else s
     return f"{s:<{max_len}}"
+
+
+class StepTimeElapsedColumn(ProgressColumn):
+    """Custom column that displays time elapsed since step start."""
+    
+    def render(self, task: Task):
+        """Render the step elapsed time."""
+        step_start_time = task.fields.get("step_start_time")
+        if step_start_time is None:
+            return Text("(step: --:--:--)", style="yellow")
+        
+        elapsed = time.time() - step_start_time
+        delta = timedelta(seconds=int(elapsed))
+        return Text(f"(step: {delta})", style="yellow")
 
 
 class RunBatchProgressManager:
@@ -70,6 +87,7 @@ class RunBatchProgressManager:
             TextColumn("{task.fields[instance_id]}"),
             TextColumn("{task.fields[status]}"),
             TimeElapsedColumn(),
+            StepTimeElapsedColumn(),
         )
         """Task progress bar for individual instances. There's only one progress bar
         with one task for each instance.
@@ -125,11 +143,14 @@ class RunBatchProgressManager:
     def update_instance_status(self, instance_id: str, message: str):
         assert self._task_progress_bar is not None
         assert self._main_progress_bar is not None
+        
         with self._lock:
+            # Reset step start time for the new step
             self._task_progress_bar.update(
                 self._spinner_tasks[instance_id],
                 status=_shorten_str(message, 30),
-                instance_id=_shorten_str(instance_id, 25, shorten_left=True),
+                instance_id=_shorten_str(instance_id, 65, shorten_left=False),
+                step_start_time=time.time(),
             )
         self._update_total_costs()
 
@@ -140,6 +161,7 @@ class RunBatchProgressManager:
                 status="Task initialized",
                 total=None,
                 instance_id=instance_id,
+                step_start_time=None,
             )
 
     def on_instance_end(self, instance_id: str, exit_status: str | None) -> None:
