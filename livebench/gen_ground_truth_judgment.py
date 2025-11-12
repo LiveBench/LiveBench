@@ -30,7 +30,7 @@ from livebench.process_results.writing.plot_unscrambling.utils import plot_unscr
 from livebench.process_results.writing.typos.utils import typos_process_results
 from livebench.process_results.writing.connections.utils import get_connections_puzzle_evaluator
 from livebench.process_results.coding.utils import LCB_generation_process_results, code_generation_process_results, agentic_coding_process_results
-from livebench.process_results.instruction_following.utils import instruction_following_process_results
+from livebench.process_results.instruction_following.utils import instruction_following_process_results, ifbench_process_results
 from livebench.process_results.reasoning.web_of_lies_v3.utils import web_of_lies_v3_process_results
 from livebench.common import (
     LIVE_BENCH_RELEASES,
@@ -102,7 +102,11 @@ def play_a_match_gt(match: MatchSingle, output_file: str | None = None, debug=Fa
     splits = task_or_subtask.split('_')
 
     try:
-        if len(splits) > 0 and (splits[0] in ["amc", "smc", "aime", "imo", "usamo"] or (len(splits) > 1 and splits[1] == "amc")):
+        if question.get("category") == "instruction_following":
+            # IFBench format questions (old format never reaches play_a_match_gt)
+            score = ifbench_process_results(question, llm_answer, debug)
+            category = "instruction_following"
+        elif len(splits) > 0 and (splits[0] in ["amc", "smc", "aime", "imo", "usamo"] or (len(splits) > 1 and splits[1] == "amc")):
             if splits[0] in ["amc", "smc"] or (len(splits) > 1 and splits[1] == "amc"):
                 score = mathcontest_process_results(ground_truth, llm_answer, question_text, debug)
                 category = "math"
@@ -346,9 +350,12 @@ def gen_judgments(
     #input("Press Enter to confirm...")
 
     if "instruction_following" in bench_name:
-        # instruction following tasks are evaluated differently from all other tasks
         nltk.download('punkt')
         nltk.download('punkt_tab')
+        nltk.download('averaged_perceptron_tagger')
+
+    if "instruction_following" in bench_name and len(questions) > 0 and questions[0].get("livebench_release_date", "") < "2025-11-25":
+        # Old instruction following format uses batch evaluation
         task_name = matches[0].question['task']
 
         if model_list is None:
