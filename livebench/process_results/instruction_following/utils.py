@@ -1,6 +1,8 @@
 
 import re
+from typing import Any
 from livebench.if_runner.instruction_following_eval import evaluation_main
+from livebench.if_runner.ifbench import evaluation_lib
 
 def score_results(follow_all_instructions, follow_instruction_list, threshold=0.2):
     """
@@ -16,6 +18,56 @@ def score_results(follow_all_instructions, follow_instruction_list, threshold=0.
     score_2 = sum(score_2) / len(score_2)
     avg_score = (score_1 + score_2) / 2
     return avg_score
+
+
+def ifbench_process_results(question: dict[str, Any], llm_answer: str, debug: bool = False) -> float:
+    """
+    Process results for IFBench format instruction following questions.
+    
+    Args:
+        question: Question dict containing 'key', 'instruction_id_list', 'prompt', and 'kwargs'
+        llm_answer: The model's response text
+        debug: Whether to print debug information
+    
+    Returns:
+        Score between 0 and 1
+    """
+    # Extract solution from <solution>...</solution> tags if present
+    solution_match = re.search(r'<solution>(.*?)</solution>', llm_answer, re.DOTALL)
+    if solution_match:
+        response = solution_match.group(1).strip()
+    else:
+        response = llm_answer.strip()
+    
+    # Create InputExample for IFBench evaluation
+    inp = evaluation_lib.InputExample(
+        key=question.get('key', question.get('question_id', 0)),
+        instruction_id_list=question['instruction_id_list'],
+        prompt=question['turns'][0],
+        kwargs=question['kwargs']
+    )
+    
+    # Evaluate using IFBench's strict evaluation
+    try:
+        result = evaluation_lib.test_instruction_following_strict(inp, response)
+    except Exception as e:
+        print('ERROR', e, question.get('question_id', question.get('key')))
+        print('PROMPT', question['turns'][0].split('<instructions>')[1].split('</instructions>')[0].strip())
+        print('SOLUTION', response)
+        return 0
+    
+    # Calculate score using the same method as the old format
+    score = score_results(result.follow_all_instructions, result.follow_instruction_list)
+    
+    if debug and score < 1:
+        print('INCORRECT', score, question.get('question_id', question.get('key')))
+        print('INSTRUCTION IDS', question['instruction_id_list'])
+        print('PROMPT', question['turns'][0].split('<instructions>')[1].split('</instructions>')[0].strip())
+        print('RESULT', {question['instruction_id_list'][i]: result.follow_instruction_list[i] 
+                         for i in range(len(question['instruction_id_list']))})
+        print('SOLUTION', response)
+    
+    return score
 
 
 def instruction_following_process_results(questions, model_answers, task: str, model_id: str, debug=False) -> int:
