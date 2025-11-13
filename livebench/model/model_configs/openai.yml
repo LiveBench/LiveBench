@@ -620,3 +620,22 @@ api_kwargs:
     max_completion_tokens: null
   openai_responses:
     max_output_tokens: null
+---
+display_name: gpt-5.1-2025-11-13-nothinking
+api_name:
+  openai: gpt-5.1-2025-11-13
+  openai_responses: gpt-5.1-2025-11-13
+default_provider: openai_responses
+aliases:
+  - gpt-5.1-nothinking
+api_kwargs:
+  default:
+    temperature: null
+  openai:
+    max_completion_tokens: null
+    reasoning_effort: none
+  openai_responses:
+    max_output_tokens: null
+    reasoning:
+      effort: none
+      summary: auto
