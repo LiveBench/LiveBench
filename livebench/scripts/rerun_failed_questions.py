@@ -7,12 +7,13 @@ from collections import defaultdict
 import os
 from livebench.model.api_model_config import get_model_config
 
-def find_error_questions(root_dir, target_model_id=None, old_max_tokens=None, old_providers=None, replace_provider=None, bench_name=None):
+def find_error_questions(root_dir, target_model_id=None, old_max_tokens=None, old_providers=None, replace_provider=None, bench_name=None, replace_api_name=None):
     model_errors = defaultdict(list)
 
     model_display_name = get_model_config(target_model_id).display_name
 
     from_files = []
+    total_output_tokens = 0
 
     for jsonl_file in Path(root_dir).rglob('*.jsonl'):
         if bench_name and bench_name not in str(jsonl_file.resolve()):
@@ -39,16 +40,24 @@ def find_error_questions(root_dir, target_model_id=None, old_max_tokens=None, ol
                         if turns and isinstance(turns, list) and '$ERROR$' in turns or len(turns) == 0 or turns[0] == '' or turns[0] == '<think>':
                             model_errors[model_id].append(entry['question_id'])
                             added_questions_for_file = True
+                            total_output_tokens += entry.get('total_output_tokens', 0)
                             continue
                     if old_max_tokens and entry.get('total_output_tokens') == old_max_tokens:
                         model_errors[model_id].append(entry['question_id'])
                         added_questions_for_file = True
+                        total_output_tokens += entry.get('total_output_tokens', 0)
                     elif old_providers and entry.get('api_info', {}).get('provider') in old_providers:
                         model_errors[model_id].append(entry['question_id'])
                         added_questions_for_file = True
+                        total_output_tokens += entry.get('total_output_tokens', 0)
                     elif replace_provider and entry.get('api_info', {}).get('provider') != replace_provider:
                         model_errors[model_id].append(entry['question_id'])
                         added_questions_for_file = True
+                        total_output_tokens += entry.get('total_output_tokens', 0)
+                    elif replace_api_name and entry.get('api_info', {}).get('api_name') != replace_api_name:
+                        model_errors[model_id].append(entry['question_id'])
+                        added_questions_for_file = True
+                        total_output_tokens += entry.get('total_output_tokens', 0)
                 except json.JSONDecodeError:
                     print(f"Warning: Skipping malformed JSON line in {jsonl_file}")
                 except KeyError as e:
@@ -58,6 +67,8 @@ def find_error_questions(root_dir, target_model_id=None, old_max_tokens=None, ol
 
     for file in from_files:
         print(file)
+
+    print(f"Total output tokens: {total_output_tokens}")
 
     return model_errors
 
@@ -111,6 +122,7 @@ def main():
     parser.add_argument('--old-provider', type=str, nargs='+', help='Rerun questions for which this/these providers were used')
     parser.add_argument('--replace-provider', type=str, help='Replace the provider with this one')
     parser.add_argument('--bench-name', type=str, help='Benchmark name')
+    parser.add_argument('--replace-api-name', type=str, help='Replace the API name with this one')
     
     args = parser.parse_args()
     
@@ -145,8 +157,11 @@ def main():
     bench_name = args.bench_name
     if bench_name:
         print(f"Benchmark name: {bench_name}")
+    replace_api_name = args.replace_api_name
+    if replace_api_name:
+        print(f"Replace API name: {replace_api_name}")
     # Find all question IDs with errors
-    model_errors = find_error_questions(root_dir, target_model_id, old_max_tokens, old_providers, replace_provider, bench_name)
+    model_errors = find_error_questions(root_dir, target_model_id, old_max_tokens, old_providers, replace_provider, bench_name, replace_api_name)
 
     if not model_errors:
         print("No errors found!")
@@ -155,11 +170,11 @@ def main():
     # Print results and run commands for each model
     for model_id, error_ids in model_errors.items():
         print(f"\nModel: {model_id}")
-        print("Question IDs with $ERROR$ or max tokens exceeded:")
+        print(f"{len(error_ids)} Question IDs to be rerun:")
         print(' '.join(error_ids))
 
         # Run the livebench script for this model and failed questions
-        run_commands_for_model(model_id, error_ids, new_max_tokens, api_base, api_key_name, mode, parallel_requests)
+        # run_commands_for_model(model_id, error_ids, new_max_tokens, api_base, api_key_name, mode, parallel_requests)
 
 if __name__ == "__main__":
     main()
