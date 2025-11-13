@@ -125,18 +125,24 @@ class LitellmModel:
         output_text = ""
 
         for output_item in res.output:
-            if output_item.type == 'message':
-                for content in output_item.content:
-                    if content.type == 'output_text':
-                        output_text += content.text or ""
+            if isinstance(output_item, dict):
+                if output_item.get('type') == 'message':
+                    for content in output_item.get('content', []):
+                        if content.get('type') == 'output_text':
+                            output_text += content.get('text', '')
+            else:
+                if output_item.type == 'message':
+                    for content in output_item.content:
+                        if content.type == 'output_text':
+                            output_text += content.text or ""
 
         result = {
             'response': res,
             'content': output_text,
         }
         if res and res.usage is not None:
-            result['input_tokens'] = res.usage.input_tokens
-            result['output_tokens'] = res.usage.output_tokens
+            result['input_tokens'] = res.usage.input_tokens if not isinstance(res.usage, dict) else res.usage.get('input_tokens', 0)
+            result['output_tokens'] = res.usage.output_tokens if not isinstance(res.usage, dict) else res.usage.get('output_tokens', 0)
         return result
 
     def query(self, messages: list[dict[str, str]], **kwargs) -> dict:
