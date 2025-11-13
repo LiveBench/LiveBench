@@ -90,6 +90,7 @@ SWEAGENT_ERROR_STATUSES = [
     # 'LimitsExceeded',
     'UnknownError',
     'ContextWindowExceededError',
+    'TimeoutExpired'
 ]
 
 OTHER_ERROR_STRINGS = [
