@@ -36,6 +36,7 @@ def check_conflicts(instruction_ids: list[str]) -> list[tuple[str, str]]:
         # words:repeats limits word repetition (max 1-5 times)
         # count:keywords_multiple requires specific keywords 1, 2, 3, 5, 7 times
         ("words:repeats", "count:keywords_multiple"),
+        ("words:repeats", "format:emoji"),
         
         # format:no_whitespace requires no spaces/newlines
         # format:newline requires each word on a new line
@@ -58,6 +59,10 @@ def check_conflicts(instruction_ids: list[str]) -> list[tuple[str, str]]:
         ("format:newline", "ratio:sentence_type"),
         ("format:newline", "ratio:sentence_balance"),
         ("format:newline", "ratio:sentence_words"),
+
+
+        ("words:alphabet", "count:words_japanese"),
+        ("words:alphabet", "words:last_first")
     ]
     
     # Convert to set for efficient lookup

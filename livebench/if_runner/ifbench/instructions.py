@@ -432,7 +432,7 @@ class NumbersCountChecker(Instruction):
 		if self._count_numbers is None or self._count_numbers < 0:
 			self._count_numbers = random.randint(1, _NUM_NUMBERS)
 
-		self._description_pattern = "Include exactly {N} numbers in the response."
+		self._description_pattern = "Include exactly {N} numbers in the response; do not use commas within the numbers."
 		return self._description_pattern.format(N=self._count_numbers)
 
 	def get_instruction_args(self):
@@ -472,6 +472,7 @@ class AlphabetLoopChecker(Instruction):
 		value = value.translate(str.maketrans('', '', string.punctuation))
 		words = value.strip(''.join(string.punctuation) + ' ').split()
 		alphabet = string.ascii_lowercase
+		words = [word for word in words if any(char in alphabet for char in word)]
 		if len(words) == 0:
 			return False
 		correct_letter = words[0][0].lower()
@@ -488,11 +489,11 @@ class AlphabetLoopChecker(Instruction):
 
 
 class ThreeVowelChecker(Instruction):
-	"""Write using words that contain only three types of vowels alltogether."""
+	"""Your response must contain at most three different vowels."""
 
 	def build_description(self):
 		"""Build the instruction description."""
-		self._description_pattern = "Write using words that contain only three types of vowels alltogether."
+		self._description_pattern = "Your response must contain at most three different vowels."
 		return self._description_pattern
 
 	def get_instruction_args(self):
@@ -634,9 +635,9 @@ class PunctuationCoverChecker(Instruction):
 		punctuation = {".", ",", "!", "?", ";", ":"}
 		if not ('!?' in value or '?!' in value or '‽' in value):
 			return False
-		new_value = value.replace('?!', '', 1)
+		new_value = value.replace('?!', '')
 		if len(new_value) == len(value):
-			new_value = value.replace('!?', '', 1)
+			new_value = value.replace('!?', '')
 		for char in new_value:
 			if char in punctuation:
 				punctuation.remove(char)
@@ -918,13 +919,13 @@ class NthWordJapaneseChecker(Instruction):
 		if self._japanese_position is None or self._japanese_position < 0:
 			self._japanese_position = random.randint(1, _NUM_WORD_CYCLE)
 
-		self._description_pattern = "Every {N}th word of your response must be in Japanese."
+		self._description_pattern = "Every {N}th word of your response must be in Japanese, using Japanese characters."
 		if self._japanese_position % 10 == 1:
-			self._description_pattern = "Every {N}st of your response must be in Japanese."
+			self._description_pattern = "Every {N}st of your response must be in Japanese, using Japanese characters."
 		if self._japanese_position % 10 == 2:
-			self._description_pattern = "Every {N}nd of your response must be in Japanese."
+			self._description_pattern = "Every {N}nd of your response must be in Japanese, using Japanese characters."
 		elif self._japanese_position % 10 == 3:
-			self._description_pattern = "Every {N}rd of your response must be in Japanese."
+			self._description_pattern = "Every {N}rd of your response must be in Japanese, using Japanese characters."
 		return self._description_pattern.format(N=self._japanese_position)
 
 	def get_instruction_args(self):
@@ -936,7 +937,7 @@ class NthWordJapaneseChecker(Instruction):
 		return ["N"]
 
 	def check_following(self, value):
-		"""Checks if every {N}th word of the response is in Japanese."""
+		"""Checks if every {N}th word of the response is in Japanese, using Japanese characters."""
 
 		def is_japanese(text):
 			"""
@@ -1068,7 +1069,7 @@ class IncludeKeywordChecker(Instruction):
 
 
 class PronounCountChecker(Instruction):
-	"""The response should include at least {N} pronouns."""
+	"""The response should include at least {N} personal pronouns."""
 
 	def build_description(self, *, N=None):
 		"""Build the instruction description.
@@ -1084,7 +1085,7 @@ class PronounCountChecker(Instruction):
 		if self._num_pronouns is None or self._num_pronouns < 0:
 			self._num_pronouns = random.randint(1, _NUM_PRONOUNS)
 
-		self._description_pattern = "The response should include at least {N} pronouns."
+		self._description_pattern = "The response should include at least {N} personal pronouns."
 		return self._description_pattern.format(N=self._num_pronouns)
 
 	def get_instruction_args(self):
@@ -1096,7 +1097,7 @@ class PronounCountChecker(Instruction):
 		return ["N"]
 
 	def check_following(self, value):
-		"""Checks if the response includes at least {N} pronouns."""
+		"""Checks if the response includes at least {N} personal pronouns."""
 		pronouns = set(
 			['i', 'me', 'my', 'mine', 'myself', 'we', 'us', 'our', 'ours', 'ourselves', 'you', 'your', 'yours',
 			 'yourself', 'yourselves', 'he', 'him', 'his', 'himself', 'she', 'her', 'hers', 'herself', 'it', 'its',
@@ -1157,8 +1158,8 @@ class LastWordFirstNextChecker(Instruction):
 			tmp = sentences[i + 1].lstrip(''.join(string.punctuation) + ' ').split()
 			if len(tmp) == 0:
 				return False
-			first_word = tmp[0]
-			if last_word.lower() != first_word.lower():
+			first_word = tmp[0].rstrip(''.join(string.punctuation) + ' ')
+			if last_word.lower().strip() != first_word.lower().strip():
 				return False
 		return True
 
@@ -1885,7 +1886,7 @@ class KeywordsMultipleChecker(Instruction):
 			self._keyword5 = instructions_util.generate_keywords(num_keywords=1)[0]
 		else:
 			self._keyword5 = keyword5.strip()
-		self._description_pattern = "Include keyword '{keyword1}' once in your response, keyword '{keyword2}' twice in your response, keyword '{keyword3}' three times in your response, keyword '{keyword4}' five times in your response, and keyword '{keyword5}' seven times in your response."
+		self._description_pattern = "Include keyword '{keyword1}' exactly once in your response, keyword '{keyword2}' exactly twice in your response, keyword '{keyword3}' exactly three times in your response, keyword '{keyword4}' exactly five times in your response, and keyword '{keyword5}' exactly seven times in your response."
 		return self._description_pattern.format(keyword1=self._keyword1, keyword2=self._keyword2,
 												keyword3=self._keyword3, keyword4=self._keyword4,
 												keyword5=self._keyword5)
