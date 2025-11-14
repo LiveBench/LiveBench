@@ -568,25 +568,22 @@ class IncrementingAlliterationChecker(Instruction):
 		prev_alliteration = -1
 		for sentence in sentences:
 			words = sentence.lower().split()
-			alliteration = 0
-			prev_alliterative = False
-			new_words = []
-			for word in words:
-				clean = word.lstrip(''.join(string.punctuation) + ' ')
-				if clean:
-					new_words.append(clean)
-			for i in range(len(new_words) - 1):
-				if new_words[i][0] == new_words[i + 1][0]:
-					if prev_alliterative:
-						alliteration += 1
-					else:
-						alliteration += 2
-					prev_alliterative = True
+			for i in range(len(words)):
+				words[i] = words[i].lstrip(''.join(string.punctuation) + ' ')
+			max_alliteration = 0
+			curr_alliteration = 0
+			for i in range(len(words) - 1):
+				if words[i][0] == words[i + 1][0]:
+					curr_alliteration += 1
 				else:
-					prev_alliterative = False
-			if alliteration <= prev_alliteration:
+					if curr_alliteration > max_alliteration:
+						max_alliteration = curr_alliteration
+					curr_alliteration = 0
+			if curr_alliteration > max_alliteration:
+				max_alliteration = curr_alliteration
+			if max_alliteration <= prev_alliteration:
 				return False
-			prev_alliteration = alliteration
+			prev_alliteration = max_alliteration
 		return True
 
 
@@ -875,11 +872,11 @@ class EmojiSentenceChecker(Instruction):
 
 
 class CharacterCountUniqueWordsChecker(Instruction):
-	"""Respond with three sentences, all containing the same number of characters but using all different words."""
+	"""Respond with three sentences, all containing the same number of characters; the sentences cannot be identical."""
 
 	def build_description(self):
 		"""Build the instruction description."""
-		self._description_pattern = "Respond with three sentences, all containing the same number of characters but using all different words."
+		self._description_pattern = "Respond with three sentences, all containing the same number of characters; the sentences cannot be identical."
 		return self._description_pattern
 
 	def get_instruction_args(self):
@@ -891,9 +888,12 @@ class CharacterCountUniqueWordsChecker(Instruction):
 		return []
 
 	def check_following(self, value):
-		"""Checks if the response has exactly 3 sentences containing the same number of characters but different words."""
+		"""Checks if the response has exactly 3 sentences containing the same number of characters; the sentences cannot be identical."""
 		sentences = instructions_util.split_into_sentences(value)
 		if len(sentences) != 3:
+			return False
+		unique_sentences = set(sentences)
+		if len(unique_sentences) != 3:
 			return False
 		char_count = len(sentences[0].strip())
 		for sentence in sentences:
