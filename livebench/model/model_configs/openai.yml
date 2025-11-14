@@ -639,3 +639,23 @@ api_kwargs:
     reasoning:
       effort: none
       summary: auto
+---
+display_name: gpt-5.1-codex
+api_name:
+  openai_responses: gpt-5.1-codex
+aliases:
+  - gpt-5.1-codex
+api_kwargs:
+  default:
+    temperature: null
+    max_completion_tokens: null
+---
+display_name: gpt-5.1-codex-mini
+api_name:
+  openai_responses: gpt-5.1-codex-mini
+aliases:
+  - gpt-5.1-codex-mini
+api_kwargs:
+  default:
+    temperature: null
+    max_completion_tokens: null
