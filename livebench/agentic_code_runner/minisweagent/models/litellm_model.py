@@ -115,8 +115,11 @@ class LitellmModel:
         reraise=True,
     )
     def _query_responses(self, messages: list[dict[str, str]], **kwargs):
-        system_messages = [m for m in messages if m['role'] == 'system']
-        system_prompt = system_messages[0]['content'] if system_messages else None
+        system_messages: list[str] = []
+        for message in messages:
+            if message.get('role') == 'system':
+                system_messages.append(message.get('content', ''))
+        system_prompt = system_messages[0] if system_messages else None
 
         res = litellm.responses(
             model=self.config.model_name, input=messages, instructions=system_prompt, **(self.config.model_kwargs | kwargs),
@@ -124,21 +127,20 @@ class LitellmModel:
 
         output_text = ""
 
+        outputs = []
+
         for output_item in res.output:
-            if isinstance(output_item, dict):
-                if output_item.get('type') == 'message':
-                    for content in output_item.get('content', []):
-                        if content.get('type') == 'output_text':
-                            output_text += content.get('text', '')
-            else:
-                if output_item.type == 'message':
-                    for content in output_item.content:
-                        if content.type == 'output_text':
-                            output_text += content.text or ""
+            outputs.append(output_item.model_dump())
+            
+            if output_item.type == 'message':
+                for content in output_item.content:
+                    if content.type == 'output_text':
+                        output_text += content.text or ""
 
         result = {
             'response': res,
             'content': output_text,
+            'outputs': outputs,
         }
         if res and res.usage is not None:
             result['input_tokens'] = res.usage.input_tokens if not isinstance(res.usage, dict) else res.usage.get('input_tokens', 0)
@@ -153,6 +155,8 @@ class LitellmModel:
             if 'extra' in message_copy:
                 if message_copy['extra'].get('message') is not None:
                     actual_messages.append(message_copy['extra']['message'])
+                elif message_copy['extra'].get('outputs') is not None:
+                    actual_messages.extend(message_copy['extra']['outputs'])
                 else:
                     del message_copy['extra']
                     actual_messages.append(message_copy)
@@ -187,7 +191,8 @@ class LitellmModel:
             "content": content or "",
             "extra": {
                 "response": response.model_dump(),
-                "message": result['message'].model_dump() if 'message' in result else None
+                "message": result['message'].model_dump() if 'message' in result else None,
+                "outputs": result['outputs'] if 'outputs' in result else None
             },
         }
 
