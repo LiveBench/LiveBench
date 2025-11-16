@@ -80,8 +80,9 @@ def chat_completion_openai(
     if 'stream' in actual_api_kwargs:
         stream = actual_api_kwargs['stream']
         del actual_api_kwargs['stream']
-    
-    print(f'\nMessage: {messages}\n')
+
+    print(f'\nactual_api_kwargs: {actual_api_kwargs}\n')
+    print(f'\nmessages: {messages}\n')
 
     try:
         if stream:
