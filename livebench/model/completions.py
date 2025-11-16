@@ -81,7 +81,7 @@ def chat_completion_openai(
         stream = actual_api_kwargs['stream']
         del actual_api_kwargs['stream']
 
-    print(f'\nactual_api_kwargs: {actual_api_kwargs}\n')
+    print(f'\n\nactual_api_kwargs: {actual_api_kwargs}')
     print(f'\nmessages: {messages}\n')
 
     try:
