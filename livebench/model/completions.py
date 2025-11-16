@@ -113,7 +113,7 @@ def chat_completion_openai(
                 model=model,
                 messages=messages,
                 stream=False,
-                reasoning_effort='medium'
+                reasoning_effort='medium',
                 **actual_api_kwargs
             )
             if response is None:
