@@ -81,13 +81,7 @@ def chat_completion_openai(
         stream = actual_api_kwargs['stream']
         del actual_api_kwargs['stream']
 
-    # if 'reasoning_effort' in actual_api_kwargs:
-    #     print(actual_api_kwargs['reasoning_effort')
-        # actual_api_kwargs['reasoning_effort']
-        # del actual_api_kwargs['stream']
-    # print(\n\nactual_api_kwargs['reasoning_effort'])
-
-    print('n')
+    print('\n')
     print(f'\nctual_api_kwargs: {actual_api_kwargs}')
     print(f'\nmessages: {messages}\n')
 
