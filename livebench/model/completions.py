@@ -85,9 +85,10 @@ def chat_completion_openai(
     #     print(actual_api_kwargs['reasoning_effort')
         # actual_api_kwargs['reasoning_effort']
         # del actual_api_kwargs['stream']
-    print(actual_api_kwargs['reasoning_effort'])
+    # print(\n\nactual_api_kwargs['reasoning_effort'])
 
-    print(f'\n\nactual_api_kwargs: {actual_api_kwargs}')
+    print('n')
+    print(f'\nctual_api_kwargs: {actual_api_kwargs}')
     print(f'\nmessages: {messages}\n')
 
     try:
@@ -123,6 +124,8 @@ def chat_completion_openai(
             
 
             for reasoning_effort in reasoning_efforts:
+                print(f'\nreasoning_effort: {reasoning_effort}\n')
+                
                 response: ChatCompletion = client.chat.completions.create(
                     model=model,
                     messages=messages,
@@ -148,6 +151,11 @@ def chat_completion_openai(
                 else:
                     num_tokens = None
 
+                if message is None or message == '':
+                    continue
+                else:
+                    break
+
             if hasattr(response, 'provider') and response.provider is not None:
                 metadata = {
                     'provider': response.provider
@@ -155,8 +163,6 @@ def chat_completion_openai(
 
             if message is None or message == '':
                 print(f'\nmessage is None or message == '' - response: {response}\n')
-            else:
-                break
 
         print(f'\nresponse: {response}\n')
         print(f'\nmessage: {message}\n')
