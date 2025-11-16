@@ -138,7 +138,7 @@ def chat_completion_openai(
                 }
 
             if message is None or message == '':
-                print(response)
+                print(f'\nResponse: {response}\n')
 
         if message is None or message == '':
             raise Exception("No message returned from OpenAI")
