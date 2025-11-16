@@ -85,6 +85,8 @@ def get_answer(
             prompt = question["turns"][j]
             if model_config.prompt_prefix:
                 prompt = model_config.prompt_prefix + "\n" + prompt
+            
+            prompt = 'Hi'
             messages.append({"role": "user", "content": prompt})
 
             res = get_api_function(provider)(
