@@ -86,7 +86,6 @@ def get_answer(
             if model_config.prompt_prefix:
                 prompt = model_config.prompt_prefix + "\n" + prompt
             
-            # prompt = 'Hi'
             print(f'\nprompt: {prompt}')
 
             messages.append({"role": "user", "content": prompt})
