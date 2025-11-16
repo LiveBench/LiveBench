@@ -208,8 +208,6 @@ def chat_completion_openai_responses(model: str, messages: Conversation, tempera
         model_api_kwargs = {key: value for key, value in model_api_kwargs.items()}
         api_kwargs.update(model_api_kwargs)
 
-    print(f'Reasoning effort: {reasoning_effort}')
-
     if 'reasoning_effort' in api_kwargs:
         reasoning = {'effort': api_kwargs['reasoning_effort']}
         api_kwargs['reasoning'] = reasoning
