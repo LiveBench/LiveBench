@@ -152,6 +152,7 @@ def chat_completion_openai(
                     num_tokens = None
 
                 if message is None or message == '':
+                    print(f'\nmessage is None or message == '' - response: {response}\n')
                     continue
                 else:
                     break
