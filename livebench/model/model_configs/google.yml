@@ -292,3 +292,29 @@ api_kwargs:
     top_p: 0.95
     thinking_config:
       thinking_budget: 24576
+---
+display_name: gemini-3-pro-preview-11-2025-high
+api_name:
+  google: gemini-3-pro-preview
+aliases:
+  - gemini-3-pro-preview-high
+api_kwargs:
+  default:
+    thinking_config:
+      thinking_level: high
+    max_output_tokens: 65536
+    temperature: 1
+    top_p: 0.95
+---
+display_name: gemini-3-pro-preview-11-2025-low
+api_name:
+  google: gemini-3-pro-preview
+aliases:
+  - gemini-3-pro-preview-low
+api_kwargs:
+  default:
+    thinking_config:
+      thinking_level: low
+    max_output_tokens: 65536
+    temperature: 1
+    top_p: 0.95
