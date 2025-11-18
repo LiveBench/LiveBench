@@ -62,7 +62,10 @@ def save_traj(
         data["info"]["model_stats"]["api_calls"] = agent.model.n_calls
         data["info"]["model_stats"]["total_input_tokens"] = agent.model.input_tokens
         data["info"]["model_stats"]["total_output_tokens"] = agent.model.output_tokens
-        data["messages"] = agent.messages
+        for message in agent.messages:
+            if 'extra' in message:
+                del message['extra']
+            data["messages"].append(message)
         data["info"]["config"] = {
             "agent": _asdict(agent.config),
             "model": _asdict(agent.model.config),

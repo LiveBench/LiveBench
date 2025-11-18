@@ -46,6 +46,78 @@ class LitellmModel:
         before_sleep=before_sleep_log(logger, logging.WARNING),
         retry=retry_if_not_exception_type(
             (
+                KeyboardInterrupt,
+            )
+        ),
+        reraise=True,
+    )
+    def _query_completion_generativeai(self, messages: list[dict[str, str]], **kwargs):
+        from google import genai
+        from google.genai import types
+        client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+        actual_messages: list[types.ContentOrDict] = []
+        system = None
+        for message in messages:
+            if message['role'] == 'system':
+                if system is None:
+                    system = types.Content(role='system', parts=[types.Part.from_text(text=message['content'])])
+                else:
+                    system.parts.append(types.Part.from_text(text=message['content']))
+            elif message['role'] == 'user':
+                actual_messages.append(types.Content(role='user', parts=[types.Part.from_text(text=message['content'])]))
+            elif message['role'] == 'assistant':
+                message['role'] = 'model'
+                actual_messages.append(message)
+            elif message['role'] == 'model':
+                actual_messages.append(message)
+
+        safety_settings = [
+            types.SafetySetting(category=types.HarmCategory.HARM_CATEGORY_HARASSMENT, threshold=types.HarmBlockThreshold.BLOCK_NONE),
+            types.SafetySetting(category=types.HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold=types.HarmBlockThreshold.BLOCK_NONE),
+            types.SafetySetting(category=types.HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold=types.HarmBlockThreshold.BLOCK_NONE),
+            types.SafetySetting(category=types.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold=types.HarmBlockThreshold.BLOCK_NONE),
+            types.SafetySetting(category=types.HarmCategory.HARM_CATEGORY_CIVIC_INTEGRITY, threshold=types.HarmBlockThreshold.BLOCK_NONE),
+        ]
+
+        api_kwargs = self.config.model_kwargs | kwargs
+
+        config = types.GenerateContentConfig(
+            safety_settings=safety_settings,
+            system_instruction=system,
+            **api_kwargs
+        )
+
+        actual_model_name = self.config.model_name.split('/')[-1]
+
+        response = client.models.generate_content(model=actual_model_name, contents=actual_messages, config=config)
+        
+        if response.text is None or response.candidates is None or len(response.candidates) == 0:
+            raise Exception("No response returned from Google")
+        
+        message = response.text
+
+        result: dict[str, Any] = {
+            'response': response,
+            'content': message,
+            'message': response.candidates[0].content,
+        }
+
+        if response.usage_metadata is not None:
+            if response.usage_metadata.prompt_token_count is not None:
+                result['input_tokens'] = response.usage_metadata.prompt_token_count
+            if response.usage_metadata.candidates_token_count is not None:
+                result['output_tokens'] = response.usage_metadata.candidates_token_count
+            if response.usage_metadata.thoughts_token_count is not None:
+                result['output_tokens'] += response.usage_metadata.thoughts_token_count
+
+        return result
+
+    @retry(
+        stop=stop_after_attempt(15),
+        wait=wait_exponential(multiplier=2, min=4, max=120),
+        before_sleep=before_sleep_log(logger, logging.WARNING),
+        retry=retry_if_not_exception_type(
+            (
                 litellm.exceptions.UnsupportedParamsError,
                 litellm.exceptions.NotFoundError,
                 litellm.exceptions.PermissionDeniedError,
@@ -163,12 +235,15 @@ class LitellmModel:
             else:
                 actual_messages.append(message_copy)
 
-        if self.config.api_type == "completion":
+        if 'gemini-3' in self.config.model_name:
+            result = self._query_completion_generativeai(actual_messages, **kwargs)
+        elif self.config.api_type == "completion":
             result = self._query_completion(actual_messages, **kwargs)
         elif self.config.api_type == "responses":
             result = self._query_responses(actual_messages, **kwargs)
         else:
             raise ValueError(f"Invalid API type: {self.config.api_type}")
+
         response = result['response']
         content = result['content']
         input_tokens = result['input_tokens']
