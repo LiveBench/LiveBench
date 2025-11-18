@@ -86,7 +86,15 @@ def extract_answer(statement, letter):
 
 def aime_process_results(ground_truth: str, llm_answer: str, debug=False) -> int:
     score = 0
-    if ground_truth in llm_answer[-50:]:
+
+    # extract text from <solution></solution> tags
+    solution_matches = re.findall(r'<solution>(.*?)</solution>', llm_answer)
+    if len(solution_matches) > 0:
+        solution_match = solution_matches[-1]
+        if len(set(solution_match)) == 1 and next(iter(set(solution_match))).lower() == ground_truth.lower():
+            score = 1
+
+    if score == 0 and ground_truth in llm_answer[-50:]:
         score = 1
 
     if debug and score == 0:
