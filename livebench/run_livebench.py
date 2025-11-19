@@ -323,11 +323,11 @@ def build_run_command(
     else:
         return f"{gen_api_cmd} && {gen_judge_cmd}"
 
-def build_run_command_from_params(params: LiveBenchParams, bench_name: str | None = None) -> str:
+def build_run_command_from_params(params: LiveBenchParams, bench_name: str | list[str] | None = None) -> str:
     """Build the command to run gen_api_answer and gen_ground_truth_judgment using LiveBenchParams"""
     return build_run_command(
         model=params.model if params.model is not None else "",
-        bench_name=bench_name if bench_name else params.bench_names,
+        bench_name=bench_name if bench_name is not None else params.bench_names,
         question_source=params.question_source,
         api_base=params.api_base,
         api_key_name=params.api_key_name,
@@ -363,18 +363,11 @@ def run_model(params: LiveBenchParams) -> None:
     elif params.mode == "sequential":
         run_sequential(params)
     else:  # single mode
-        if not params.bench_names:
-            params.bench_names = ["live_bench"]
-        for bench in params.bench_names:
-            # Create a copy of params with just this benchmark
-            params_dict = vars(params)
-            params_dict['bench_names'] = [bench]
-            bench_params = LiveBenchParams(**params_dict)
-            run_single(bench_params)
+        run_single(params)
 
 def run_sequential(params: LiveBenchParams) -> None:
-    """Run benchmarks sequentially in a single tmux session"""
-    print(f"\nRunning sequential benchmarks for model: {params.model}")
+    """Run benchmarks together in a single tmux session"""
+    print(f"\nRunning benchmarks for model: {params.model}")
     session_name = f"livebench-{params.model}".replace(".", "_").replace(":", "_")
     
     # If no bench_names provided, run all benchmarks in sequence using live_bench
@@ -384,19 +377,13 @@ def run_sequential(params: LiveBenchParams) -> None:
         setup_tmux_session(session_name, ["live_bench"], [cmd], params.venv)
         return
     
-    print(f"Running benchmarks sequentially: {', '.join(params.bench_names)}")
-    # Build commands for each benchmark
-    print("Building commands for each benchmark...")
-    commands = []
-    for bench in params.bench_names:
-        cmd = build_run_command_from_params(params, bench_name=bench)
-        commands.append(cmd)
-    
-    # Join commands with semicolons for sequential execution
-    full_cmd = " ; ".join(commands)
+    print(f"Running benchmarks together: {', '.join(params.bench_names)}")
+    # Build a single command with all benchmarks to take advantage of parallel execution
+    print("Building command with all benchmarks...")
+    cmd = build_run_command_from_params(params, bench_name=params.bench_names)
     
     # Set up tmux session
-    setup_tmux_session(session_name, [params.bench_names[0]], [full_cmd], params.venv)
+    setup_tmux_session(session_name, [params.bench_names[0]], [cmd], params.venv)
 
 def run_parallel(params: LiveBenchParams) -> None:
     """Run benchmarks in parallel in separate tmux panes"""
@@ -419,7 +406,7 @@ def run_parallel(params: LiveBenchParams) -> None:
 
 def run_single(params: LiveBenchParams) -> int:
     """
-    Run a single benchmark.
+    Run benchmarks together in a single process.
     
     Args:
         params: Parameters for the benchmark run
@@ -427,8 +414,14 @@ def run_single(params: LiveBenchParams) -> int:
     Returns:
         Exit code from the last command executed
     """
-    bench_name = params.bench_names[0] if params.bench_names else "live_bench"
-    print(f"\nRunning single benchmark '{bench_name}' for model: {params.model}")
+    # If no bench_names provided, use live_bench (runs all benchmarks)
+    bench_name = params.bench_names if params.bench_names else "live_bench"
+    
+    if isinstance(bench_name, list):
+        print(f"\nRunning benchmarks together for model: {params.model}")
+        print(f"Benchmarks: {', '.join(bench_name)}")
+    else:
+        print(f"\nRunning benchmark '{bench_name}' for model: {params.model}")
     
     # Build the chained command using build_run_command
     cmd = build_run_command_from_params(params, bench_name=bench_name)
@@ -461,11 +454,14 @@ def main():
     # Optional arguments
     parser.add_argument("--venv", help="Path to virtual environment to activate", default=default_venv)
     parser.add_argument("--mode", choices=["single", "parallel", "sequential"], default="single",
-                      help="Execution mode: single benchmark, parallel benchmarks, or sequential benchmarks")
+                      help="Execution mode: 'single' runs benchmarks together directly (no tmux), "
+                           "'sequential' runs benchmarks together in a tmux session, "
+                           "'parallel' runs each benchmark in a separate tmux pane. "
+                           "Note: 'single' and 'sequential' both collect all questions upfront for shared parallelism.")
     parser.add_argument("--bench-name", nargs="+",
                       help="One or more benchmark paths to run. If not provided: for single/sequential modes, "
-                           "runs all benchmarks in sequence using 'live_bench'. For parallel mode, uses "
-                           "predefined benchmark list for parallelization.")
+                           "defaults to 'live_bench' (all benchmarks together). For parallel mode, uses "
+                           "predefined benchmark list with each benchmark in its own pane.")
     parser.add_argument("--question-source", default="huggingface", choices=["huggingface", "jsonl"],
                       help="Source of benchmark questions")
     parser.add_argument("--api-base", help="Base URL for API requests")

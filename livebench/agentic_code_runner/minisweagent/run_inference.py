@@ -33,7 +33,6 @@ def run_agentic_coding_inference(
     model_display_name_override: str | None = None,
     answer_file: str | None = None,
     parallel: int = 1,
-    task_to_answer_file: dict[str, str] | None = None,
     replay_traj_dir: str | None = None,
     custom_run_id: str | None = None,
     preserve_reasoning: bool | None = None,
@@ -117,10 +116,10 @@ def run_agentic_coding_inference(
     if answer_file is not None:
         os.makedirs(os.path.dirname(answer_file), exist_ok=True)
     
-    # Also create directories for task-specific answer files
-    if task_to_answer_file is not None:
-        for task_answer_file in task_to_answer_file.values():
-            os.makedirs(os.path.dirname(task_answer_file), exist_ok=True)
+    # Create directories for question-specific answer files
+    for question in questions:
+        if 'answer_file' in question and answer_file is None:
+            os.makedirs(os.path.dirname(question['answer_file']), exist_ok=True)
 
     for question in questions:
         instance_image_id = f"mswebench/{question['org']}_m_{question['repo']}:pr-{question['number']}"
@@ -229,14 +228,9 @@ def run_agentic_coding_inference(
                 'total_input_tokens': trajectory['info']['model_stats']['total_input_tokens'],
             })
 
-        current_answer_file = answer_file
-        if task_to_answer_file is not None and 'task' in question:
-            task_name = question['task']
-            if task_name in task_to_answer_file:
-                current_answer_file = task_to_answer_file[task_name]
-                # Ensure the directory exists for the task-specific answer file
-                os.makedirs(os.path.dirname(current_answer_file), exist_ok=True)
-
+        # Use answer_file parameter if provided (as override), otherwise use question's answer_file
+        current_answer_file = answer_file if answer_file is not None else question.get('answer_file')
+        
         if current_answer_file is not None:
             with open(current_answer_file, "a") as fout:
                 fout.write(json.dumps(ans) + "\n")
