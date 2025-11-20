@@ -32,6 +32,7 @@ from livebench.process_results.writing.connections.utils import get_connections_
 from livebench.process_results.coding.utils import LCB_generation_process_results, code_generation_process_results, agentic_coding_process_results
 from livebench.process_results.instruction_following.utils import instruction_following_process_results, ifbench_process_results
 from livebench.process_results.reasoning.web_of_lies_v3.utils import web_of_lies_v3_process_results
+from livebench.process_results.reasoning.theory_of_mind.utils import theory_of_mind_process_results
 from livebench.common import (
     LIVE_BENCH_RELEASES,
     load_questions,
@@ -149,6 +150,9 @@ def play_a_match_gt(match: MatchSingle, output_file: str | None = None, debug=Fa
             category = "reasoning"
         elif task_or_subtask == "spatial":
             score = spatial_process_results(ground_truth, llm_answer, debug)
+            category = "reasoning"
+        elif task_or_subtask == "theory_of_mind":
+            score = theory_of_mind_process_results(ground_truth, llm_answer, debug)
             category = "reasoning"
         elif task_or_subtask == 'typos':
             score = typos_process_results(ground_truth, llm_answer, debug)

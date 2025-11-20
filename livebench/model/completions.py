@@ -154,7 +154,7 @@ def chat_completion_openai(
         raise e
 
 @retry(
-    stop=stop_after_attempt(1),
+    stop=stop_after_attempt(API_MAX_RETRY),
     wait=wait_fixed(API_RETRY_SLEEP_MIN),
     retry=retry_if_exception_type(Exception),
     after=retry_log,
