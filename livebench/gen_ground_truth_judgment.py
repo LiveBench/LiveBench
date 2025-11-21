@@ -50,6 +50,9 @@ from livebench.common import (
 
 def reorg_output_file(output_file):
     """De-duplicate and sort by question id and model"""
+    if not os.path.exists(output_file):
+        return
+    
     judgments = {}
     with open(output_file, "r") as fin:
         for l in fin:

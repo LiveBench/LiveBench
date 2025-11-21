@@ -1,10 +1,12 @@
 import json
 from collections import defaultdict
-import sys
 import argparse
+from pathlib import Path
 from livebench.model.api_model_config import get_model_config
+from rich.console import Console
+from rich.table import Table
 
-def find_differential_problems(filename, model1, model2):
+def find_differential_problems(filename, models):
     # Dictionary to store scores for each question_id and model
     scores = defaultdict(dict)
 
@@ -16,32 +18,79 @@ def find_differential_problems(filename, model1, model2):
             model = data['model']
             score = data['score']
             
-            if model in [model1, model2]:
+            if model in models:
                 scores[qid][model] = score
 
-    # Find questions where model1 succeeds (score > 0) and model2 fails (score = 0)
+    # Find questions where models have different outcomes (some correct, some incorrect)
     differential_cases = []
     for qid, model_scores in scores.items():
-        if len(model_scores) == 2:  # ensure we have scores for both models
-            if model_scores[model1] > 0 and model_scores[model2] == 0:
-                differential_cases.append((qid, model_scores[model1], model_scores[model2]))
+        if len(model_scores) == len(models):  # ensure we have scores for all models
+            correct_models = [model for model in models if model_scores[model] > 0]
+            incorrect_models = [model for model in models if model_scores[model] == 0]
+            
+            # Only include if there are both correct and incorrect models (i.e., not all same)
+            if correct_models and incorrect_models:
+                differential_cases.append((qid, correct_models, incorrect_models))
 
-    # Print results
-    print(f"\nFound {len(differential_cases)} questions where {model1} succeeds but {model2} fails:")
-    for qid, score1, score2 in differential_cases:
-        print(f"\nQuestion ID: {qid}")
-        print(f"{model1} score: {score1}")
-        print(f"{model2} score: {score2}")
+    return differential_cases
+
+def print_table(cases, console):
+    if not cases:
+        console.print("\n[yellow]No differential cases found.[/yellow]")
+        return
+    
+    table = Table(title=f"Differential Results ({len(cases)} questions)", show_lines=True)
+    
+    table.add_column("Question ID", style="cyan", no_wrap=True)
+    table.add_column("Correct Models", style="green")
+    table.add_column("Incorrect Models", style="red")
+    
+    for qid, correct, incorrect in cases:
+        correct_str = ", ".join(correct).replace("11-2025", "")
+        incorrect_str = ", ".join(incorrect).replace("11-2025", "")
+        table.add_row(qid, correct_str, incorrect_str)
+    
+    console.print()
+    console.print(table)
+
+def process_root_directory(root_dir, models):
+    console = Console()
+    root_path = Path(root_dir)
+    
+    # Find all ground_truth_judgment.jsonl files recursively
+    judgment_files = list(root_path.rglob('ground_truth_judgment.jsonl'))
+    
+    if not judgment_files:
+        console.print(f"[red]No ground_truth_judgment.jsonl files found in {root_dir}[/red]")
+        return
+    
+    console.print(f"[bold]Found {len(judgment_files)} ground_truth_judgment.jsonl file(s)[/bold]")
+    console.print(f"[bold]Comparing {len(models)} models:[/bold] {', '.join(models)}\n")
+    console.rule("[bold blue]Results[/bold blue]")
+    
+    # Process each file
+    for judgment_file in sorted(judgment_files):
+        differential_cases = find_differential_problems(judgment_file, models)
+        
+        # Print results for this file
+        console.print()
+        console.rule(f"[bold cyan]{judgment_file.relative_to(root_path)}[/bold cyan]")
+        
+        print_table(differential_cases, console)
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Find problems where one model succeeds and another fails')
-    parser.add_argument('filename', help='Input JSONL file')
-    parser.add_argument('model1', help='First model name')
-    parser.add_argument('model2', help='Second model name')
+    parser = argparse.ArgumentParser(
+        description='Find problems where models have different outcomes (some correct, some incorrect)'
+    )
+    parser.add_argument('root_dir', help='Root directory to search for ground_truth_judgment.jsonl files')
+    parser.add_argument('models', nargs='+', help='Model names to compare (2 or more)')
     
     args = parser.parse_args()
 
-    model_1 = get_model_config(args.model1).display_name
-    model_2 = get_model_config(args.model2).display_name
+    if len(args.models) < 2:
+        parser.error("At least 2 models are required for comparison")
+
+    # Get display names for all models
+    model_display_names = [get_model_config(model).display_name for model in args.models]
     
-    find_differential_problems(args.filename, model_1, model_2)
+    process_root_directory(args.root_dir, model_display_names)

@@ -202,12 +202,15 @@ class LitellmModel:
         outputs = []
 
         for output_item in res.output:
-            outputs.append(output_item.model_dump())
+
+            output_item = output_item.model_dump() if not isinstance(output_item, dict) else output_item
+
+            outputs.append(output_item)
             
-            if output_item.type == 'message':
-                for content in output_item.content:
-                    if content.type == 'output_text':
-                        output_text += content.text or ""
+            if output_item.get('type') == 'message':
+                for content in output_item.get('content', []):
+                    if content.get('type') == 'output_text':
+                        output_text += content.get('text', '')
 
         result = {
             'response': res,

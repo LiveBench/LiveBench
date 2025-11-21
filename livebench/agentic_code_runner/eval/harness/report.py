@@ -208,7 +208,7 @@ class ReportTask(PullRequestBase):
         run_log_path = self.instance_dir / RUN_LOG_FILE
         if not run_log_path.exists():
             raise FileNotFoundError(f"Run log file not found: {run_log_path}")
-        with open(run_log_path, "r", encoding="utf-8") as f:
+        with open(run_log_path, "r", encoding="utf-8", errors="replace") as f:
             run_log = f.read()
         return run_log
 
@@ -219,7 +219,7 @@ class ReportTask(PullRequestBase):
             raise FileNotFoundError(
                 f"Test patch run log file not found: {test_patch_run_log_path}"
             )
-        with open(test_patch_run_log_path, "r", encoding="utf-8") as f:
+        with open(test_patch_run_log_path, "r", encoding="utf-8", errors="replace") as f:
             test_patch_run_log = f.read()
         return test_patch_run_log
 
@@ -230,7 +230,7 @@ class ReportTask(PullRequestBase):
             raise FileNotFoundError(
                 f"Fix patch run log file not found: {fix_patch_run_log_path}"
             )
-        with open(fix_patch_run_log_path, "r", encoding="utf-8") as f:
+        with open(fix_patch_run_log_path, "r", encoding="utf-8", errors="replace") as f:
             fix_patch_run_log = f.read()
         return fix_patch_run_log
 
@@ -244,7 +244,7 @@ class ReportTask(PullRequestBase):
         if not regen:
             report_path = self.instance_dir / REPORT_FILE
             if report_path.exists():
-                with open(report_path, "r", encoding="utf-8") as f:
+                with open(report_path, "r", encoding="utf-8", errors="replace") as f:
                     report = Report.from_json(f.read())
                 return report
 

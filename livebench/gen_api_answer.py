@@ -376,6 +376,12 @@ if __name__ == "__main__":
         default=None,
         help="Override the provider for the model. If not provided, will be inferred from --model.",
     )
+    parser.add_argument(
+        "--answer-file",
+        type=str,
+        default=None,
+        help="Override the answer file path. If provided, all answers will be written to this file instead of the default location.",
+    )
     args = parser.parse_args()
 
 
@@ -414,7 +420,7 @@ if __name__ == "__main__":
         if is_agentic_coding:
             # For agentic_coding, group all questions together but maintain separate answer files
             all_questions = []
-            task_to_answer_file = {}
+            task_to_answer_file = {} if not args.answer_file else None
             
             for category_name, task_names in tasks.items():
                 for task_name in task_names:
@@ -431,7 +437,7 @@ if __name__ == "__main__":
                     task_full_name = (
                         f"{LIVE_BENCH_DATA_SUPER_PATH}/{category_name}/{task_name}"
                     )
-                    answer_file = (
+                    answer_file = args.answer_file if args.answer_file else (
                         f"data/{task_full_name}/model_answer/{model_display_name.lower()}.jsonl"
                     )
 
@@ -442,7 +448,8 @@ if __name__ == "__main__":
                         question['task'] = task_name
                     
                     all_questions.extend(questions)
-                    task_to_answer_file[task_name] = answer_file
+                    if task_to_answer_file is not None:
+                        task_to_answer_file[task_name] = answer_file
                     
                     print(f"Questions from {task_full_name}")
                     print(f"Output to {answer_file}")
@@ -455,7 +462,7 @@ if __name__ == "__main__":
                     model_config=model_config,
                     num_choices=args.num_choices,
                     max_tokens=args.max_tokens,
-                    answer_file=None,  # Will use task_to_answer_file mapping instead
+                    answer_file=args.answer_file,  # Use override if provided
                     api_dict=api_dict,
                     stream=args.stream,
                     force_temperature=args.force_temperature,
@@ -481,7 +488,7 @@ if __name__ == "__main__":
                     task_full_name = (
                         f"{LIVE_BENCH_DATA_SUPER_PATH}/{category_name}/{task_name}"
                     )
-                    answer_file = (
+                    answer_file = args.answer_file if args.answer_file else (
                         f"data/{task_full_name}/model_answer/{model_display_name.lower()}.jsonl"
                     )
 
@@ -525,7 +532,7 @@ if __name__ == "__main__":
         if is_agentic_coding:
             # For agentic_coding, group all questions together but maintain separate answer files
             all_questions = []
-            task_to_answer_file = {}
+            task_to_answer_file = {} if not args.answer_file else None
             
             for question_file in list_of_question_files:
                 print(question_file)
@@ -536,7 +543,7 @@ if __name__ == "__main__":
                 questions = questions[args.question_begin:args.question_end]
 
                 bench_name = os.path.dirname(question_file).replace("data/", "")
-                answer_file = f"data/{bench_name}/model_answer/{model_display_name.lower()}.jsonl"
+                answer_file = args.answer_file if args.answer_file else f"data/{bench_name}/model_answer/{model_display_name.lower()}.jsonl"
 
                 questions = filter_questions(questions, answer_file, args.resume, args.retry_failures)
                 
@@ -548,7 +555,8 @@ if __name__ == "__main__":
                     question['task'] = task_name
                 
                 all_questions.extend(questions)
-                task_to_answer_file[task_name] = answer_file
+                if task_to_answer_file is not None:
+                    task_to_answer_file[task_name] = answer_file
                         
                 print(f"Questions from {question_file}")
                 print(f"Output to {answer_file}")
@@ -562,7 +570,7 @@ if __name__ == "__main__":
                     model_display_name_override=model_display_name,
                     num_choices=args.num_choices,
                     max_tokens=args.max_tokens,
-                    answer_file=None,  # Will use task_to_answer_file mapping instead
+                    answer_file=args.answer_file,  # Use override if provided
                     api_dict=api_dict,
                     stream=args.stream,
                     force_temperature=args.force_temperature,
@@ -581,7 +589,7 @@ if __name__ == "__main__":
                 questions = questions[args.question_begin:args.question_end]
 
                 bench_name = os.path.dirname(question_file).replace("data/", "")
-                answer_file = f"data/{bench_name}/model_answer/{model_display_name.lower()}.jsonl"
+                answer_file = args.answer_file if args.answer_file else f"data/{bench_name}/model_answer/{model_display_name.lower()}.jsonl"
 
                 questions = filter_questions(questions, answer_file, args.resume, args.retry_failures)
                         

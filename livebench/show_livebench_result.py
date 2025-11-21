@@ -17,6 +17,9 @@ from livebench.common import (
 )
 from livebench.model import get_model_config
 
+pd.set_option('display.max_columns', 10)
+pd.set_option('display.width', None)
+
 
 def calculate_usage(args, df, questions_all):
     """Calculate average token usage for all answers by task and category."""

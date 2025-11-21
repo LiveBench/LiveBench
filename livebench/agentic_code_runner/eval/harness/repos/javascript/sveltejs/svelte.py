@@ -186,6 +186,9 @@ bash /home/check_git_changes.sh
 
 pnpm install --frozen-lockfile || true
 
+pnpm exec playwright install
+pnpm playwright install chromium
+
 """.format(
                     pr=self.pr
                 ),
