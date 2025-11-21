@@ -59,10 +59,13 @@ def check_conflicts(instruction_ids: list[str]) -> list[tuple[str, str]]:
         ("format:newline", "ratio:sentence_type"),
         ("format:newline", "ratio:sentence_balance"),
         ("format:newline", "ratio:sentence_words"),
+        ("format:newline", "format:no_bullets_bullets"),
 
 
         ("words:alphabet", "count:words_japanese"),
-        ("words:alphabet", "words:last_first")
+        ("words:alphabet", "words:last_first"),
+        ("count:words_japanese", "words:consonants"),
+        ("words:alphabet", "sentence:alliteration_increment")
     ]
     
     # Convert to set for efficient lookup

@@ -568,8 +568,8 @@ class IncrementingAlliterationChecker(Instruction):
 		prev_alliteration = -1
 		for sentence in sentences:
 			words = sentence.lower().split()
-			for i in range(len(words)):
-				words[i] = words[i].lstrip(''.join(string.punctuation) + ' ')
+			words = [word.lstrip(''.join(string.punctuation) + ' ') for word in words]
+			words = [word for word in words if word]
 			max_alliteration = 0
 			curr_alliteration = 0
 			for i in range(len(words) - 1):
@@ -612,11 +612,11 @@ class PalindromeChecker(Instruction):
 
 
 class PunctuationCoverChecker(Instruction):
-	"""Use every standard punctuation mark at least once, including semicolons, colons, and the interrobang (?!)."""
+	"""Use every standard punctuation mark at least once, including (but not limited to) semicolons, colons, and the interrobang (?!)."""
 
 	def build_description(self):
 		"""Build the instruction description."""
-		self._description_pattern = "Use every standard punctuation mark at least once, including semicolons, colons, and the interrobang (?!)."
+		self._description_pattern = "Use every standard punctuation mark at least once, including (but not limited to) semicolons, colons, and the interrobang (?!)."
 		return self._description_pattern
 
 	def get_instruction_args(self):
@@ -628,7 +628,7 @@ class PunctuationCoverChecker(Instruction):
 		return []
 
 	def check_following(self, value):
-		"""Checks if the response includes every standard punctuation mark at least once, including the interrobang (?!)."""
+		"""Checks if the response includes every standard punctuation mark at least once, including (but not limited to) the interrobang (?!)."""
 		punctuation = {".", ",", "!", "?", ";", ":"}
 		if not ('!?' in value or '?!' in value or '‽' in value):
 			return False
@@ -826,6 +826,7 @@ class NewLineWordsChecker(Instruction):
 		lines = value.strip().split('\n')
 		while '' in lines:
 			lines.remove('')
+		lines = [line.strip() for line in lines if line.strip()]
 		return len(lines) == len(value.strip().split())
 
 
@@ -953,12 +954,12 @@ class NthWordJapaneseChecker(Instruction):
 			return bool(japanese_pattern.search(text))
 
 		words = value.split()
+		words = [word.strip(''.join(string.punctuation) + ' ') for word in words if word.strip(''.join(string.punctuation) + ' ')]
 		for i, word in enumerate(words):
-			word = word.strip(''.join(string.punctuation) + ' ')
 			if (i + 1) % self._japanese_position == 0 and word and not word.isdigit():
 				if not is_japanese(word):
 					return False
-		return True
+		return len(words) > 0
 
 
 class StartWithVerbChecker(Instruction):
@@ -1169,7 +1170,7 @@ class ParagraphLastFirstWordMatchChecker(Instruction):
 
 	def build_description(self):
 		"""Build the instruction description."""
-		self._description_pattern = "Write at least two paragraphs, where each paragraph ends with the same word it started with, and separate paragraphs with two newlines."
+		self._description_pattern = "Write at least two paragraphs, where each paragraph ends with exactly the same word it started with, and separate paragraphs with two newlines."
 		return self._description_pattern
 
 	def get_instruction_args(self):
@@ -1343,7 +1344,7 @@ class SpecialBulletPointsChecker(Instruction):
 		self._bullet_marker = sep
 		if sep is None:
 			self._bullet_marker = random.choice(['...', 'SEPARATOR', '!?!?', '-'])
-		self._description_pattern = "Answer with a list of items, instead of bullet points use {sep}."
+		self._description_pattern = "Answer with a newline-separated list of items, instead of bullet points use {sep}."
 		return self._description_pattern.format(sep=self._bullet_marker)
 
 	def get_instruction_args(self):
@@ -1401,7 +1402,7 @@ class SubBulletPointsChecker(Instruction):
 
 	def build_description(self):
 		"""Build the instruction description."""
-		self._description_pattern = "Your response must include bullet points denoted by * and at least one sub-bullet point denoted by - for each bullet point."
+		self._description_pattern = "Your response must include newline-separated bullet points denoted by * and at least one sub-bullet point denoted by - for each bullet point."
 		return self._description_pattern
 
 	def get_instruction_args(self):
@@ -1427,7 +1428,7 @@ class SomeBulletPointsChecker(Instruction):
 
 	def build_description(self):
 		"""Build the instruction description."""
-		self._description_pattern = "Your answer must contain at least two sentences ending in a period followed by at least two bullet points denoted by *."
+		self._description_pattern = "Your answer must contain at least two sentences ending in a period followed by at least two newline-separated bullet points denoted by *."
 		return self._description_pattern
 
 	def get_instruction_args(self):
@@ -2152,7 +2153,7 @@ class TitleCaseChecker(Instruction):
 	def build_description(self):
 		"""Build the instruction description."""
 		self._description_pattern = (
-			"Write the entire response in title case (capitalize the first letter of every major word)."
+			"Write the entire response in title case (capitalize the first letter of every word)."
 		)
 		return self._description_pattern
 
