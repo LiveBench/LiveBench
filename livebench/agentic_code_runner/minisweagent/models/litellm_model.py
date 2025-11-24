@@ -134,10 +134,21 @@ class LitellmModel:
                 if message['role'] == 'system':
                     message['role'] = 'user'
         actual_kwargs = self.config.model_kwargs | kwargs
+        reasoning_param_name = 'thinking' if 'anthropic' in self.config.model_name else 'reasoning_effort'
         if 'allowed_openai_params' in actual_kwargs:
-            actual_kwargs['allowed_openai_params'] = actual_kwargs['allowed_openai_params'] + ['reasoning_effort']
+            actual_kwargs['allowed_openai_params'] = actual_kwargs['allowed_openai_params'] + [reasoning_param_name]
         else:
-            actual_kwargs['allowed_openai_params'] = ['reasoning_effort']
+            actual_kwargs['allowed_openai_params'] = [reasoning_param_name]
+
+        if 'anthropic' in self.config.model_name:
+            if 'betas' in actual_kwargs:
+                actual_kwargs['extra_headers'] = {'anthropic-beta': beta for beta in actual_kwargs['betas']}
+                del actual_kwargs['betas']
+            if 'extra_body' in actual_kwargs:
+                actual_kwargs = actual_kwargs | actual_kwargs['extra_body']
+                del actual_kwargs['extra_body']
+            if 'thinking' not in actual_kwargs:
+                actual_kwargs['thinking'] = {'type': 'disabled'}
 
         try:
             res = litellm.completion(
