@@ -435,7 +435,11 @@ def chat_completion_anthropic(model: str, messages: Conversation, temperature: f
 
     message = []
 
-    with c.messages.stream(
+    client = c
+    if actual_api_kwargs.get('betas', []):
+        client = c.beta
+
+    with client.messages.stream(
         model=model,
         messages=messages,
         system=system_message if system_message else NOT_GIVEN,
@@ -475,7 +479,7 @@ def chat_completion_anthropic(model: str, messages: Conversation, temperature: f
     del actual_api_kwargs['temperature']
 
     try:
-        tokens = c.messages.count_tokens(
+        tokens = client.messages.count_tokens(
             model=model,
             messages=[
                 {"role": "assistant", "content": message}
