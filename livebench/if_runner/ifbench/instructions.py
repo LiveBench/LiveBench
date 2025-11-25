@@ -472,7 +472,7 @@ class AlphabetLoopChecker(Instruction):
 		value = value.translate(str.maketrans('', '', string.punctuation))
 		words = value.strip(''.join(string.punctuation) + ' ').split()
 		alphabet = string.ascii_lowercase
-		words = [word for word in words if any(char in alphabet for char in word)]
+		words = [word.lower() for word in words if any(char in alphabet for char in word.lower())]
 		if len(words) == 0:
 			return False
 		correct_letter = words[0][0].lower()
