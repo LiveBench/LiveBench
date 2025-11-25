@@ -12,6 +12,8 @@ def find_error_questions(root_dir, target_model_id=None, old_max_tokens=None, ol
 
     model_display_name = get_model_config(target_model_id).display_name
 
+    print(f"Model display name: {model_display_name}")
+
     from_files = []
     total_output_tokens = 0
 
@@ -31,7 +33,7 @@ def find_error_questions(root_dir, target_model_id=None, old_max_tokens=None, ol
                     entry = json.loads(line.strip())
                     model_id = entry.get('model_id')
 
-                    if target_model_id and model_id != target_model_id:
+                    if target_model_id and model_id != model_display_name:
                         continue
 
                     choices = entry.get('choices', [])
@@ -42,7 +44,7 @@ def find_error_questions(root_dir, target_model_id=None, old_max_tokens=None, ol
                             added_questions_for_file = True
                             total_output_tokens += entry.get('total_output_tokens', 0)
                             continue
-                    if old_max_tokens and entry.get('total_output_tokens') == old_max_tokens:
+                    if old_max_tokens and entry.get('total_output_tokens') >= old_max_tokens:
                         model_errors[model_id].append(entry['question_id'])
                         added_questions_for_file = True
                         total_output_tokens += entry.get('total_output_tokens', 0)
