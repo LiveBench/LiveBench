@@ -190,3 +190,99 @@ api_kwargs:
       - thinking
 aliases:
   - claude-haiku-4-5-thinking
+---
+display_name: claude-opus-4-5-20251101-high-effort
+api_name:
+  anthropic: claude-opus-4-5-20251101
+aliases:
+  - claude-opus-4-5-high-effort
+api_kwargs:
+  default:
+    temperature: 1
+    extra_body:
+      output_config:
+        effort: high
+    betas:
+      - effort-2025-11-24
+---
+display_name: claude-opus-4-5-20251101-thinking-64k-high-effort
+api_name:
+  anthropic: claude-opus-4-5-20251101
+aliases:
+  - claude-opus-4-5-thinking-high-effort
+api_kwargs:
+  default:
+    temperature: 1
+    extra_body:
+      output_config:
+        effort: high
+    thinking:
+      type: enabled
+      budget_tokens: 63000
+    max_tokens: 64000
+    betas:
+      - effort-2025-11-24
+---
+display_name: claude-opus-4-5-20251101-medium-effort
+api_name:
+  anthropic: claude-opus-4-5-20251101
+aliases:
+  - claude-opus-4-5-medium-effort
+api_kwargs:
+  default:
+    temperature: 1
+    extra_body:
+      output_config:
+        effort: medium
+    betas:
+      - effort-2025-11-24
+---
+display_name: claude-opus-4-5-20251101-thinking-64k-medium-effort
+api_name:
+  anthropic: claude-opus-4-5-20251101
+aliases:
+  - claude-opus-4-5-thinking-medium-effort
+api_kwargs:
+  default:
+    temperature: 1
+    extra_body:
+      output_config:
+        effort: medium
+    thinking:
+      type: enabled
+      budget_tokens: 63000
+    max_tokens: 64000
+    betas:
+      - effort-2025-11-24
+---
+display_name: claude-opus-4-5-20251101-low-effort
+api_name:
+  anthropic: claude-opus-4-5-20251101
+aliases:
+  - claude-opus-4-5-low-effort
+api_kwargs:
+  default:
+    temperature: 1
+    extra_body:
+      output_config:
+        effort: low
+    betas:
+      - effort-2025-11-24
+---
+display_name: claude-opus-4-5-20251101-thinking-64k-low-effort
+api_name:
+  anthropic: claude-opus-4-5-20251101
+aliases:
+  - claude-opus-4-5-thinking-low-effort
+api_kwargs:
+  default:
+    temperature: 1
+    extra_body:
+      output_config:
+        effort: low
+    thinking:
+      type: enabled
+      budget_tokens: 63000
+    max_tokens: 64000
+    betas:
+      - effort-2025-11-24
