@@ -8,7 +8,7 @@
     <a href="https://arxiv.org/abs/2406.19314">📝 Paper</a> 
 </p>
 
-LiveBench will appear as a [Spotlight Paper](https://openreview.net/forum?id=sKYHBTAxVa) in ICLR 2025.
+LiveBench appeared as a [Spotlight Paper](https://openreview.net/forum?id=sKYHBTAxVa) in ICLR 2025.
 
 Top models as of 30th September 2024 (for a full up-to-date leaderboard, see [here](https://livebench.ai/)):
 
@@ -54,12 +54,6 @@ cd LiveBench
 pip install -e .
 ```
 
-To do all of the above and also generate answers with local GPU inference on open source models (i.e. with gen_model_answer.py):
-```bash
-cd LiveBench
-pip install -e .[flash_attn]
-```
-
 To score results on the coding tasks (code_completion and code_generation), you will also need to install the required dependencies:
 ```bash
 cd livebench/code_runner
@@ -69,11 +63,9 @@ pip install -r requirements_eval.txt
 Note that, to evaluate the agentic coding questions, you will need docker installed and available (i.e. the command `docker --version` should work).
 This will be checked prior to such tasks being run.
 
-**Note about fschat**: The fschat package version on pip (i.e., [lmsys/fastchat](https://github.com/lm-sys/FastChat)) is currently out of date, so we strongly recommend `pip uninstall fschat` before running the above, since it will then automatically install a more recent commit of fastchat.
-
 **Note about local models**: Local model inference is unmaintained. We highly recommend serving your model on an OpenAI compatible API using [vllm](https://github.com/vllm-project/vllm) and performing inference using `run_livebench.py`.
 
-Our repo is adapted from FastChat's excellent [llm_judge](https://github.com/lm-sys/FastChat/tree/main/fastchat/llm_judge) module, and it also contains code from [LiveCodeBench](https://github.com/LiveCodeBench/LiveCodeBench) and [IFEval](https://github.com/Rohan2002/IFEval?tab=readme-ov-file).
+Our repo contains code from [LiveCodeBench](https://github.com/LiveCodeBench/LiveCodeBench) and [IFEval](https://github.com/Rohan2002/IFEval?tab=readme-ov-file).
 
 ## Usage
 
@@ -133,20 +125,6 @@ LiveBench provides two different arguments for parallelizing evaluations, which 
   - When running just one or two tasks, use only `--parallel-requests`: `python run_livebench.py --model gpt-4o --bench-name live_bench/coding --parallel-requests 10`
 
 Note that `--mode parallel` requires tmux to be installed on your system. The number of tmux sessions created will depend on the number of categories or tasks being evaluated.
-
-### Local Model Evaluation
-
-For running evaluations with local models, you'll need to use the `gen_model_answer.py` script:
-```bash
-python gen_model_answer.py --model-path <path-to-model> --model-id <model-id> --bench-name <bench-name>
-```
-`<path-to-model>` should be either a path to a local model weight folder or a HuggingFace repo ID. `<model-id>` will be the name of the model on the leaderboard.
-
-Note: The `gen_model_answer.py` script is currently unmaintained. For local model evaluation, we recommend using a service like vLLM to create an OpenAI-compatible server endpoint, which can then be used with `run_livebench.py` by specifying the `--api-base` parameter.
-
-Other arguments for local evaluation are optional, but you may want to set `--num-gpus-per-model` and `--num-gpus-total` to match your available GPUs, and `--dtype` to match your model weights.
-
-Run `python gen_model_answer.py --help` for more details.
 
 ### Viewing Results
 

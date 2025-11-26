@@ -128,9 +128,11 @@ def get_answer(
         }
     }
 
-    if answer_file is not None:
-        os.makedirs(os.path.dirname(answer_file), exist_ok=True)
-        with open(answer_file, "a") as fout:
+    # Use answer_file parameter if provided (as override), otherwise use question's answer_file
+    output_file = answer_file if answer_file is not None else question.get('answer_file')
+    if output_file is not None:
+        os.makedirs(os.path.dirname(output_file), exist_ok=True)
+        with open(output_file, "a") as fout:
             fout.write(json.dumps(ans) + "\n")
 
 
@@ -189,10 +191,8 @@ def run_questions(
     stream: bool,
     force_temperature: float | None,
     model_provider_override: str | None,
-    bench_name: str,
     model_display_name_override: str | None = None,
     api_dict: dict[str, str] | None = None,
-    task_to_answer_file: dict[str, str] | None = None,
 ):
     """
     Perform inference on a list of questions. Output answers to answer_file.
@@ -207,54 +207,43 @@ def run_questions(
         api_dict: A dictionary specifying the base API URL and key for model requests
     """
 
+    assert all(answer_file is not None or question.get('answer_file') is not None for question in questions), "Missing answer file for some questions"
+
     provider, api_kwargs, model_api_name, api_dict = setup_model(model_config, api_dict, model_provider_override)
 
     print('Model API name: ', model_api_name)
-    print('Evaluating ', len(questions), ' questions in ', bench_name, ' with model ', model_config.display_name)
+    print('Evaluating ', len(questions), ' questions with model ', model_config.display_name)
    
-    if 'agentic_coding' in bench_name:
-
+    # Split questions into agentic_coding and non-agentic_coding
+    agentic_coding_questions = [q for q in questions if q.get('category') == 'agentic_coding']
+    normal_questions = [q for q in questions if q.get('category') != 'agentic_coding']
+    
+    # Process agentic coding questions if any
+    if agentic_coding_questions:
         if not check_agentic_coding_requirements():
             print("Warning: litellm or docker missing, skipping agentic coding evaluation")
-            return
-
-        run_agentic_coding_inference(
-            questions=questions,
-            model_api_name=model_api_name,
-            provider=provider,
-            force_temperature=force_temperature,
-            num_choices=num_choices,
-            model_api_kwargs=api_kwargs,
-            api_dict=api_dict,
-            model_display_name_override=model_display_name_override,
-            answer_file=answer_file,
-            parallel=parallel,
-            task_to_answer_file=task_to_answer_file,
-            preserve_reasoning=model_config.preserve_reasoning
-        )
-    elif parallel == 1:
-        for question in tqdm.tqdm(questions):
-            get_answer(
-                question=question,
+        else:
+            print(f'Processing {len(agentic_coding_questions)} agentic coding questions')
+            run_agentic_coding_inference(
+                questions=agentic_coding_questions,
                 model_api_name=model_api_name,
                 provider=provider,
                 force_temperature=force_temperature,
-                max_tokens=max_tokens,
                 num_choices=num_choices,
-                api_kwargs=api_kwargs,
+                model_api_kwargs=api_kwargs,
                 api_dict=api_dict,
-                stream=stream,
                 model_display_name_override=model_display_name_override,
                 answer_file=answer_file,
-                model_config=model_config,
+                parallel=parallel,
+                preserve_reasoning=model_config.preserve_reasoning
             )
-    else:
-
-        with concurrent.futures.ThreadPoolExecutor(max_workers=parallel) as executor:
-            futures = []
-            for question in questions:
-                future = executor.submit(
-                    get_answer,
+    
+    # Process normal questions if any
+    if normal_questions:
+        print(f'Processing {len(normal_questions)} standard questions')
+        if parallel == 1:
+            for question in tqdm.tqdm(normal_questions):
+                get_answer(
                     question=question,
                     model_api_name=model_api_name,
                     provider=provider,
@@ -268,19 +257,49 @@ def run_questions(
                     answer_file=answer_file,
                     model_config=model_config,
                 )
-                futures.append(future)
+        else:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=parallel) as executor:
+                futures = []
+                for question in normal_questions:
+                    future = executor.submit(
+                        get_answer,
+                        question=question,
+                        model_api_name=model_api_name,
+                        provider=provider,
+                        force_temperature=force_temperature,
+                        max_tokens=max_tokens,
+                        num_choices=num_choices,
+                        api_kwargs=api_kwargs,
+                        api_dict=api_dict,
+                        stream=stream,
+                        model_display_name_override=model_display_name_override,
+                        answer_file=answer_file,
+                        model_config=model_config,
+                    )
+                    futures.append(future)
 
-            for future in tqdm.tqdm(
-                concurrent.futures.as_completed(futures), total=len(futures)
-            ):
-                future.result()
+                for future in tqdm.tqdm(
+                    concurrent.futures.as_completed(futures), total=len(futures)
+                ):
+                    future.result()
+    
+    # Reorganize all answer files
     if len(questions) > 0:
-        if 'agentic_coding' in bench_name and task_to_answer_file is not None:
-            # For agentic_coding, reorganize each task's answer file
-            for task_answer_file in task_to_answer_file.values():
-                reorg_answer_file(task_answer_file)
-        elif answer_file is not None:
-            reorg_answer_file(answer_file)
+        # Collect unique answer files from questions
+        answer_files_to_reorg = set()
+        
+        if answer_file is not None:
+            # If answer_file parameter is provided, it overrides all question-specific files
+            answer_files_to_reorg.add(answer_file)
+        else:
+            # Otherwise, collect unique answer files from questions
+            for question in questions:
+                if 'answer_file' in question:
+                    answer_files_to_reorg.add(question['answer_file'])
+        
+        # Reorganize each unique answer file
+        for file in answer_files_to_reorg:
+            reorg_answer_file(file)
 
 
 if __name__ == "__main__":
@@ -290,8 +309,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "--bench-name",
         type=str,
+        nargs="+",
         default="live_bench",
-        help="The name of the benchmark question set. Defaults to 'live_bench', or all tasks in the benchmark. Specify e.g. live_bench/reasoning/web_of_lies_v2 to generate only for that task.",
+        help="The name(s) of the benchmark question set. Defaults to 'live_bench', or all tasks in the benchmark. Specify e.g. live_bench/reasoning/web_of_lies_v2 to generate only for that task.",
     )
     parser.add_argument(
         "--api-base",
@@ -412,15 +432,11 @@ if __name__ == "__main__":
     model_display_name = args.model_display_name if args.model_display_name else model_config.display_name
 
     if args.question_source == "huggingface":
-        categories, tasks = get_categories_tasks(args.bench_name)
-
-        # Check if this is an agentic_coding benchmark
-        is_agentic_coding = 'agentic_coding' in args.bench_name
+        # Collect all questions upfront across all benchmark names
+        all_questions = []
         
-        if is_agentic_coding:
-            # For agentic_coding, group all questions together but maintain separate answer files
-            all_questions = []
-            task_to_answer_file = {} if not args.answer_file else None
+        for bench_name in args.bench_name:
+            categories, tasks = get_categories_tasks(bench_name)
             
             for category_name, task_names in tasks.items():
                 for task_name in task_names:
@@ -443,96 +459,46 @@ if __name__ == "__main__":
 
                     questions = filter_questions(questions, answer_file, args.resume, args.retry_failures)
                     
-                    # Add task information to each question
+                    # Attach answer_file to each question and task info for agentic_coding
                     for question in questions:
-                        question['task'] = task_name
+                        question['answer_file'] = answer_file
                     
                     all_questions.extend(questions)
-                    if task_to_answer_file is not None:
-                        task_to_answer_file[task_name] = answer_file
                     
                     print(f"Questions from {task_full_name}")
-                    print(f"Output to {answer_file}")
-            
-            if all_questions:
-                print(f"Running {len(all_questions)} agentic_coding questions together")
-                run_questions(
-                    parallel=args.parallel,
-                    questions=all_questions,
-                    model_config=model_config,
-                    num_choices=args.num_choices,
-                    max_tokens=args.max_tokens,
-                    answer_file=args.answer_file,  # Use override if provided
-                    api_dict=api_dict,
-                    stream=args.stream,
-                    force_temperature=args.force_temperature,
-                    model_provider_override=args.model_provider_override,
-                    model_display_name_override=model_display_name,
-                    bench_name=args.bench_name,
-                    task_to_answer_file=task_to_answer_file
-                )
-        else:
-            # For non-agentic_coding, process each task separately as before
-            for category_name, task_names in tasks.items():
-                for task_name in task_names:
-                    questions = load_questions(
-                        categories[category_name],
-                        release_set,
-                        args.livebench_release_option,
-                        task_name,
-                        args.question_id
-                    )
-
-                    questions = questions[args.question_begin:args.question_end]
-
-                    task_full_name = (
-                        f"{LIVE_BENCH_DATA_SUPER_PATH}/{category_name}/{task_name}"
-                    )
-                    answer_file = args.answer_file if args.answer_file else (
-                        f"data/{task_full_name}/model_answer/{model_display_name.lower()}.jsonl"
-                    )
-
-                    questions = filter_questions(questions, answer_file, args.resume, args.retry_failures)
-
-                    print(f"Questions from {task_full_name}")
-                    print(f"Output to {answer_file}")
-
-                    run_questions(
-                        parallel=args.parallel,
-                        questions=questions,
-                        model_config=model_config,
-                        num_choices=args.num_choices,
-                        max_tokens=args.max_tokens,
-                        answer_file=answer_file,
-                        api_dict=api_dict,
-                        stream=args.stream,
-                        force_temperature=args.force_temperature,
-                        model_provider_override=args.model_provider_override,
-                        model_display_name_override=model_display_name,
-                        bench_name=task_full_name
-                    )
+        
+        if all_questions:
+            print(f"Running {len(all_questions)} questions together across {len(args.bench_name)} benchmark(s)")
+            run_questions(
+                parallel=args.parallel,
+                questions=all_questions,
+                model_config=model_config,
+                num_choices=args.num_choices,
+                max_tokens=args.max_tokens,
+                answer_file=None,  # Will use answer_file from question dict
+                api_dict=api_dict,
+                stream=args.stream,
+                force_temperature=args.force_temperature,
+                model_provider_override=args.model_provider_override,
+                model_display_name_override=model_display_name
+            )
 
     elif args.question_source == "jsonl":
         # use locally-provided questions
+        # Collect all questions upfront across all benchmark names
+        all_questions = []
 
-        list_of_question_files = []
-        original_question_file = f"data/{args.bench_name}/question.jsonl"
-        if os.path.exists(original_question_file):
-            # if one specific file for bench_name exists, use it (e.g. if bench_name = live_bench/math/AMPS_Hard)
-            list_of_question_files = [original_question_file]
-        else:
-            # gather all question files for bench_name (e.g. if bench_name = live_bench/math)
-            list_of_question_files = glob.glob(
-                f"data/{args.bench_name}/**/question.jsonl", recursive=True
-            )
-
-        # Check if this is an agentic_coding benchmark
-        is_agentic_coding = 'agentic_coding' in args.bench_name
-        
-        if is_agentic_coding:
-            # For agentic_coding, group all questions together but maintain separate answer files
-            all_questions = []
-            task_to_answer_file = {} if not args.answer_file else None
+        for bench_name in args.bench_name:
+            list_of_question_files = []
+            original_question_file = f"data/{bench_name}/question.jsonl"
+            if os.path.exists(original_question_file):
+                # if one specific file for bench_name exists, use it (e.g. if bench_name = live_bench/math/AMPS_Hard)
+                list_of_question_files = [original_question_file]
+            else:
+                # gather all question files for bench_name (e.g. if bench_name = live_bench/math)
+                list_of_question_files = glob.glob(
+                    f"data/{bench_name}/**/question.jsonl", recursive=True
+                )
             
             for question_file in list_of_question_files:
                 print(question_file)
@@ -542,74 +508,35 @@ if __name__ == "__main__":
                 
                 questions = questions[args.question_begin:args.question_end]
 
-                bench_name = os.path.dirname(question_file).replace("data/", "")
-                answer_file = args.answer_file if args.answer_file else f"data/{bench_name}/model_answer/{model_display_name.lower()}.jsonl"
+                bench_name_for_file = os.path.dirname(question_file).replace("data/", "")
+                answer_file = f"data/{bench_name_for_file}/model_answer/{model_display_name.lower()}.jsonl"
 
                 questions = filter_questions(questions, answer_file, args.resume, args.retry_failures)
                 
-                # Extract task name from bench_name (assuming format like "live_bench/agentic_coding/task_name")
-                task_name = bench_name.split('/')[-1] if '/' in bench_name else bench_name
-                
-                # Add task information to each question
+                # Attach answer_file to each question and task info for agentic_coding
                 for question in questions:
-                    question['task'] = task_name
+                    question['answer_file'] = answer_file
                 
                 all_questions.extend(questions)
-                if task_to_answer_file is not None:
-                    task_to_answer_file[task_name] = answer_file
                         
                 print(f"Questions from {question_file}")
                 print(f"Output to {answer_file}")
-            
-            if all_questions:
-                print(f"Running {len(all_questions)} agentic_coding questions together")
-                run_questions(
-                    parallel=args.parallel,
-                    questions=all_questions,
-                    model_config=model_config,
-                    model_display_name_override=model_display_name,
-                    num_choices=args.num_choices,
-                    max_tokens=args.max_tokens,
-                    answer_file=args.answer_file,  # Use override if provided
-                    api_dict=api_dict,
-                    stream=args.stream,
-                    force_temperature=args.force_temperature,
-                    model_provider_override=args.model_provider_override,
-                    bench_name=args.bench_name,
-                    task_to_answer_file=task_to_answer_file
-                )
-        else:
-            # For non-agentic_coding, process each file separately as before
-            for question_file in list_of_question_files:
-                print(question_file)
-                questions = load_questions_jsonl(
-                    question_file, release_set, args.livebench_release_option, args.question_id
-                )
-                
-                questions = questions[args.question_begin:args.question_end]
-
-                bench_name = os.path.dirname(question_file).replace("data/", "")
-                answer_file = args.answer_file if args.answer_file else f"data/{bench_name}/model_answer/{model_display_name.lower()}.jsonl"
-
-                questions = filter_questions(questions, answer_file, args.resume, args.retry_failures)
-                        
-                print(f"Questions from {question_file}")
-                print(f"Output to {answer_file}")
-
-                run_questions(
-                    parallel=args.parallel,
-                    questions=questions,
-                    model_config=model_config,
-                    model_display_name_override=model_display_name,
-                    num_choices=args.num_choices,
-                    max_tokens=args.max_tokens,
-                    answer_file=answer_file,
-                    api_dict=api_dict,
-                    stream=args.stream,
-                    force_temperature=args.force_temperature,
-                    model_provider_override=args.model_provider_override,
-                    bench_name=bench_name
-                )
+        
+        if all_questions:
+            print(f"Running {len(all_questions)} questions together across {len(args.bench_name)} benchmark(s)")
+            run_questions(
+                parallel=args.parallel,
+                questions=all_questions,
+                model_config=model_config,
+                model_display_name_override=model_display_name,
+                num_choices=args.num_choices,
+                max_tokens=args.max_tokens,
+                answer_file=None,  # Will use answer_file from question dict
+                api_dict=api_dict,
+                stream=args.stream,
+                force_temperature=args.force_temperature,
+                model_provider_override=args.model_provider_override
+            )
 
     else:
         raise ValueError(f"Bad question source {args.question_source}.")

@@ -154,7 +154,7 @@ def chat_completion_openai(
         raise e
 
 @retry(
-    stop=stop_after_attempt(1),
+    stop=stop_after_attempt(API_MAX_RETRY),
     wait=wait_fixed(API_RETRY_SLEEP_MIN),
     retry=retry_if_exception_type(Exception),
     after=retry_log,
@@ -478,6 +478,10 @@ def chat_completion_anthropic(model: str, messages: Conversation, temperature: f
     del actual_api_kwargs['max_tokens']
     del actual_api_kwargs['temperature']
 
+    text_messages = [c for c in message if c['type'] == 'text']
+    if len(text_messages) == 0:
+        raise Exception("No response from Anthropic")
+
     try:
         tokens = client.messages.count_tokens(
             model=model,
@@ -491,9 +495,6 @@ def chat_completion_anthropic(model: str, messages: Conversation, temperature: f
         traceback.print_exc()
         tokens = -1
 
-    text_messages = [c for c in message if c['type'] == 'text']
-    if len(text_messages) == 0:
-        raise Exception("No response from Anthropic")
     message_text = text_messages[0]['text']
 
     return message_text, tokens

@@ -1,5 +1,13 @@
 ## Changelog
 
+### 2025-11-25
+This update refreshed some existing tasks and updated others to resolve (to some extent) saturation and contamination of the benchmark.
+ - Updated connections with new tasks from more recent puzzles
+ - Updated math_comp and olympiad with new questions from more recent competitions
+ - Updated the instruction following tasks with both newer articles as well as new, more difficult types of instructions, and resolved issues with impossible tasks
+ - Updated zebra_puzzle with newer, more difficult puzzles
+ - Replaced web_of_lies_v3 with theory_of_mind, a new task to evaluate LLM's ability to reason about the internal states of other people in their environments
+
 ### 2025-10-03
 Switched the agent used for agentic coding to [Mini-SWE-Agent](https://mini-swe-agent.com/latest/) instead of SWE-Agent due to its simpler design, consistent interface with all models, and easier maintainability. Additionally, we updated the step limit to 250 rather than 50. The agentic coding tasks were rerun for all models with these changes and the existing 2025-05-30 leaderboard was updated with the new results.
 
