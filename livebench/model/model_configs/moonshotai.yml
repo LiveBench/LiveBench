@@ -11,7 +11,7 @@ api_keys:
 api_kwargs:
   default:
     temperature: 0.6
-    max_tokens: 128000
+    max_tokens: 127000
 ---
 display_name: kimi-k2-instruct-0905
 api_name:
@@ -23,7 +23,7 @@ default_provider: deepinfra
 api_kwargs:
   default:
     temperature: 0.6
-    max_tokens: 128000
+    max_tokens: 127000
 ---
 display_name: kimi-k2-thinking
 api_name:
