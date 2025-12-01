@@ -144,3 +144,35 @@ api_kwargs:
   default:
     temperature: 0.7
     max_tokens: 64000
+---
+display_name: deepseek-v3.2
+api_name:
+  https://api.deepseek.com: deepseek-chat
+default_provider: https://api.deepseek.com
+api_keys:
+  https://api.deepseek.com: DEEPSEEK_API_KEY
+api_kwargs:
+  default:
+    temperature: 1
+---
+display_name: deepseek-v3.2-thinking
+api_name:
+  https://api.deepseek.com: deepseek-reasoner
+default_provider: https://api.deepseek.com
+api_keys:
+  https://api.deepseek.com: DEEPSEEK_API_KEY
+api_kwargs:
+  default:
+    temperature: 1
+    max_tokens: 64000
+---
+display_name: deepseek-v3.2-speciale
+api_name:
+  https://api.deepseek.com/v3.2_speciale_expires_on_20251215: deepseek-reasoner
+default_provider: https://api.deepseek.com/v3.2_speciale_expires_on_20251215
+api_keys:
+  https://api.deepseek.com/v3.2_speciale_expires_on_20251215: DEEPSEEK_API_KEY
+api_kwargs:
+  default:
+    temperature: 1
+    max_tokens: 64000
