@@ -1,10 +1,7 @@
 # adapted from https://github.com/EleutherAI/lm-evaluation-harness/blob/main/lm_eval/tasks/minerva_math/utils.py
 
-
-import multiprocessing.context
 import os
 import re
-import signal
 import traceback
 import warnings
 from multiprocessing import Process, Queue
@@ -80,9 +77,15 @@ def amps_hard_process_results(ground_truth: str, llm_answer: str, debug=False) -
     ground_truth = ground_truth.replace(" ^", "^")
     ground_truth = ground_truth.replace("\\ ", "*")
 
-    last_boxed = last_boxed_only_string(llm_answer)
-    if last_boxed:
-        parsed_answer = normalize_final_answer(remove_boxed(last_boxed))
+    if '<solution' in llm_answer and '</solution>' in llm_answer:
+        solution_matches = re.findall(r'<solution>(.*?)</solution>', llm_answer)
+        if len(solution_matches) > 0:
+            parsed_answer = solution_matches[-1]
+
+    if parsed_answer is None:
+        last_boxed = last_boxed_only_string(llm_answer)
+        if last_boxed:
+            parsed_answer = normalize_final_answer(remove_boxed(last_boxed))
 
     if parsed_answer is None:
         # try to extract from the last block of $ $
@@ -160,12 +163,13 @@ def parse(x: str) -> list[sympy.Expr]:
         try:
             # this almost only happened for amazon.nova-pro-v1:0 where it outputs e.g. \\frac or \\sqrt all the time
             parsed_xs = parse_latex(x.replace('\\\\', '\\'), backend='lark')
-        except:
+        except Exception as e:
+            warnings.warn(f"couldn't parse {x} with lark backend: {e}")
             try:
                 # if all else fails, try to parse using default backend
                 parsed_xs = parse_latex(x)
-            except:
-                warnings.warn(f"couldn't parse {x}")
+            except Exception as e:
+                warnings.warn(f"couldn't parse {x} with default backend: {e}")
                 return []
 
     if isinstance(parsed_xs, lark.Tree):
