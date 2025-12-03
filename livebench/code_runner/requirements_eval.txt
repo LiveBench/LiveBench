@@ -59,7 +59,7 @@ shapely==2.0.4
 soundfile==0.12.1
 statsmodels==0.14.0
 statsmodels==0.14.0
-sympy==1.12
+sympy
 tensorflow>=2.11.0
 textblob==0.18.0
 texttable==1.7.0

@@ -135,7 +135,7 @@ def play_a_match_gt(match: MatchSingle, output_file: str | None = None, debug=Fa
         elif task_or_subtask == "tablejoin":
             score = joinmap_process_results(question_text, ground_truth, llm_answer, debug)
             category = "data_analysis"
-        elif "amps_hard" in task_or_subtask:
+        elif "amps_hard" in task_or_subtask or "amps_hard" in task:
             score = amps_hard_process_results(ground_truth, llm_answer, debug)
             category = "math"
         elif task_or_subtask == "web_of_lies_v2" or task_or_subtask == "web_of_lies_v3":
