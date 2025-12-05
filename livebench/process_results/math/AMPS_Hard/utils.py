@@ -106,6 +106,7 @@ def amps_hard_process_results(ground_truth: str, llm_answer: str, debug=False) -
     if parsed_answer is not None:
         res = None
         try:
+            print('COMPARING', ground_truth, 'WITH', parsed_answer )
             res = is_equiv(ground_truth, parsed_answer)
         except TimeoutError:
             warnings.warn("Timeout when comparing ground truth and parsed answer")
@@ -201,13 +202,37 @@ def is_equiv(x1: str, x2: str) -> bool:
                 except Exception as e:
                     errors.append(f"couldn't subtract {x1} and {x2}: {e}")
                     continue
+                
+                # Fast path: if diff is exactly 0, return immediately
+                if diff == 0:
+                    return True
+
+                # For expressions with trig functions, manually convert sec^2 to 1 + tan^2
+                # This avoids expensive simplify() calls
+                try:
+                    # Replace sec(x)**2 with 1 + tan(x)**2 in both expressions
+                    expr1_norm = parsed_x1.replace(
+                        lambda expr: expr.is_Pow and expr.base.func == sympy.sec and expr.exp == 2,
+                        lambda expr: 1 + sympy.tan(expr.base.args[0])**2
+                    )
+                    expr2_norm = parsed_x2.replace(
+                        lambda expr: expr.is_Pow and expr.base.func == sympy.sec and expr.exp == 2,
+                        lambda expr: 1 + sympy.tan(expr.base.args[0])**2
+                    )
+                    
+                    # Now expand and compare
+                    diff_norm = (expr1_norm - expr2_norm).expand()
+                    if diff_norm == 0:
+                        return True
+                except Exception:
+                    pass
 
                 try:
                     simplified_diff = run_with_timeout(sympy.simplify, args=(diff,), timeout=60)
                     if simplified_diff == 0:
                         return True
                 except Exception as e:
-                    errors.append(f"couldn't compare simplified {x1} - {x2} with 0: {e}")
+                    errors.append(f"couldn't compare simplified {x1} and {x2}: {e}")
 
                 try:
                     simplified_diff = run_with_timeout(sympy.simplify, args=(diff,), timeout=60)
