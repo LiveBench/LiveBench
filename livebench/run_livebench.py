@@ -22,7 +22,6 @@ DEFAULT_BENCHMARKS = [
     "live_bench/language",
     "live_bench/math",
     "live_bench/reasoning",
-    "live_bench/agentic_coding"
 ]
 
 # Detect if we're in an active virtual environment
@@ -374,7 +373,7 @@ def run_sequential(params: LiveBenchParams) -> None:
     # If no bench_names provided, run all benchmarks in sequence using live_bench
     if not params.bench_names:
         print("No specific benchmarks provided, running all benchmarks in sequence")
-        cmd = build_run_command_from_params(params, bench_name="live_bench")
+        cmd = build_run_command_from_params(params, bench_name=DEFAULT_BENCHMARKS)
         setup_tmux_session(session_name, ["live_bench"], [cmd], params.venv)
         return
     elif params.bench_names == ["live_bench/agentic_coding"]:
