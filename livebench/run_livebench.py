@@ -21,7 +21,8 @@ DEFAULT_BENCHMARKS = [
     "live_bench/instruction_following",
     "live_bench/language",
     "live_bench/math",
-    "live_bench/reasoning"
+    "live_bench/reasoning",
+    "live_bench/agentic_coding"
 ]
 
 # Detect if we're in an active virtual environment
@@ -376,6 +377,9 @@ def run_sequential(params: LiveBenchParams) -> None:
         cmd = build_run_command_from_params(params, bench_name="live_bench")
         setup_tmux_session(session_name, ["live_bench"], [cmd], params.venv)
         return
+    elif params.bench_names == ["live_bench/agentic_coding"]:
+        # allow running agentic coding benchmark separately from the rest
+        session_name += "-agentic-coding"
     
     print(f"Running benchmarks together: {', '.join(params.bench_names)}")
     # Build a single command with all benchmarks to take advantage of parallel execution
