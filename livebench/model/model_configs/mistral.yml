@@ -63,3 +63,13 @@ api_name:
   mistral: devstral-small-2505
 aliases:
   - devstral-small
+---
+display_name: devstral-2512
+api_name:
+  mistral: devstral-2512
+aliases:
+  - devstral
+api_kwargs:
+  default:
+    temperature: 0.7
+    top_p: 1
