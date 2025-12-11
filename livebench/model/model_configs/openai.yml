@@ -660,6 +660,16 @@ api_kwargs:
     temperature: null
     max_completion_tokens: null
 ---
+display_name: gpt-5.1-codex-max
+api_name:
+  openai_responses: gpt-5.1-codex-max
+aliases:
+  - gpt-5.1-codex-max
+api_kwargs:
+  default:
+    temperature: null
+    max_completion_tokens: null
+---
 display_name: gpt-5.1-2025-11-13-medium
 api_name:
   openai: gpt-5.1-2025-11-13
@@ -696,4 +706,30 @@ api_kwargs:
     max_output_tokens: null
     reasoning:
       effort: low
+      summary: auto
+---
+display_name: gpt-5.1-codex-max-xhigh
+api_name:
+  openai_responses: gpt-5.1-codex-max
+aliases:
+  - gpt-5.1-codex-max-xhigh
+api_kwargs:
+  default:
+    temperature: null
+    max_completion_tokens: null
+    reasoning:
+      effort: xhigh
+      summary: auto
+---
+display_name: gpt-5.1-codex-max-high
+api_name:
+  openai_responses: gpt-5.1-codex-max
+aliases:
+  - gpt-5.1-codex-max-high
+api_kwargs:
+  default:
+    temperature: null
+    max_completion_tokens: null
+    reasoning:
+      effort: high
       summary: auto
