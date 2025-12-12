@@ -57,9 +57,31 @@ def find_model_answer_files(data_dir: Path, model_name: str) -> list[Path]:
     return answer_files
 
 
+def generate_failure_judgment(question: dict, model_name: str, answer_id: str) -> dict:
+    """Generate a failure judgment entry for an error answer."""
+    task = question.get("task", "unknown")
+    category = question.get("category", "unknown")
+    
+    result = {
+        "question_id": question["question_id"],
+        "task": task,
+        "model": model_name,
+        "score": 0,
+        "tstamp": time.time(),
+        "category": category,
+        "answer_id": answer_id
+    }
+    
+    if "subtask" in question:
+        result["subtask"] = question["subtask"]
+    
+    return result
+
+
 def process_answer_file(answer_file: Path, model_name: str, dry_run: bool = False) -> tuple[int, int]:
     """
     Process a single answer file and add error answers for missing questions.
+    Also creates failure judgments for the error answers.
     Returns tuple of (num_existing, num_added).
     """
     # Find corresponding question.jsonl in parent directory
@@ -72,6 +94,9 @@ def process_answer_file(answer_file: Path, model_name: str, dry_run: bool = Fals
     # Load questions and answers
     questions = load_jsonl(question_file)
     answers = load_jsonl(answer_file)
+    
+    # Create question lookup by id
+    questions_by_id = {q["question_id"]: q for q in questions}
     
     # Get question IDs
     question_ids = {q["question_id"] for q in questions}
@@ -99,6 +124,38 @@ def process_answer_file(answer_file: Path, model_name: str, dry_run: bool = Fals
         print(f"  → Saved {len(all_answers)} total answers to {answer_file.name}")
     else:
         print(f"  → [DRY RUN] Would save {len(all_answers)} total answers")
+    
+    # Generate and save failure judgments
+    judgment_dir = answer_file.parent.parent / "model_judgment"
+    judgment_file = judgment_dir / "ground_truth_judgment.jsonl"
+    
+    if not dry_run:
+        # Create judgment directory if it doesn't exist
+        judgment_dir.mkdir(exist_ok=True)
+        
+        # Load existing judgments to avoid duplicates
+        existing_judgments = {}
+        if judgment_file.exists():
+            existing_data = load_jsonl(judgment_file)
+            for j in existing_data:
+                if "answer_id" in j:
+                    existing_judgments[j["answer_id"]] = j
+        
+        # Add new failure judgments for error answers
+        for answer in new_answers:
+            judgment = generate_failure_judgment(
+                questions_by_id[answer["question_id"]],
+                model_name,
+                answer["answer_id"]
+            )
+            existing_judgments[answer["answer_id"]] = judgment
+        
+        # Sort and save all judgments
+        all_judgments = sorted(existing_judgments.values(), key=lambda x: (x["question_id"], x["model"]))
+        save_jsonl(judgment_file, all_judgments)
+        print(f"  → Saved {len(new_answers)} failure judgments to {judgment_file.name}")
+    else:
+        print(f"  → [DRY RUN] Would save {len(new_answers)} failure judgments")
     
     return len(answer_ids), len(missing_ids)
 

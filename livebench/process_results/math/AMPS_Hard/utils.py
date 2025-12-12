@@ -199,13 +199,15 @@ def is_equiv(x1: str, x2: str) -> bool:
                     continue
 
                 try:
-                    if sympy.simplify(diff) == 0:
+                    simplified_diff = run_with_timeout(sympy.simplify, args=(diff,), timeout=60)
+                    if simplified_diff == 0:
                         return True
                 except Exception as e:
                     errors.append(f"couldn't compare simplified {x1} - {x2} with 0: {e}")
 
                 try:
-                    if sympy.Abs(sympy.simplify(diff)) < 0.001:
+                    simplified_diff = run_with_timeout(sympy.simplify, args=(diff,), timeout=60)
+                    if sympy.Abs(simplified_diff) < 0.001:
                         return True
                 except Exception as e:
                     errors.append(

@@ -733,3 +733,110 @@ api_kwargs:
     reasoning:
       effort: high
       summary: auto
+---
+display_name: gpt-5.2-2025-12-11-medium
+api_name:
+  openai_responses: gpt-5.2-2025-12-11
+aliases:
+  - gpt-5.2-medium
+api_kwargs:
+  default:
+    temperature: null
+    max_output_tokens: null
+    reasoning:
+      effort: medium
+      summary: auto
+---
+display_name: gpt-5.2-2025-12-11-low
+api_name:
+  openai_responses: gpt-5.2-2025-12-11
+aliases:
+  - gpt-5.2-low
+api_kwargs:
+  default:
+    temperature: null
+    max_output_tokens: null
+    reasoning:
+      effort: low
+      summary: auto
+---
+display_name: gpt-5.2-2025-12-11-high
+api_name:
+  openai_responses: gpt-5.2-2025-12-11
+aliases:
+  - gpt-5.2-high
+api_kwargs:
+  default:
+    temperature: null
+    max_output_tokens: null
+    reasoning:
+      effort: high
+      summary: auto
+---
+display_name: gpt-5.2-2025-12-11-nothinking
+api_name:
+  openai_responses: gpt-5.2-2025-12-11
+aliases:
+  - gpt-5.2-nothinking
+api_kwargs:
+  default:
+    temperature: null
+    max_output_tokens: null
+    reasoning:
+      effort: none
+      summary: auto
+---
+display_name: gpt-5.2-2025-12-11-xhigh
+api_name:
+  openai_responses: gpt-5.2-2025-12-11
+aliases:
+  - gpt-5.2-xhigh
+api_kwargs:
+  default:
+    temperature: null
+    max_output_tokens: null
+    reasoning:
+      effort: xhigh
+      summary: auto
+---
+display_name: gpt-5.2-pro-2025-12-11-medium
+api_name:
+  openai_responses: gpt-5.2-pro-2025-12-11
+default_provider: openai_responses
+aliases:
+  - gpt-5.2-pro-medium
+api_kwargs:
+  default:
+    temperature: null
+    max_completion_tokens: null
+    reasoning:
+      effort: medium
+      summary: auto
+---
+display_name: gpt-5.2-pro-2025-12-11-high
+api_name:
+  openai_responses: gpt-5.2-pro-2025-12-11
+default_provider: openai_responses
+aliases:
+  - gpt-5.2-pro-high
+api_kwargs:
+  default:
+    temperature: null
+    max_completion_tokens: null
+    reasoning:
+      effort: high
+      summary: auto
+---
+display_name: gpt-5.2-pro-2025-12-11-xhigh
+api_name:
+  openai_responses: gpt-5.2-pro-2025-12-11
+default_provider: openai_responses
+aliases:
+  - gpt-5.2-pro-xhigh
+api_kwargs:
+  default:
+    temperature: null
+    max_completion_tokens: null
+    reasoning:
+      effort: xhigh
+      summary: auto

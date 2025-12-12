@@ -11,6 +11,13 @@ from livebench.common import LIVE_BENCH_ROOT_PATH
 from livebench.code_runner.eval import untrusted_check, PASS
 from livebench.lcb_runner.utils.extraction_utils import extract_code
 from livebench.lcb_runner.evaluation.compute_code_generation_metrics import codegen_metrics
+from livebench.agentic_code_runner.eval.harness.constant import (
+    EVALUATION_WORKDIR,
+    FIX_PATCH_RUN_LOG_FILE,
+    REPORT_FILE,
+)
+from livebench.agentic_code_runner.eval.harness.report import Report
+from livebench.agentic_code_runner.eval.harness.test_result import TestStatus
 
 import shutil
 
@@ -250,6 +257,7 @@ def agentic_coding_process_results(questions: list[dict], answers: list[dict], d
     report = json.load(open(report_path))
 
     result = {}
+    instance_map: dict[str, dict[str, str]] = {}
 
     for question in questions:
         question_id = question['question_id']
@@ -260,6 +268,26 @@ def agentic_coding_process_results(questions: list[dict], answers: list[dict], d
         else:
             result[question_id] = 1 if instance_id in report['resolved_ids'] else 0
         
+        instance_dir: Path = (
+            workdir_path
+            / question['org']
+            / question['repo']
+            / EVALUATION_WORKDIR
+            / f"pr-{question['number']}"
+        )
+        report_file = instance_dir / REPORT_FILE
+        fix_log_file = instance_dir / FIX_PATCH_RUN_LOG_FILE
+
+        instance_map[question_id] = {
+            "instance_id": instance_id,
+            "workdir": str(workdir_path),
+            "instance_dir": str(instance_dir),
+            "report_file": str(report_file),
+            "fix_log_file": str(fix_log_file),
+            "eval_id": eval_id,
+            "model_name": model_name
+        }
+
         if debug and result[question_id] == 0:
             if instance_id in report['unresolved_ids']:
                 print(f"INCORRECT, {model_name} {question_id} ({instance_id})")
@@ -272,8 +300,44 @@ def agentic_coding_process_results(questions: list[dict], answers: list[dict], d
             print('RUN ID', answer['run_id'])
             print('EVAL ID', eval_id)
             print('WORKDIR', workdir_path)
+
+            def _failed_tests(report_obj: Report) -> list[tuple[str, TestStatus, TestStatus]]:
+                failing: list[tuple[str, TestStatus, TestStatus]] = []
+                for test_name, test_status in report_obj._tests.items():
+                    if test_status.test == TestStatus.PASS and test_status.fix == TestStatus.FAIL:
+                        failing.append((test_name, test_status.test, test_status.fix))
+                    elif test_status.test == TestStatus.FAIL and test_status.fix != TestStatus.PASS:
+                        failing.append((test_name, test_status.test, test_status.fix))
+                return failing
+
+            def _format_status(test_status: TestStatus) -> str:
+                return test_status.value if isinstance(test_status, TestStatus) else str(test_status)
+
+            if report_file.exists():
+                try:
+                    report_obj = Report.from_json(report_file.read_text())
+                    failing_tests = _failed_tests(report_obj)
+                    if failing_tests:
+                        print('Failing tests (test -> fix):')
+                        for name, test_status, fix_status in failing_tests:
+                            print(f'  {name}: { _format_status(test_status)} -> { _format_status(fix_status)}')
+                    else:
+                        print('No failing tests identified in report.')
+                except Exception as e:
+                    print(f'Could not parse report for {instance_id}: {e}')
+            else:
+                print(f'Report file not found at {report_file}')
+
+            if fix_log_file.exists():
+                print(f'Fix patch log: {fix_log_file}')
+            else:
+                print(f'Fix patch log missing: {fix_log_file}')
     
     assert len(result) == len(questions)
     assert sum(result.values()) == report['resolved_instances']
+
+    mapping_path = report_path.parent / "question_instance_map.json"
+    with open(mapping_path, 'w') as f:
+        json.dump(instance_map, f, indent=2)
 
     return result

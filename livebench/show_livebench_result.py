@@ -24,89 +24,90 @@ pd.set_option('display.width', None)
 def calculate_usage(args, df, questions_all):
     """Calculate average token usage for all answers by task and category."""
     print("Calculating token usage for all answers...")
-    
+
     # Get the set of valid question IDs
     valid_question_ids = {q['question_id'] for q in questions_all}
-    
+
     # Get model list to filter by if provided
     model_filter = None
     if args.model_list is not None:
         model_filter = {get_model_config(x).display_name.lower() for x in args.model_list}
         print(f"Filtering token usage for models: {', '.join(sorted(model_filter))}")
-    
+
     # Load model answer files
     model_answers = {}
     for bench in args.bench_name:
         # Find all model answer files without filtering by model name
         answer_files = glob.glob(f"data/{bench}/**/model_answer/*.jsonl", recursive=True)
-        
+
         for answer_file in answer_files:
             # Load the answer file
             if os.path.exists(answer_file):
                 answers = pd.read_json(answer_file, lines=True)
-                
+
                 # Skip if empty or doesn't have model_id column
                 if len(answers) == 0 or 'model_id' not in answers.columns:
                     continue
-                
+
                 # Filter to only include valid question IDs
                 answers = answers[answers['question_id'].isin(valid_question_ids)]
-                
+
                 # Skip if empty after filtering
                 if len(answers) == 0:
                     continue
-                
+
                 # Group answers by model_id
                 grouped_answers = answers.groupby('model_id')
-                
+
                 # Process each model group
                 for model_id, model_group in grouped_answers:
                     # Check if this model_id matches any model in our correct answers
                     if not isinstance(model_id, str):
                         continue
-                    
+
                     # Skip if we're filtering by model list and this model isn't in it
                     if model_filter is not None and model_id.lower() not in model_filter:
                         continue
-                    
+
                     matching_models = [m for m in set(df["model"]) if isinstance(m, str) and m.lower() == model_id.lower()]
-                    
+
                     for model in matching_models:
                         if model not in model_answers:
                             model_answers[model] = model_group
                         else:
                             model_answers[model] = pd.concat([model_answers[model], model_group], ignore_index=True)
-    
+
     # Create dataframe for token usage
     usage_data = []
-    
+
+
     # Process each model
     for model, answers_df in model_answers.items():
         # Check if total_output_tokens exists in the dataframe
         if 'total_output_tokens' not in answers_df.columns:
             print(f"Model {model} missing total_output_tokens data")
             continue
-            
+
         # Filter answers to only include those with token data and where total_output_tokens is not -1
         valid_answers = answers_df.dropna(subset=['total_output_tokens'])
         valid_answers = valid_answers[valid_answers['total_output_tokens'] != -1]
-        
+
         # Get all answers for this model
         model_all = df[df["model"] == model]
-        
+
         # Process all answers
         for _, judgment in model_all.iterrows():
             question_id = judgment["question_id"]
-            
+
             # Skip if question_id not in valid_question_ids
             if question_id not in valid_question_ids:
                 continue
-                
+
             matching_answer = valid_answers[valid_answers["question_id"] == question_id]
-            
+
             if len(matching_answer) == 0:
                 continue
-                
+
             # Add to usage data
             usage_data.append({
                 "model": model,
@@ -115,21 +116,21 @@ def calculate_usage(args, df, questions_all):
                 "category": judgment["category"],
                 "total_output_tokens": matching_answer.iloc[0]["total_output_tokens"]
             })
-    
+
     if not usage_data:
         print("No token usage data found.")
         return
-        
+
     # Create dataframe from collected data
     usage_df = pd.DataFrame(usage_data)
-    
+
     # Calculate average by task
     task_usage = usage_df.groupby(["model", "task"])["total_output_tokens"].mean().reset_index()
     task_pivot = pd.pivot_table(task_usage, index=['model'], values="total_output_tokens", columns=["task"])
-    
+
     # Calculate average by category
     category_usage = usage_df.groupby(["model", "task", "category"])["total_output_tokens"].mean().reset_index()
-    
+
     # Get tasks per category from the raw df
     tasks_by_category = {}
     for _, row in df.iterrows():
@@ -138,85 +139,85 @@ def calculate_usage(args, df, questions_all):
         if category not in tasks_by_category:
             tasks_by_category[category] = set()
         tasks_by_category[category].add(task)
-    
+
     # Debug print to check tasks_by_category
     print("\nTasks by category (from raw df):")
     for category, tasks in tasks_by_category.items():
         print(f"{category}: {sorted(tasks)}")
-    
+
     # Calculate averages
     category_pivot = pd.pivot_table(
-        category_usage, 
-        index=['model'], 
-        values="total_output_tokens", 
+        category_usage,
+        index=['model'],
+        values="total_output_tokens",
         columns=["category"]
     )
-    
+
     # Check each model and category - if not all tasks in category have data, mark as NaN
     for model in category_pivot.index:
         for category, tasks in tasks_by_category.items():
             if category in category_pivot.columns:
                 # Get tasks for this model and category in all answers
-                tasks_with_data = set(usage_df[(usage_df["model"] == model) & 
+                tasks_with_data = set(usage_df[(usage_df["model"] == model) &
                                                     (usage_df["category"] == category)]["task"])
                 # If any task is missing, set to NaN
                 if not tasks.issubset(tasks_with_data):
                     category_pivot.at[model, category] = np.nan
-    
+
     # Calculate averages
     avg_by_model = {}
-    
+
     # List of all categories
     all_categories = list(category_pivot.columns)
-    
+
     for model in category_pivot.index:
         # Check if any category has a NaN value
         has_missing_category = any(pd.isna(category_pivot.at[model, cat]) for cat in all_categories if cat in category_pivot.columns)
-        
+
         # Only calculate average if all categories have data
         if not has_missing_category:
             values = [category_pivot.at[model, cat] for cat in all_categories if cat in category_pivot.columns]
             avg_by_model[model] = sum(values) / len(values)
-    
+
     # Add average column
     category_pivot['average'] = pd.Series({
-        model: avg_by_model.get(model, 0) 
+        model: avg_by_model.get(model, 0)
         for model in category_pivot.index
         if model in avg_by_model
     })
-    
+
     # Sort by average
     # Models with complete data come first (sorted by their averages)
     # Then models with incomplete data (sorted alphabetically)
     models_with_average = [model for model in category_pivot.index if model in avg_by_model]
     models_without_average = [model for model in category_pivot.index if model not in avg_by_model]
-    
+
     sorted_models_with_average = sorted(
         models_with_average,
         key=lambda model: avg_by_model.get(model, 0),
         reverse=True
     )
-    
+
     sorted_models = sorted_models_with_average + sorted(models_without_average)
     category_pivot = category_pivot.reindex(sorted_models)
-    
+
     # Move average to first column
     first_col = category_pivot.pop('average')
     category_pivot.insert(0, 'average', first_col)
-    
+
     # Format values as decimals for better readability
     category_pivot = category_pivot.round(1)
     task_pivot = task_pivot.round(1)
-    
+
     # Save to CSV
     task_pivot.to_csv('task_usage.csv')
     category_pivot.to_csv('group_usage.csv')
-    
+
     # Print results
     print("\n########## Token Usage by Task ##########")
     with pd.option_context('display.max_rows', None):
         print(task_pivot.sort_index())
-        
+
     print("\n########## Token Usage by Category ##########")
     with pd.option_context('display.max_rows', None):
         print(category_pivot)
@@ -241,7 +242,7 @@ def display_result_single(args):
                 glob.glob(f"prompt_testing/{bench}/**/model_judgment/ground_truth_judgment.jsonl", recursive=True)
             )
         input_files += files
-    
+
     questions_all = []
     if args.question_source == "huggingface":
         categories = {}
@@ -288,7 +289,7 @@ def display_result_single(args):
     df = df[df['question_id'].isin(question_id_set)]
     df['model'] = df['model'].str.lower()
     df["score"] *= 100
-    
+
     if args.model_list is not None:
         model_list = [get_model_config(x).display_name for x in args.model_list]
         df = df[df["model"].isin([x.lower() for x in model_list])]
@@ -299,7 +300,7 @@ def display_result_single(args):
         df_model = df[df["model"] == model]
 
         missing_question_ids = set([q['question_id'] for q in questions_all]) - set(df_model['question_id'])
-        
+
         if len(missing_question_ids) > 0 and not args.ignore_missing_judgments:
             if args.verbose:
                 print('removing model', model, "has missing", len(questions_all) - len(df_model), "judgments - has ", len(df_model))
@@ -311,14 +312,14 @@ def display_result_single(args):
             df = df[df["model"] != model]
         elif len(missing_question_ids) > 0 and args.ignore_missing_judgments:
             questions_all = [q for q in questions_all if q['question_id'] in df_model['question_id'].values]
-    
+
     if args.ignore_missing_judgments and len(questions_all) == 0:
         raise ValueError("No questions left after ignoring missing judgments.")
-    
+
     if args.ignore_missing_judgments:
         print(f"{len(questions_all)} questions after removing those with missing judgments.")
 
-    
+
     df = df[df['question_id'].isin([q['question_id'] for q in questions_all])]
 
     df.to_csv('df_raw.csv')
@@ -368,7 +369,7 @@ def display_result_single(args):
             max_value = df_1[column].max()
             df_1[column] = df_1[column].apply(lambda x: f'\\textbf{{{x}}}' if x == max_value else x)
         df_1.to_csv('latex_table.csv', sep='&', lineterminator='\\\\\n', quoting=3,escapechar=" ")
-    
+
     if args.print_usage:
         calculate_usage(args, df, questions_all)
 
@@ -377,9 +378,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Display benchmark results for the provided models")
     parser.add_argument("--bench-name", type=str, default=["live_bench"], nargs="+")
     parser.add_argument(
-        "--questions-equivalent", 
+        "--questions-equivalent",
         action=argparse.BooleanOptionalAction,
-        help="""Use this argument to treat all questions with the same weight. 
+        help="""Use this argument to treat all questions with the same weight.
         If this argument is not included, all categories have the same weight."""
     )
     parser.add_argument(
@@ -393,8 +394,8 @@ if __name__ == "__main__":
         "--question-source", type=str, default="huggingface", help="The source of the questions. 'huggingface' will draw questions from huggingface. 'jsonl' will use local jsonl files to permit tweaking or writing custom questions."
     )
     parser.add_argument(
-        "--livebench-release-option", 
-        type=str, 
+        "--livebench-release-option",
+        type=str,
         default=max(LIVE_BENCH_RELEASES),
         choices=LIVE_BENCH_RELEASES,
         help="Livebench release to use. Provide a single date option. Will handle excluding deprecated questions for selected release."
