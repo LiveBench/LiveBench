@@ -217,8 +217,8 @@ def play_a_match_gt(match: MatchSingle, output_file: str | None = None, debug=Fa
 def gen_judgments(
     parallel: int,
     questions: list[dict],
-    output_file: str,
-    answer_dir: str,
+    output_file: str | None,
+    model_answers: dict[str, dict],
     model_list: list[str] | None,
     remove_existing_file: bool,
     bench_name: str,
@@ -232,8 +232,8 @@ def gen_judgments(
 
     Args:
         questions: The list of questions to which answers will be evaluated
-        output_file: The path to the file where judgments will be written
-        answer_dir: The directory containing a file for each model's answers (e.g. {answer_dir}/gpt-4o-mini.jsonl contains answers from gpt-4o-mini)
+        output_file: The path to the file where judgments will be written (can be None if questions have _output_file metadata)
+        model_answers: Pre-loaded model answers dict (model_name -> question_id -> answer)
         model_list: The list of model names whose answers will be evaluated
         remove_existing_file: Whether to remove an existing judgment output file or append
         bench_name: The subset of LiveBench for which answers should be evaluated (e.g. 'live_bench' or 'live_bench/coding')
@@ -242,50 +242,46 @@ def gen_judgments(
         only_incorrect: When true (and resume is true), only re-evaluate questions that previously scored 0
     """
 
-    if "agentic_coding" in bench_name:
-        # Check for litellm and Docker availability
-        if not check_agentic_coding_requirements():
-            print("Warning: litellm or docker missing, skipping agentic coding evaluation")
-            return
-
-
-    if model_list is None:
-        # evaluate answers for all models who have answers in answer_dir
-        models = get_model_list(answer_dir)
-        models = [m for m in models if m != 'deepseek-chat']
-    else:
-        models = model_list
-
-    models = [get_model_config(m).display_name for m in models]
+    models = list(model_answers.keys())
 
     print('models:', models)
 
-    # Load answers
-    model_answers = load_model_answers(answer_dir, models)
-
     play_a_match_func = play_a_match_gt
 
-    if '/' in output_file:
-        os.makedirs(os.path.dirname(output_file), exist_ok=True)
-    if output_file and os.path.exists(output_file) and remove_existing_file:
-        os.remove(output_file)
+    # Collect unique output files from questions
+    output_files = set()
+    if output_file:
+        output_files.add(output_file)
+    for question in questions:
+        if '_output_file' in question:
+            output_files.add(question['_output_file'])
+    
+    # Create directories and optionally remove existing files
+    for out_file in output_files:
+        if '/' in out_file:
+            os.makedirs(os.path.dirname(out_file), exist_ok=True)
+        if out_file and os.path.exists(out_file) and remove_existing_file:
+            os.remove(out_file)
 
     # Load existing judgments if in resume mode
     existing_answer_ids = set()
     existing_scores = {}  # Store answer_id -> score mapping for only_incorrect mode
-    if resume and os.path.exists(output_file):
-        print(f"Resume mode: Reading existing judgments from {output_file}")
-        with open(output_file, "r") as fin:
-            for line in fin:
-                judgment = json.loads(line)
-                # Only track answer_ids - that's all we use for resuming
-                if "answer_id" in judgment:
-                    answer_id = judgment["answer_id"]
-                    existing_answer_ids.add(answer_id)
-                    # Store score for only_incorrect mode
-                    if only_incorrect and "score" in judgment:
-                        existing_scores[answer_id] = judgment["score"]
-        print(f"Found {len(existing_answer_ids)} existing answer IDs")
+    if resume:
+        for out_file in output_files:
+            if os.path.exists(out_file):
+                print(f"Resume mode: Reading existing judgments from {out_file}")
+                with open(out_file, "r") as fin:
+                    for line in fin:
+                        judgment = json.loads(line)
+                        # Only track answer_ids - that's all we use for resuming
+                        if "answer_id" in judgment:
+                            answer_id = judgment["answer_id"]
+                            existing_answer_ids.add(answer_id)
+                            # Store score for only_incorrect mode
+                            if only_incorrect and "score" in judgment:
+                                existing_scores[answer_id] = judgment["score"]
+        if existing_answer_ids:
+            print(f"Found {len(existing_answer_ids)} existing answer IDs")
 
     make_match_func = make_match_single
     if not ignore_missing_answers:
@@ -338,41 +334,90 @@ def gen_judgments(
 
     if len(matches) == 0:
         print('No question-answer pairs found to be judged')
-        reorg_output_file(output_file)
+        for out_file in output_files:
+            reorg_output_file(out_file)
         return
 
+    # Separate matches by category
+    agentic_coding_matches = [m for m in matches if m.question.get('category') == 'agentic_coding']
+    old_instruction_following_matches = [m for m in matches if m.question.get('category') == 'instruction_following' and m.question.get("livebench_release_date", "") < "2025-11-25"]
+    normal_matches = [m for m in matches if m not in agentic_coding_matches and m not in old_instruction_following_matches]
+
     match_stat = {}
-    match_stat["bench_name"] = bench_name
-    match_stat["model_list"] = models
     match_stat["total_num_questions"] = len(questions)
     match_stat["total_num_matches"] = len(matches)
-    match_stat["output_path"] = output_file
+    match_stat["agentic_coding_matches"] = len(agentic_coding_matches)
+    match_stat["old_instruction_following_matches"] = len(old_instruction_following_matches)
+    match_stat["normal_matches"] = len(normal_matches)
+    match_stat["model_list"] = models
+    match_stat["output_paths"] = list(output_files)
 
-    # Show match stats and prompt enter to continue
+    # Show match stats
     print("Stats:")
     print(json.dumps(match_stat, indent=4))
     #input("Press Enter to confirm...")
 
-    if "instruction_following" in bench_name:
+    # Process agentic coding matches if any
+    if agentic_coding_matches:
+        if not check_agentic_coding_requirements():
+            print("Warning: litellm or docker missing, skipping agentic coding evaluation")
+        else:
+            print(f'Processing {len(agentic_coding_matches)} agentic coding matches')
+            for model_id in models:
+                model_matches = [m for m in agentic_coding_matches if m.model == model_id]
+                if not model_matches:
+                    continue
+                model_questions = [m.question for m in model_matches]
+                answers = [m.answer for m in model_matches]
+                eval_result = agentic_coding_process_results(model_questions, answers, debug=debug, max_workers=parallel)
+                for question_id in sorted(eval_result.keys()):
+                    model_answer = model_answers[model_id][question_id]
+                    question = [q for q in model_questions if q['question_id'] == question_id][0]
+                    result = {
+                        "question_id": question_id,
+                        "task": question['task'],
+                        "model": model_id,
+                        "score": eval_result[question_id],
+                        "tstamp": time.time(),
+                        "category": "agentic_coding",
+                    }
+                    if "answer_id" in model_answer:
+                        result["answer_id"] = model_answer["answer_id"]
+
+                    print(
+                        f"question: {question_id}, model: {model_id}, "
+                        f"score: {eval_result[question_id]}, ")
+                    
+                    # Find the output file for this question
+                    if '_output_file' in question:
+                        out_file = question['_output_file']
+                    elif output_file:
+                        out_file = output_file
+                    else:
+                        continue
+                        
+                    os.makedirs(os.path.dirname(out_file), exist_ok=True)
+                    with open(out_file, "a") as fout:
+                        fout.write(json.dumps(result) + "\n")
+    
+    # Process old instruction following matches if any
+    if old_instruction_following_matches:
+        print(f'Processing {len(old_instruction_following_matches)} old instruction following matches')
         nltk.download('punkt')
         nltk.download('punkt_tab')
         nltk.download('averaged_perceptron_tagger')
-
-    if "instruction_following" in bench_name and len(questions) > 0 and questions[0].get("livebench_release_date", "") < "2025-11-25":
-        # Old instruction following format uses batch evaluation
-        task_name = matches[0].question['task']
-
-        if model_list is None:
-            models = get_model_list(answer_dir)
-        else:
-            models = model_list
+        
+        # Get questions for this category
+        if_questions = list(set([m.question for m in old_instruction_following_matches]))
+        task_name = if_questions[0]['task']
 
         for m in model_answers:
             for q in model_answers[m]:
-                model_answers[m][q]['choices'][0]['turns'][0] = re.sub(f"<think>.*?<\/think>", "", model_answers[m][q]['choices'][0]['turns'][0], flags=re.DOTALL).strip()
+                if q in [ques['question_id'] for ques in if_questions]:
+                    model_answers[m][q]['choices'][0]['turns'][0] = re.sub(f"<think>.*?<\/think>", "", model_answers[m][q]['choices'][0]['turns'][0], flags=re.DOTALL).strip()
 
         for model_id in models:
-            scores = instruction_following_process_results(questions, model_answers, task_name, model_id, debug)
+            scores = instruction_following_process_results(if_questions, model_answers, task_name, model_id, debug)
             for item in scores:
                 question_id = item["question_id"]
                 score = item["score"]
@@ -395,61 +440,50 @@ def gen_judgments(
                     f"question: {question_id}, turn: {turn}, model: {model_id}, "
                     f"score: {score}, ")
 
-                if output_file:
-                    os.makedirs(os.path.dirname(output_file), exist_ok=True)
-                    with open(output_file, "a") as fout:
-                        fout.write(json.dumps(result) + "\n")
-    elif "agentic_coding" in bench_name:
-
-        for model_id in models: # TODO: parallelize at the model level too
-            model_matches = [m for m in matches if m.model == model_id]
-            questions = [m.question for m in model_matches]
-            answers = [m.answer for m in model_matches]
-            eval_result = agentic_coding_process_results(questions, answers, debug=debug, max_workers=parallel)
-            for question_id in sorted(eval_result.keys()):
-                model_answer = model_answers[model_id][question_id]
-                question = [q for q in questions if q['question_id'] == question_id][0]
-                result = {
-                    "question_id": question_id,
-                    "task": question['task'],
-                    "model": model_id,
-                    "score": eval_result[question_id],
-                    "tstamp": time.time(),
-                    "category": "agentic_coding",
-                }
-                if "answer_id" in model_answer:
-                    result["answer_id"] = model_answer["answer_id"]
-
-                print(
-                    f"question: {question_id}, model: {model_id}, "
-                    f"score: {eval_result[question_id]}, ")
-                
-                if output_file:
-                    os.makedirs(os.path.dirname(output_file), exist_ok=True)
-                    with open(output_file, "a") as fout:
-                        fout.write(json.dumps(result) + "\n")
-    else:
+                # Find the output file for this question
+                question_obj = [q for q in if_questions if q['question_id'] == question_id]
+                if question_obj and '_output_file' in question_obj[0]:
+                    out_file = question_obj[0]['_output_file']
+                elif output_file:
+                    out_file = output_file
+                else:
+                    continue
+                    
+                os.makedirs(os.path.dirname(out_file), exist_ok=True)
+                with open(out_file, "a") as fout:
+                    fout.write(json.dumps(result) + "\n")
+    
+    # Process normal matches if any
+    if normal_matches:
+        print(f'Processing {len(normal_matches)} normal matches')
+        # Check if any match has task that requires sequential processing
+        has_lcb = any(m.question.get('task') in ['coding_completion', 'LCB_generation'] for m in normal_matches)
+        
         # Play matches
-        # parallel doesn't work well with the livecodebench eval
-        if parallel == 1 or bench_name == "live_bench/coding/coding_completion" or bench_name == "live_bench/coding/LCB_generation":
-            for match in tqdm(matches):
-                results = play_a_match_func(match, output_file=output_file, debug=debug)
+        if parallel == 1 or has_lcb:
+            for match in tqdm(normal_matches):
+                # Use question's output file if available
+                question_output_file = match.question.get('_output_file', output_file)
+                results = play_a_match_func(match, output_file=question_output_file, debug=debug)
         else:
-
             def play_a_match_wrapper(match):
-                return play_a_match_func(match, output_file=output_file, debug=debug)
+                # Use question's output file if available
+                question_output_file = match.question.get('_output_file', output_file)
+                return play_a_match_func(match, output_file=question_output_file, debug=debug)
 
             np.random.seed(0)
-            np.random.shuffle(matches)
+            np.random.shuffle(normal_matches)
 
             with ThreadPoolExecutor(parallel) as executor:
                 for match in tqdm(
-                    executor.map(play_a_match_wrapper, matches), total=len(matches)
+                    executor.map(play_a_match_wrapper, normal_matches), total=len(normal_matches)
                 ):
                     pass
-
-    # De-duplicate and sort judgment file
-    reorg_output_file(output_file)
+    
+    # De-duplicate and sort all judgment files
+    print(f"Reorganizing {len(output_files)} output files")
+    for out_file in output_files:
+        reorg_output_file(out_file)
 
 
 
@@ -555,6 +589,9 @@ if __name__ == "__main__":
                 model_list.append(get_model_config(model_name).display_name.lower())
 
     if args.question_source == "huggingface":
+        # Collect all questions upfront across all benchmark names
+        all_questions = []
+        
         for bench_name in args.bench_name:
             categories, tasks = get_categories_tasks(bench_name)
 
@@ -569,24 +606,21 @@ if __name__ == "__main__":
 
                     task_full_name = f"{LIVE_BENCH_DATA_SUPER_PATH}/{category_name}/{task_name}"
                     output_file = f"data/{task_full_name}/model_judgment/ground_truth_judgment.jsonl" if args.output_file is None else args.output_file
-                    answer_dir = f"data/{task_full_name}/model_answer/" if args.answer_file is None else args.answer_file # expected location of model answers
-
-                    gen_judgments(
-                        parallel=args.parallel,
-                        questions=questions,
-                        output_file=output_file,
-                        answer_dir=answer_dir,
-                        model_list=model_list,
-                        remove_existing_file=args.remove_existing_file,
-                        bench_name=task_full_name,
-                        debug=args.debug,
-                        ignore_missing_answers=args.ignore_missing_answers,
-                        resume=args.resume,
-                        only_incorrect=args.only_incorrect
-                    )
-
+                    answer_dir = f"data/{task_full_name}/model_answer/" if args.answer_file is None else args.answer_file
+                    
+                    # Attach metadata to each question
+                    for question in questions:
+                        question['_output_file'] = output_file
+                        question['_answer_dir'] = answer_dir
+                        question['_task_full_name'] = task_full_name
+                    
+                    all_questions.extend(questions)
+                    print(f"Questions from {task_full_name}")
 
     elif args.question_source == "jsonl":
+        # Collect all questions upfront across all benchmark names
+        all_questions = []
+
         for bench_name in args.bench_name:
             list_of_question_files = []
             original_question_file = f"data/{bench_name}/question.jsonl"
@@ -594,6 +628,7 @@ if __name__ == "__main__":
                 list_of_question_files = [original_question_file]
             else:
                 list_of_question_files = glob.glob(f"data/{bench_name}/**/question.jsonl", recursive=True)
+            
             for question_file in list_of_question_files:
                 print('questions from', question_file)
                 questions = load_questions_jsonl(question_file, release_set, args.livebench_release_option, args.question_id)
@@ -607,22 +642,62 @@ if __name__ == "__main__":
                 bench_name = os.path.dirname(question_file).replace("data/","")
 
                 output_file = f"data/{bench_name}/model_judgment/ground_truth_judgment.jsonl" if args.output_file is None else args.output_file
-                answer_dir = f"data/{bench_name}/model_answer/" if args.answer_file is None else args.answer_file # expected location of model answers
-                if len(questions) > 0:
-                    gen_judgments(
-                        parallel=args.parallel,
-                        questions=questions,
-                        output_file=output_file,
-                        answer_dir=answer_dir,
-                        model_list=model_list,
-                        remove_existing_file=args.remove_existing_file,
-                        bench_name=bench_name,
-                        debug=args.debug,
-                        ignore_missing_answers=args.ignore_missing_answers,
-                        resume=args.resume,
-                        only_incorrect=args.only_incorrect
-                    )
+                answer_dir = f"data/{bench_name}/model_answer/" if args.answer_file is None else args.answer_file
+                
+                # Attach metadata to each question
+                for question in questions:
+                    question['_output_file'] = output_file
+                    question['_answer_dir'] = answer_dir
+                    question['_task_full_name'] = bench_name
+                
+                all_questions.extend(questions)
 
     else:
         raise ValueError(f"Bad question source {args.question_source}.")
+    
+    # Process all questions together
+    if not all_questions:
+        print("No questions to evaluate")
+    else:
+        print(f"Running {len(all_questions)} questions together across {len(args.bench_name)} benchmark(s)")
+        
+        # Gather unique answer directories from all questions
+        answer_dirs = set()
+        for question in all_questions:
+            answer_dirs.add(question['_answer_dir'])
+        
+        # Load all model answers from all directories
+        print(f"Loading model answers from {len(answer_dirs)} directories")
+        all_model_answers = {}
+        for answer_dir in answer_dirs:
+            if model_list is None:
+                models = get_model_list(answer_dir)
+                models = [m for m in models if m != 'deepseek-chat']
+            else:
+                models = model_list
+            
+            models = [get_model_config(m).display_name for m in models]
+            
+            dir_answers = load_model_answers(answer_dir, models)
+            
+            # Merge answers - if a model appears in multiple directories, combine them
+            for model_name, answers in dir_answers.items():
+                if model_name not in all_model_answers:
+                    all_model_answers[model_name] = {}
+                all_model_answers[model_name].update(answers)
+        
+        # Process all questions together
+        gen_judgments(
+            parallel=args.parallel,
+            questions=all_questions,
+            output_file=None,  # Will use _output_file from question metadata
+            model_answers=all_model_answers,
+            model_list=model_list,
+            remove_existing_file=args.remove_existing_file,
+            bench_name='live_bench',
+            debug=args.debug,
+            ignore_missing_answers=args.ignore_missing_answers,
+            resume=args.resume,
+            only_incorrect=args.only_incorrect
+        )
     
