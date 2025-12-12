@@ -26,6 +26,7 @@ from livebench.process_results.reasoning.web_of_lies_v2.utils import web_of_lies
 from livebench.process_results.reasoning.house_traversal.utils import house_traversal_process_results
 from livebench.process_results.reasoning.zebra_puzzle.utils import get_zebra_puzzle_evaluator
 from livebench.process_results.reasoning.spatial.utils import spatial_process_results
+from livebench.process_results.reasoning.sudoku.utils import sudoku_process_results
 from livebench.process_results.math.math_competitions.utils import mathcontest_process_results,aime_process_results 
 from livebench.process_results.math.olympiad.utils import proof_rearrangement_process_results
 from livebench.process_results.math.AMPS_Hard.utils import amps_hard_process_results 
@@ -156,6 +157,9 @@ def play_a_match_gt(match: MatchSingle, output_file: str | None = None, debug=Fa
             category = "reasoning"
         elif task_or_subtask == "theory_of_mind":
             score = theory_of_mind_process_results(ground_truth, llm_answer, debug)
+            category = "reasoning"
+        elif task_or_subtask == "sudoku":
+            score = sudoku_process_results(ground_truth, llm_answer, debug)
             category = "reasoning"
         elif task_or_subtask == 'typos':
             score = typos_process_results(ground_truth, llm_answer, debug)

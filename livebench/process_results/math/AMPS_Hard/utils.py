@@ -181,6 +181,13 @@ def parse(x: str) -> list[sympy.Expr]:
     # \cos(x-38)-4\cos(...) gets misparsed because parser thinks -4 is inside first \cos
     # Solution: Add braces to make function boundaries explicit: \cos{(x-38)}
     import re
+
+    # Preprocess: Handle absolute value notation
+    # Convert various absolute value notations to \left|...\right| which SymPy understands
+    x = x.replace(r'\lvert', r'\left|')
+    x = x.replace(r'\rvert', r'\right|')
+    x = x.replace(r'\vert', r'|')  # Single \vert -> plain |
+    # Note: \mid is typically for "divides" in number theory, not absolute value
     
     # List of trig/math functions that need this fix
     func_names = ['cos', 'sin', 'tan', 'sec', 'csc', 'cot', 
@@ -369,6 +376,80 @@ def _rel_to_expr(val):
     return val
 
 
+def _extract_arbitrary_constants(expr):
+    """
+    Extract arbitrary constants from an expression (symbols like C_1, C_2, etc.).
+    Excludes the independent variable x and mathematical constants (e, pi, I, etc.).
+    """
+    var_symbol = sympy.Symbol('x')
+    math_constants = {sympy.E, sympy.pi, sympy.I, sympy.oo, sympy.zoo, sympy.nan}
+    free_syms = expr.free_symbols - {var_symbol} - math_constants
+    return sorted(free_syms, key=str)
+
+
+def _is_equiv_with_constant_permutation(expr1, expr2, debug=False):
+    """
+    Check if two expressions are equivalent under arbitrary constant renaming.
+    This handles cases where models use different constant names (C_1 vs D_1) or
+    assign indices in different orders.
+
+    Args:
+        expr1: Ground truth expression (sympy.Expr)
+        expr2: Model answer expression (sympy.Expr)
+        debug: Print debug info
+
+    Returns:
+        True if expressions are equivalent under some constant renaming, False otherwise
+    """
+    import itertools
+
+    try:
+        # Extract arbitrary constants from both expressions
+        constants1 = _extract_arbitrary_constants(expr1)
+        constants2 = _extract_arbitrary_constants(expr2)
+
+        if debug and (constants1 or constants2):
+            print(f"  Ground truth constants: {constants1}")
+            print(f"  Answer constants: {constants2}")
+
+        # If different number of constants, they can't be equivalent
+        if len(constants1) != len(constants2):
+            if debug:
+                print(f"  Different number of constants: {len(constants1)} vs {len(constants2)}")
+            return False
+
+        # If no constants, fall back to regular comparison
+        if len(constants1) == 0:
+            return None  # Let other comparison methods handle it
+
+        # Try all permutations of constant mappings
+        for perm in itertools.permutations(constants2):
+            # Create substitution: map answer constants to ground truth constants
+            subs_dict = {ans_const: gt_const for ans_const, gt_const in zip(perm, constants1)}
+
+            # Apply substitution to answer
+            expr2_subst = expr2.subs(subs_dict)
+
+            # Check if equivalent
+            try:
+                diff = sympy.simplify(expr1 - expr2_subst)
+                if diff == 0:
+                    if debug:
+                        print(f"  ✓ Found equivalent mapping: {subs_dict}")
+                    return True
+            except Exception:
+                continue
+
+        if debug:
+            print(f"  ✗ No equivalent mapping found")
+        return False
+
+    except Exception as e:
+        if debug:
+            print(f"  Error in constant permutation check: {e}")
+        return None  # Let other comparison methods handle it
+
+
 def _numerical_compare(expr1, expr2, num_samples=50):
     """
     Numerically compare two expressions by evaluating at random points.
@@ -535,9 +616,26 @@ def is_equiv(x1: str, x2: str, debug: bool = False, subtask: str | None = None) 
                     # don't continue on failure because this could be nonzero even if the expressions are equal
                 except Exception as e:
                     errors.append(f"couldn't subtract {x1} and {x2}: {e}")
-                
 
-                
+
+                # Fast path 1.5: Check if expressions differ only by arbitrary constant renaming
+                # This handles cases like C_1*exp(-3x) vs D_1*exp(-3x) or swapped indices
+                # Common for differential equations and integrals
+                try:
+                    result = _is_equiv_with_constant_permutation(parsed_x1, parsed_x2, debug=debug)
+                    if result is True:
+                        if debug:
+                            print('CORRECT BASED ON CONSTANT PERMUTATION')
+                        return True
+                    elif result is False:
+                        # Definitely not equivalent even with constant renaming
+                        continue
+                    # If result is None, fall through to other methods
+                except Exception as e:
+                    if debug:
+                        print(f"Constant permutation check failed: {e}")
+                    pass
+
                 # Fast path 2: numerical comparison (very fast, works for all equivalent expressions)
                 # This catches cases where symbolic methods fail (e.g., 1/sec(x) vs cos(x))
                 try:
