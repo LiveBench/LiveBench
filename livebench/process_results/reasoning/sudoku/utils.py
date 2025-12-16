@@ -64,17 +64,9 @@ def sudoku_process_results(ground_truth: str, llm_answer: str, debug: bool = Fal
     # Extract solution from the model's answer
     extracted_solution = extract_solution_from_tags(llm_answer)
 
-    if debug:
-        print(f"Ground truth: {ground_truth}")
-        print(f"Extracted solution: {extracted_solution}")
-
     # Normalize both solutions
     normalized_ground_truth = normalize_solution(ground_truth)
     normalized_llm_solution = normalize_solution(extracted_solution)
-
-    if debug:
-        print(f"Normalized ground truth: {normalized_ground_truth}")
-        print(f"Normalized LLM solution: {normalized_llm_solution}")
 
     # Check if lengths match first
     if len(normalized_llm_solution) != len(normalized_ground_truth):
@@ -84,12 +76,12 @@ def sudoku_process_results(ground_truth: str, llm_answer: str, debug: bool = Fal
 
     # Exact match comparison
     if normalized_llm_solution == normalized_ground_truth:
-        if debug:
-            print("Solution matches!")
         return 1.0
     else:
         if debug:
             print("Solution does not match")
+            print(f"Normalized ground truth: {normalized_ground_truth}")
+            print(f"Normalized LLM solution: {normalized_llm_solution}")
             # Show first difference
             for i, (c1, c2) in enumerate(zip(normalized_ground_truth, normalized_llm_solution)):
                 if c1 != c2:

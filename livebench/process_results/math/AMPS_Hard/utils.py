@@ -60,10 +60,11 @@ def amps_hard_process_results(ground_truth: str, llm_answer: str, debug=False, q
 
     if isinstance(ground_truth, list):
         ground_truth = ground_truth[-1]
-    llm_answer = llm_answer.replace("+C","")
-    llm_answer = llm_answer.replace("+ C", "")
-    llm_answer = llm_answer.replace("+ c", "")
-    llm_answer = llm_answer.replace("+c", "")
+
+    # Strip integration constants (+C) but NOT subscripted constants (C_1, C_2, etc.)
+    # Use regex with negative lookahead to avoid stripping C from C_1, C_2, etc.
+    # Match +C or + C only when NOT followed by underscore or opening brace
+    llm_answer = re.sub(r'\+\s*[Cc](?![_{])', '', llm_answer)
     llm_answer = llm_answer.replace("\\\\fbox{", "\\\\boxed{")
     llm_answer = llm_answer.replace("\\dfrac", "\\frac")
     llm_answer = llm_answer.replace("\\tfrac", "\\frac")
@@ -376,18 +377,55 @@ def _rel_to_expr(val):
     return val
 
 
-def _extract_arbitrary_constants(expr):
+def _get_expected_variables(subtask: str | None = None, expr=None) -> set:
+    """
+    Get the expected variable symbols for a given subtask.
+    Most tasks use 'x', but some use other variables or multiple variables.
+
+    Args:
+        subtask: The subtask name (task-level, e.g., 'partial_derivatives')
+        expr: Optional expression to inspect for variable detection
+    """
+    # Tasks that typically use two variables x, y
+    # Note: subtask contains the task name, not the subtype
+    two_var_tasks = {
+        'partial_derivatives',  # PartialDerivatives task
+        'implicit_differentiation',  # ImplicitDifferentiation task
+    }
+
+    if subtask in two_var_tasks:
+        # Check if the expression contains 'z' - if so, it's likely the three_var subtype
+        if expr is not None and sympy.Symbol('z') in expr.free_symbols:
+            return {sympy.Symbol('x'), sympy.Symbol('y'), sympy.Symbol('z')}
+        # Otherwise, it's a two-variable problem
+        return {sympy.Symbol('x'), sympy.Symbol('y')}
+
+    # Derivatives task with parametric subtypes uses 't'
+    # Check if 't' is in the expression to detect parametric cases
+    if subtask == 'derivatives' and expr is not None:
+        if sympy.Symbol('t') in expr.free_symbols:
+            return {sympy.Symbol('t')}
+
+    # Default: assume 'x' is the variable
+    return {sympy.Symbol('x')}
+
+
+def _extract_arbitrary_constants(expr, subtask: str | None = None):
     """
     Extract arbitrary constants from an expression (symbols like C_1, C_2, etc.).
-    Excludes the independent variable x and mathematical constants (e, pi, I, etc.).
+    Excludes the independent variable(s) and mathematical constants (e, pi, I, etc.).
+
+    Args:
+        expr: The sympy expression
+        subtask: The subtask name (used to determine expected variables)
     """
-    var_symbol = sympy.Symbol('x')
     math_constants = {sympy.E, sympy.pi, sympy.I, sympy.oo, sympy.zoo, sympy.nan}
-    free_syms = expr.free_symbols - {var_symbol} - math_constants
+    var_symbols = _get_expected_variables(subtask, expr=expr)
+    free_syms = expr.free_symbols - var_symbols - math_constants
     return sorted(free_syms, key=str)
 
 
-def _is_equiv_with_constant_permutation(expr1, expr2, debug=False):
+def _is_equiv_with_constant_permutation(expr1, expr2, debug=False, subtask=None):
     """
     Check if two expressions are equivalent under arbitrary constant renaming.
     This handles cases where models use different constant names (C_1 vs D_1) or
@@ -397,6 +435,7 @@ def _is_equiv_with_constant_permutation(expr1, expr2, debug=False):
         expr1: Ground truth expression (sympy.Expr)
         expr2: Model answer expression (sympy.Expr)
         debug: Print debug info
+        subtask: The subtask name (used to determine expected variables)
 
     Returns:
         True if expressions are equivalent under some constant renaming, False otherwise
@@ -405,8 +444,8 @@ def _is_equiv_with_constant_permutation(expr1, expr2, debug=False):
 
     try:
         # Extract arbitrary constants from both expressions
-        constants1 = _extract_arbitrary_constants(expr1)
-        constants2 = _extract_arbitrary_constants(expr2)
+        constants1 = _extract_arbitrary_constants(expr1, subtask=subtask)
+        constants2 = _extract_arbitrary_constants(expr2, subtask=subtask)
 
         if debug and (constants1 or constants2):
             print(f"  Ground truth constants: {constants1}")
@@ -428,7 +467,12 @@ def _is_equiv_with_constant_permutation(expr1, expr2, debug=False):
             subs_dict = {ans_const: gt_const for ans_const, gt_const in zip(perm, constants1)}
 
             # Apply substitution to answer
-            expr2_subst = expr2.subs(subs_dict)
+            # Use two-step substitution with temporary symbols to avoid issues with swaps
+            # e.g., {C_1: C_2, C_2: C_1} needs temporaries to work correctly
+            temp_subs = {old: sympy.Symbol(f'__TEMP_{i}__') for i, old in enumerate(subs_dict.keys())}
+            final_subs = {temp_subs[old]: new for old, new in subs_dict.items()}
+
+            expr2_subst = expr2.subs(temp_subs).subs(final_subs)
 
             # Check if equivalent
             try:
@@ -622,7 +666,7 @@ def is_equiv(x1: str, x2: str, debug: bool = False, subtask: str | None = None) 
                 # This handles cases like C_1*exp(-3x) vs D_1*exp(-3x) or swapped indices
                 # Common for differential equations and integrals
                 try:
-                    result = _is_equiv_with_constant_permutation(parsed_x1, parsed_x2, debug=debug)
+                    result = _is_equiv_with_constant_permutation(parsed_x1, parsed_x2, debug=debug, subtask=subtask)
                     if result is True:
                         if debug:
                             print('CORRECT BASED ON CONSTANT PERMUTATION')
