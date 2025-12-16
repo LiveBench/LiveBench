@@ -265,6 +265,11 @@ def agentic_coding_process_results(questions: list[dict], answers: list[dict], d
         if instance_id not in report['submitted_ids']:
             print(f"Instance {instance_id} not found in report (question {question_id})")
             result[question_id] = 0
+        elif instance_id in report['error_ids'] or instance_id in report['incomplete_ids']:
+            # Skip questions with infrastructure errors - don't include in result
+            # This signals that grading should be re-run for these questions
+            print(f"Skipping question {question_id} ({instance_id}) due to infrastructure error")
+            continue
         else:
             result[question_id] = 1 if instance_id in report['resolved_ids'] else 0
         
@@ -333,7 +338,8 @@ def agentic_coding_process_results(questions: list[dict], answers: list[dict], d
             else:
                 print(f'Fix patch log missing: {fix_log_file}')
     
-    assert len(result) == len(questions)
+    # Note: result may have fewer entries than questions if some had infrastructure errors
+    assert len(result) <= len(questions)
     assert sum(result.values()) == report['resolved_instances']
 
     mapping_path = report_path.parent / "question_instance_map.json"

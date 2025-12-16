@@ -8,6 +8,7 @@ from pathlib import Path
 from livebench.common import LIVE_BENCH_ROOT_PATH
 from livebench.agentic_code_runner.eval.harness.report import Report
 from livebench.agentic_code_runner.eval.harness.test_result import TestStatus
+from livebench.process_results.coding.utils import agentic_coding_process_results
 
 parser = argparse.ArgumentParser(description='Check the grading flakiness of a task for a given model\'s answers')
 parser.add_argument('--model', required=True, nargs='+', help='Name of the model(s) to check')
@@ -64,31 +65,106 @@ def extract_failing_tests(report_path: Path) -> list[tuple[str, str, str]]:
             failures.append((name, test_phase, fix_phase))
     return failures
 
+def load_questions(bench_name: str, question_ids: list[str] | None = None, question_source: str | None = None) -> list[dict]:
+    """Load questions from the benchmark question file."""
+    question_file = Path("data") / bench_name / "question.jsonl"
+    
+    if not question_file.exists():
+        raise FileNotFoundError(f"Question file not found: {question_file}")
+    
+    questions = []
+    with open(question_file, 'r') as f:
+        for line in f:
+            question = json.loads(line)
+            # Filter by question_id if specified
+            if question_ids and question['question_id'] not in question_ids:
+                continue
+            questions.append(question)
+    
+    print(f"Loaded {len(questions)} questions from {question_file}")
+    return questions
+
+def grade_ground_truth(bench_name: str, question_ids: list[str] | None, question_source: str | None, parallel: int | None) -> dict[str, float]:
+    """Grade ground truth answers for agentic coding questions."""
+    questions = load_questions(bench_name, question_ids, question_source)
+    
+    if not questions:
+        print("Warning: No questions loaded!")
+        return {}
+    
+    # Create ground truth answers
+    gt_answers = []
+    for question in questions:
+        answer = {
+            'model_id': 'ground_truth',
+            'choices': [{'turns': [question['fix_patch']]}],
+            'question_id': question['question_id'],
+            'answer_id': 'placeholder',
+            'run_id': 'placeholder'
+        }
+        gt_answers.append(answer)
+    
+    print(f"Running evaluation on {len(questions)} questions with {parallel or 1} workers...")
+    
+    # Process results and get scores
+    max_workers = parallel if parallel else 1
+    result = agentic_coding_process_results(questions, gt_answers, debug=True, max_workers=max_workers)
+    
+    print(f"Evaluation complete. Results: {len(result)} question(s)")
+    
+    # Convert boolean results to scores (1.0 for success, 0.0 for failure)
+    scores = {question_id: 1.0 if success else 0.0 for question_id, success in result.items()}
+    return scores
+
 agentic_artifacts: dict[tuple[str, str], list[dict]] = defaultdict(list)
+
+# Separate ground_truth model from regular models
+regular_models = [m for m in args.model if m != "ground_truth"]
+has_ground_truth = "ground_truth" in args.model
 
 # Run gen_ground_truth_judgment.py 5 times
 existing_runs = snapshot_runs() if is_agentic else set()
 for i, temp_file in enumerate(temp_files):
     print(f"Running grading iteration {i+1}/{num_iterations}...")
-    cmd = [
-        'python', 'gen_ground_truth_judgment.py',
-        '--bench-name', bench_name,
-        '--model', *args.model,
-        '--output-file', temp_file,
-    ]
     
-    if args.question_id:
-        cmd.extend(['--question-id', *args.question_id])
-    
-    if args.question_source:
-        cmd.extend(['--question-source', args.question_source])
-    
-    if args.parallel:
-        cmd.extend(['--parallel', str(args.parallel)])
-    
-    subprocess.run(cmd, check=True)
+    # Handle regular models
+    if regular_models:
+        cmd = [
+            'python', 'gen_ground_truth_judgment.py',
+            '--bench-name', bench_name,
+            '--model', *regular_models,
+            '--output-file', temp_file,
+        ]
+        
+        if args.question_id:
+            cmd.extend(['--question-id', *args.question_id])
+        
+        if args.question_source:
+            cmd.extend(['--question-source', args.question_source])
+        
+        if args.parallel:
+            cmd.extend(['--parallel', str(args.parallel)])
+        
+        subprocess.run(cmd, check=True)
 
-    if is_agentic:
+        if is_agentic:
+            new_runs = snapshot_runs()
+            created = [report_root / r for r in new_runs - existing_runs]
+            for run_dir in created:
+                artifacts = load_agentic_artifacts(run_dir)
+                for key, items in artifacts.items():
+                    agentic_artifacts[key].extend(items)
+            existing_runs = new_runs
+    
+    # Handle ground truth
+    if has_ground_truth:
+        if not is_agentic:
+            raise ValueError("Ground truth grading is only supported for agentic_coding benchmarks")
+        
+        print("Grading ground truth...")
+        gt_scores = grade_ground_truth(bench_name, args.question_id, args.question_source, args.parallel)
+        
+        # Track artifacts for ground truth runs
         new_runs = snapshot_runs()
         created = [report_root / r for r in new_runs - existing_runs]
         for run_dir in created:
@@ -96,6 +172,17 @@ for i, temp_file in enumerate(temp_files):
             for key, items in artifacts.items():
                 agentic_artifacts[key].extend(items)
         existing_runs = new_runs
+        
+        # Append ground truth scores to the temp file
+        print(f"Writing {len(gt_scores)} ground truth scores to {temp_file}")
+        with open(temp_file, 'a') as f:
+            for question_id, score in gt_scores.items():
+                judgment = {
+                    'question_id': question_id,
+                    'model': 'ground_truth',
+                    'score': score
+                }
+                f.write(json.dumps(judgment) + '\n')
 
 # Read all output files and collect scores by question_id and model
 # Structure: {(question_id, model): [score1, score2, score3, score4, score5]}
@@ -104,11 +191,17 @@ scores_by_question_model = defaultdict(list)
 for temp_file in temp_files:
     with open(temp_file, 'r') as f:
         for line in f:
+            if not line.strip():
+                continue
             judgment = json.loads(line)
             question_id = judgment['question_id']
             model = judgment['model']
             score = judgment['score']
             scores_by_question_model[(question_id, model)].append(score)
+
+print(f"\nCollected scores for {len(scores_by_question_model)} (question_id, model) pairs")
+for (qid, model), scores in scores_by_question_model.items():
+    print(f"  {model} - {qid}: {scores}")
 
 def agentic_flaky_detail(key: tuple[str, str]) -> dict:
     entries = agentic_artifacts.get(key, [])
@@ -132,6 +225,8 @@ def agentic_flaky_detail(key: tuple[str, str]) -> dict:
 
 # Identify questions with different scores
 flaky_questions = []
+all_flaky_tests = set()  # Track all flaky test names across all questions
+
 for (question_id, model), scores in scores_by_question_model.items():
     if len(set(scores)) > 1:  # If not all scores are the same
         detail = agentic_flaky_detail((question_id, model)) if is_agentic else {}
@@ -141,6 +236,26 @@ for (question_id, model), scores in scores_by_question_model.items():
             'scores': scores,
             'detail': detail
         })
+        
+        # Collect flaky tests for this question
+        if is_agentic and detail.get("per_run"):
+            failing_sets = []
+            for run_info in detail["per_run"]:
+                failing_tests = run_info.get("failing_tests", [])
+                failing_sets.append({name for name, _, _ in failing_tests})
+            
+            # A test is flaky if it appears in some failing sets but not all
+            # (either fails sometimes or the set of failing tests changes)
+            if len({tuple(sorted(s)) for s in failing_sets if s}) > 1:
+                # Collect all test names that appear in at least one run
+                all_tests_in_question = set()
+                for s in failing_sets:
+                    all_tests_in_question.update(s)
+                # A test is flaky if it doesn't appear consistently
+                for test_name in all_tests_in_question:
+                    test_appears = [test_name in s for s in failing_sets]
+                    if not all(test_appears) or (len(failing_sets) > 0 and not any(test_appears)):
+                        all_flaky_tests.add(test_name)
 
 # Output results
 if flaky_questions:
@@ -175,4 +290,14 @@ if flaky_questions:
 else:
     print("\n" + "="*80)
     print(f"No flaky questions detected - all scores were consistent across {num_iterations} runs")
+    print("="*80)
+
+# Print all flaky tests at the end
+if is_agentic and all_flaky_tests:
+    print("\n" + "="*80)
+    print("ALL FLAKY TESTS ACROSS ALL QUESTIONS:")
+    print("="*80)
+    for test_name in sorted(all_flaky_tests):
+        print(f"  {test_name}")
+    print(f"\nTotal flaky tests: {len(all_flaky_tests)}")
     print("="*80)

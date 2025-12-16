@@ -136,8 +136,11 @@ def evaluate(question_id: str, model: str | None = None):
     
     try:
         gt_result = play_a_match_gt(gt_match, output_file=None, debug=True)
-        print("Ground Truth Evaluation:")
-        print(gt_result)
+        if gt_result is None:
+            print("Ground Truth Evaluation: Skipped due to infrastructure error")
+        else:
+            print("Ground Truth Evaluation:")
+            print(gt_result)
     except Exception as e:
         print(f"Error evaluating ground truth for question {question_id}: {str(e)}")
         gt_result = None
@@ -173,7 +176,10 @@ def evaluate(question_id: str, model: str | None = None):
         try:
             print(f"\nModel Evaluation ({model_name}):")
             model_result = play_a_match_gt(model_match, output_file=None, debug=True)
-            print(model_result)
+            if model_result is None:
+                print("Model Evaluation: Skipped due to infrastructure error")
+            else:
+                print(model_result)
             return {"ground_truth": gt_result, "model": model_result}
         except Exception as e:
             print(f"Error evaluating model {model_name} for question {question_id}: {str(e)}")

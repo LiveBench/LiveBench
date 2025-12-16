@@ -20,7 +20,7 @@ class SvelteImageBase8(Image):
         return self._config
 
     def dependency(self) -> Union[str, "Image"]:
-        return "ubuntu:latest"
+        return "ubuntu:22.04"
 
     def image_tag(self) -> str:
         return "base8"
@@ -42,17 +42,18 @@ class SvelteImageBase8(Image):
             code = f"COPY {self.pr.repo} /home/{self.pr.repo}"
 
         return f"""FROM {image_name}
+ARG DEBIAN_FRONTEND=noninteractive
 
 {self.global_env}
 
 WORKDIR /home/
 
-RUN apt update && apt install -y git nodejs npm && npm install -g pnpm@8
+RUN apt update && apt install -y git curl ca-certificates gnupg && \\
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \\
+    apt-get install -y nodejs && \\
+    npm install -g pnpm@8
 
 {code}
-
-CMD ["pnpm", "exec", "playwright", "install"]
-CMD ["pnpm", "playwright", "install", "chromium"]
 
 {self.clear_env}
 
@@ -73,7 +74,7 @@ class SvelteImageBase9(Image):
         return self._config
 
     def dependency(self) -> Union[str, "Image"]:
-        return "ubuntu:latest"
+        return "ubuntu:22.04"
 
     def image_tag(self) -> str:
         return "base9"
@@ -95,17 +96,18 @@ class SvelteImageBase9(Image):
             code = f"COPY {self.pr.repo} /home/{self.pr.repo}"
 
         return f"""FROM {image_name}
+ARG DEBIAN_FRONTEND=noninteractive
 
 {self.global_env}
 
 WORKDIR /home/
 
-RUN apt update && apt install -y git nodejs npm && npm install -g pnpm@9
+RUN apt update && apt install -y git curl ca-certificates gnupg && \\
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \\
+    apt-get install -y nodejs && \\
+    npm install -g pnpm@9
 
 {code}
-
-CMD ["pnpm", "exec", "playwright", "install"]
-CMD ["pnpm", "playwright", "install", "chromium"]
 
 {self.clear_env}
 
@@ -185,9 +187,7 @@ git checkout {pr.base.sha}
 bash /home/check_git_changes.sh
 
 pnpm install --frozen-lockfile || true
-
-pnpm exec playwright install
-pnpm playwright install chromium
+pnpm exec playwright install --with-deps
 
 """.format(
                     pr=self.pr

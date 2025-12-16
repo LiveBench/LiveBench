@@ -588,7 +588,7 @@ class CliArgs:
             with open(file_path, "w", encoding="utf-8", newline="\n") as f:
                 f.write(file.content)
 
-        self.logger.info(f"Building image {image.image_full_name()}...")
+        self.logger.info(f"Building image {image.image_full_name()} - logging to {image_dir / BUILD_IMAGE_LOG_FILE}")
         docker_util.build(
             image_dir,
             image.dockerfile_name(),
@@ -739,7 +739,7 @@ class CliArgs:
             image_full_name: str, run_command: str, output_path: Path
         ):
             self.logger.info(
-                f"Running {image_full_name} with command: {run_command}..."
+                f"Running {image_full_name} with command: {run_command} - logging to {output_path}"
             )
             output = docker_util.run(
                 image_full_name,
