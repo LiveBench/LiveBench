@@ -318,3 +318,29 @@ api_kwargs:
     max_output_tokens: 65536
     temperature: 1
     top_p: 0.95
+---
+display_name: gemini-3-flash-preview-high
+api_name:
+  google: gemini-3-flash-preview
+aliases:
+  - gemini-3-flash-preview-high
+api_kwargs:
+  default:
+    thinking_config:
+      thinking_level: high
+    max_output_tokens: 65536
+    temperature: 1
+    top_p: 0.95
+---
+display_name: gemini-3-flash-preview-minimal
+api_name:
+  google: gemini-3-flash-preview
+aliases:
+  - gemini-3-flash-preview-minimal
+api_kwargs:
+  default:
+    thinking_config:
+      thinking_level: minimal
+    max_output_tokens: 65536
+    temperature: 1
+    top_p: 0.95
