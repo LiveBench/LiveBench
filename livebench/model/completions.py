@@ -480,6 +480,7 @@ def chat_completion_anthropic(model: str, messages: Conversation, temperature: f
 
     text_messages = [c for c in message if c['type'] == 'text']
     if len(text_messages) == 0:
+        print(message)
         raise Exception("No response from Anthropic")
 
     try:
