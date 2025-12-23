@@ -432,6 +432,9 @@ def agentic_coding_process_results(questions: list[dict], answers: list[dict], d
     
     # Retry logic
     if AGENTIC_CODING_RETRIES > 0 and not only_build_image:
+        # Track questions from retry list that have already been retried once
+        retry_list_already_retried: set[str] = set()
+        
         for retry_num in range(AGENTIC_CODING_RETRIES):
             # Get failing question IDs (including error/incomplete that aren't in result)
             all_question_ids = [q['question_id'] for q in questions]
@@ -447,13 +450,15 @@ def agentic_coding_process_results(questions: list[dict], answers: list[dict], d
                 AGENTIC_CODING_RETRY_PATTERNS
             )
             
-            # Add questions from AGENTIC_CODING_RETRY_QUESTIONS that are failing
+            # Add questions from AGENTIC_CODING_RETRY_QUESTIONS that are failing (only if not already retried)
             for qid in failing_question_ids:
-                if qid in AGENTIC_CODING_RETRY_QUESTIONS:
+                if qid in AGENTIC_CODING_RETRY_QUESTIONS and qid not in retry_list_already_retried:
                     if qid in retry_needed:
                         retry_needed[qid].append("in_retry_questions_list")
                     else:
                         retry_needed[qid] = ["in_retry_questions_list"]
+                    # Mark this question as having been retried from the list
+                    retry_list_already_retried.add(qid)
             
             # Add questions with errors/incomplete (not in result) - these should always be retried
             for qid in all_question_ids:

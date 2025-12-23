@@ -386,7 +386,7 @@ class CliArgs:
                     report = task.generate_report(regen=self.regen)
                     if not report.valid:
                         self.logger.error(
-                            f"Invalid report for {task.id}, {report.short_report()}, {report.error_msg}"
+                            f"Invalid report for {task.id}, {report.error_msg}"
                         )
                         return (report, False)
 
@@ -449,7 +449,7 @@ class CliArgs:
                     )
                     if not report.valid:
                         self.logger.error(
-                            f"Invalid report for {task.id}, {report.short_report()}, {report.error_msg}"
+                            f"Invalid report for {task.id}, {report.error_msg}"
                         )
                         return (report, False)
 
