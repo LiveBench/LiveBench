@@ -122,32 +122,54 @@ class DefaultAgent:
                 logger.warning(f"Non-terminating exception: {e}")
                 self.add_message("user", str(e))
             except TerminatingException as e:
+                # For terminating exceptions (Submitted, LimitsExceeded), capture git diff as submission
                 logger.warning(f"Terminating exception: {type(e).__name__}")
+                diff = self._capture_git_diff()
                 self.add_message("user", str(e))
-                return type(e).__name__, str(e)
+                return type(e).__name__, diff
+            except RuntimeError as e:
+                # Check if this is a global cost/call limit - if so, terminate with git diff
+                if "Global cost/call limit exceeded" in str(e):
+                    logger.warning(f"Limit exception (terminating): {type(e).__name__}: {e}")
+                    diff = self._capture_git_diff()
+                    self.add_message("user", str(e))
+                    return type(e).__name__, diff
+                # Other RuntimeErrors should propagate
+                raise
             except Exception as e:
-                logger.warning(f"Exception: {e}")
+                # All other exceptions terminate the agent and capture git diff
+                logger.warning(f"Unhandled exception (terminating): {type(e).__name__}: {e}")
                 traceback.print_exc()
+                diff = self._capture_git_diff()
                 self.add_message("user", str(e))
-                return "UnknownError " + type(e).__name__, str(e)
+                return type(e).__name__, diff
+    
+    def _capture_git_diff(self) -> str:
+        """Capture current git diff, removing pre-existing changes."""
+        try:
+            out = self.env.execute("git add -A && git diff --cached")
+            if out["returncode"] == 0:
+                new_diff = out["output"]
+                if self.existing_git_diff != "":
+                    new_diff = extract_new_changes(self.existing_git_diff, new_diff)
+                return new_diff
+        except Exception as e:
+            logger.warning(f"Failed to capture git diff: {e}")
+        return ""
 
     def step(self) -> dict:
         """Query the LM, execute the action, return the observation."""
         return self.get_observation(self.query())
 
     def query(self) -> dict:
-        """Query the model and return the response."""
+        """Query the model and return the response.
+        
+        If step limit is exceeded, we capture the current git diff and raise LimitsExceeded
+        with the diff as the result.
+        """
         if 0 < self.config.step_limit <= self.model.n_calls:
-            logger.info(f"Autosubmitting after Limits exceeded: {self.model.n_calls} steps")
-            out = self.env.execute("git add -A && git diff --cached")
-            if out["returncode"] != 0:
-                raise RuntimeError(f"Error checking for existing changes: {out}")
-            new_diff = out["output"]
-            if self.existing_git_diff != "":
-                # need to remove the changes from the existing diff from the new diff
-                # so that the final diff only includes the changes from the agent
-                new_diff = extract_new_changes(self.existing_git_diff, new_diff)
-            raise LimitsExceeded(new_diff)
+            logger.info(f"Autosubmitting after step limit exceeded: {self.model.n_calls} steps")
+            raise LimitsExceeded("Step limit exceeded")
         response = self.model.query(self.messages)
         self.add_message("assistant", **response)
         return response
