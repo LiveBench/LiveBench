@@ -336,6 +336,9 @@ def display_result_single(args):
         print(df_1.sort_values(by="model"))
     df_1.to_csv('all_tasks.csv')
 
+    # Store the models that have complete data for all tasks
+    models_with_complete_data = set(df_1.index)
+
     if not args.prompt_testing:
         print("\n########## All Groups ##########")
         df_1 = df[["model", "score", "category", "task"]]
@@ -343,6 +346,9 @@ def display_result_single(args):
         df_1 = pd.pivot_table(df_1, index=['model'], values = "score", columns=["category"], aggfunc="sum")
 
         df_1 = df_1.dropna(inplace=False)
+
+        # Filter to only include models that have complete data for all tasks
+        df_1 = df_1[df_1.index.isin(models_with_complete_data)]
 
         # Only show average column if there are multiple data columns and not explicitly skipped
         if not args.skip_average_column and len(df_1.columns) > 1:

@@ -23,6 +23,7 @@ from livebench.process_results.reasoning.web_of_lies_v2.utils import web_of_lies
 from livebench.process_results.reasoning.house_traversal.utils import house_traversal_process_results
 from livebench.process_results.reasoning.zebra_puzzle.utils import get_zebra_puzzle_evaluator
 from livebench.process_results.reasoning.spatial.utils import spatial_process_results
+from livebench.process_results.reasoning.sudoku.utils import sudoku_process_results
 from livebench.process_results.math.math_competitions.utils import mathcontest_process_results,aime_process_results 
 from livebench.process_results.math.olympiad.utils import proof_rearrangement_process_results
 from livebench.process_results.math.AMPS_Hard.utils import amps_hard_process_results 
@@ -33,6 +34,7 @@ from livebench.process_results.coding.utils import LCB_generation_process_result
 from livebench.process_results.instruction_following.utils import instruction_following_process_results, ifbench_process_results
 from livebench.process_results.reasoning.web_of_lies_v3.utils import web_of_lies_v3_process_results
 from livebench.process_results.reasoning.theory_of_mind.utils import theory_of_mind_process_results
+from livebench.process_results.reasoning.logic_with_navigation.utils import logic_with_navigation_process_results
 from livebench.common import (
     LIVE_BENCH_RELEASES,
     load_questions,
@@ -132,7 +134,7 @@ def play_a_match_gt(match: MatchSingle, output_file: str | None = None, debug=Fa
         elif task_or_subtask == "tablejoin":
             score = joinmap_process_results(question_text, ground_truth, llm_answer, debug)
             category = "data_analysis"
-        elif "amps_hard" in task_or_subtask:
+        elif "amps_hard" in task_or_subtask or "amps_hard" in task:
             score = amps_hard_process_results(ground_truth, llm_answer, debug)
             category = "math"
         elif task_or_subtask == "web_of_lies_v2" or task_or_subtask == "web_of_lies_v3":
@@ -153,6 +155,12 @@ def play_a_match_gt(match: MatchSingle, output_file: str | None = None, debug=Fa
             category = "reasoning"
         elif task_or_subtask == "theory_of_mind":
             score = theory_of_mind_process_results(ground_truth, llm_answer, debug)
+            category = "reasoning"
+        elif task_or_subtask == "logic_with_navigation":
+            score = logic_with_navigation_process_results(ground_truth, llm_answer, debug)
+            category = "reasoning"
+        elif task_or_subtask == "sudoku":
+            score = sudoku_process_results(ground_truth, llm_answer, debug)
             category = "reasoning"
         elif task_or_subtask == 'typos':
             score = typos_process_results(ground_truth, llm_answer, debug)

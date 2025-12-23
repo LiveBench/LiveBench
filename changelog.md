@@ -1,5 +1,9 @@
 ## Changelog
 
+### 2025-12-23
+Added a new reasoning task: Logic with Navigation
+- Tests model to solve a logic problem, and then navigate in the 2D space. 
+
 ### 2025-11-25
 This update refreshed some existing tasks and updated others to resolve (to some extent) saturation and contamination of the benchmark.
  - Updated connections with new tasks from more recent puzzles
