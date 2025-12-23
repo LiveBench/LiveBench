@@ -392,6 +392,10 @@ def run_parallel(params: LiveBenchParams) -> None:
     """Run benchmarks in parallel in separate tmux panes"""
     print(f"\nRunning parallel benchmarks for model: {params.model}")
     session_name = f"livebench-{params.model}".replace(".", "_").replace(":", "_")
+
+    if params.bench_names == ["live_bench/agentic_coding"]:
+        # allow running agentic coding benchmark separately from the rest 
+        session_name += "-agentic-coding"
     
     # If no bench_names provided, use DEFAULT_BENCHMARKS for parallelization
     benchmarks = params.bench_names if params.bench_names else DEFAULT_BENCHMARKS

@@ -14,9 +14,6 @@ import nltk
 import numpy as np
 from tqdm import tqdm
 
-# Number of times to retry failing agentic coding questions
-AGENTIC_CODING_RETRIES = 1
-
 # todo: find a better solution than all these imports.
 from livebench.model import get_model_config
 from livebench.process_results.data_analysis.tablereformat.utils import table_process_results
@@ -187,15 +184,6 @@ def play_a_match_gt(match: MatchSingle, output_file: str | None = None, debug=Fa
                         print(f"Skipping judgment for {question['question_id']} due to infrastructure error")
                         return None
                     score = eval_result[question['question_id']]
-                    
-                    # Retry if failed
-                    for retry_num in range(AGENTIC_CODING_RETRIES):
-                        if score == 1:
-                            break
-                        print(f"Retrying question {question['question_id']} (attempt {retry_num + 1}/{AGENTIC_CODING_RETRIES})")
-                        retry_result = agentic_coding_process_results([question], [answer], debug)
-                        if question['question_id'] in retry_result and retry_result[question['question_id']] == 1:
-                            score = 1
             category = "coding"
         else:
             raise NotImplementedError(f"This task ({task_or_subtask}) has not been implemented yet.")
@@ -388,27 +376,10 @@ def gen_judgments(
                 if not model_matches:
                     continue
                 
-                # Initial run
+                # Run evaluation (with internal retry logic)
                 model_questions = [m.question for m in model_matches]
                 answers = [m.answer for m in model_matches]
                 eval_result = agentic_coding_process_results(model_questions, answers, debug=debug, max_workers=parallel)
-                
-                # Retry failing questions
-                for retry_num in range(AGENTIC_CODING_RETRIES):
-                    # Filter to questions that failed (score == 0)
-                    failing_questions = [q for q in model_questions if q['question_id'] in eval_result and eval_result[q['question_id']] == 0]
-                    failing_answers = [a for a in answers if a['question_id'] in [q['question_id'] for q in failing_questions]]
-                    
-                    if not failing_questions:
-                        break
-                    
-                    print(f'Retrying {len(failing_questions)} failing questions (attempt {retry_num + 1}/{AGENTIC_CODING_RETRIES})')
-                    retry_result = agentic_coding_process_results(failing_questions, failing_answers, debug=debug, max_workers=parallel)
-                    
-                    # Update results with any successes
-                    for question_id, score in retry_result.items():
-                        if score == 1:
-                            eval_result[question_id] = 1
                 
                 # Write final results
                 for question_id in sorted(eval_result.keys()):

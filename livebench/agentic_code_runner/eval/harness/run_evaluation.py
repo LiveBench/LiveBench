@@ -184,6 +184,13 @@ def get_parser() -> ArgumentParser:
         default=True,
         help="Whether to log to the console.",
     )
+    parser.add_argument(
+        "--instance_timeout",
+        type=int,
+        required=False,
+        default=None,
+        help="The timeout in seconds for each instance execution.",
+    )
 
     return parser
 
@@ -227,6 +234,7 @@ class CliArgs:
     log_dir: Path
     log_level: str
     log_to_console: bool
+    instance_timeout: Optional[int]
 
     def __post_init__(self):
         self._check_mode()
@@ -752,6 +760,7 @@ class CliArgs:
                         "mode": "rw",
                     }
                 },
+                timeout=self.instance_timeout,
             )
             return output
 

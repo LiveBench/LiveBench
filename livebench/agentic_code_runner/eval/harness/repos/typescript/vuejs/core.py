@@ -232,27 +232,43 @@ class Core(Instance):
         return "bash /home/fix-run.sh"
 
     def parse_log(self, test_log: str) -> TestResult:
-        passed_tests = set()
-        failed_tests = set()
-        skipped_tests = set()
+        test_statuses = {}
 
         re_pass_test = re.compile(r"^✓ (.+?)(?:\s*\d*\.?\d+\s*(?:ms|s|m))?$")
         re_fail_test = re.compile(r"^× (.+?)(?:\s*\d*\.?\d+\s*(?:ms|s|m))?$")
 
-        for line in test_log.splitlines():
-            line = line.strip()
+        lines = test_log.splitlines()
+        i = 0
+        while i < len(lines):
+            line = lines[i].strip()
+            i += 1
+            
             if not line:
                 continue
 
             pass_test_match = re_pass_test.match(line)
             if pass_test_match:
                 test = pass_test_match.group(1)
-                passed_tests.add(test)
+                # Check if test name continues on next lines (multi-line test names)
+                while i < len(lines) and lines[i] and not lines[i].startswith(('✓', '×', ' ', '\t', '⎯', 'FAIL', 'Error:', 'RangeError:', 'TypeError:', 'AssertionError:')):
+                    test += '\n' + lines[i].strip()
+                    i += 1
+                test_statuses[test] = 'passed'
+                continue
 
             fail_test_match = re_fail_test.match(line)
             if fail_test_match:
                 test = fail_test_match.group(1)
-                failed_tests.add(test)
+                # Check if test name continues on next lines (multi-line test names)
+                while i < len(lines) and lines[i] and not lines[i].startswith(('✓', '×', ' ', '\t', '⎯', 'FAIL', 'Error:', 'RangeError:', 'TypeError:', 'AssertionError:')):
+                    test += '\n' + lines[i].strip()
+                    i += 1
+                test_statuses[test] = 'failed'
+                continue
+
+        passed_tests = {test for test, status in test_statuses.items() if status == 'passed'}
+        failed_tests = {test for test, status in test_statuses.items() if status == 'failed'}
+        skipped_tests = set()
 
         return TestResult(
             passed_count=len(passed_tests),

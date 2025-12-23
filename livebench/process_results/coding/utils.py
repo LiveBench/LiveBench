@@ -23,6 +23,30 @@ import shutil
 
 import shortuuid
 
+# Number of times to retry failing agentic coding questions
+AGENTIC_CODING_RETRIES = 2
+
+# Maximum parallelism to use when retrying agentic coding questions
+AGENTIC_CODING_RETRY_MAX_PARALLELISM = 3
+
+# Patterns in fix-patch-run.log that indicate a retry-worthy issue
+# Key: pattern name (for logging), Value: string to search for in log
+AGENTIC_CODING_RETRY_PATTERNS = {
+    "svelte_timeout": "Error: Test timed out in",
+    "vue_flaky": "FAIL  packages/runtime-core/__tests__/components/Suspense.spec.ts > Suspense > mount the fallback content is in the correct position",
+    "vue_other_flaky": "FAIL  packages/runtime-core/__tests__/components/Suspense.spec.ts > Suspense > branch switch to 3rd branch before resolve",
+    "vue_other_other_flaky": "FAIL  packages/runtime-core/__tests__/components/Suspense.spec.ts > Suspense > nested suspense (w/ suspensible) switch several times before parent suspense resolve",
+    "dayjs_badmutable": "FAIL test/plugin/badMutable.test.js"
+}
+
+# Question IDs that should be retried if incorrect (regardless of log patterns)
+# These questions have flaky grading that cannot be identified by log patterns
+AGENTIC_CODING_RETRY_QUESTIONS: list[str] = [
+    "1af7e5326a1120764a6f82f8cde04187349a162e8a0d41f2b94b79a50a4e3cfa",
+    "4f1cda742a90c6655c7c5de58c5bebf34508f394106d5c89aa90773bbb988e03",
+    "1af7e5326a1120764a6f82f8cde04187349a162e8a0d41f2b94b79a50a4e3cfa"
+]
+
 # from LiveCodebench, modified
 
 class TestType(Enum):
@@ -158,13 +182,58 @@ def code_generation_process_results(question: dict, llm_answer: str, debug=False
                 print(details['_exception_'])
                 
         return 0
-    
-# python agentic_code_runner/eval/harness/run_evaluation.py --config agentic_code_runner/eval/config.json
-def agentic_coding_process_results(questions: list[dict], answers: list[dict], debug=False, max_workers=1, only_build_image=False) -> dict[str, int]:
 
-    if len(answers) == 0:
-        return dict()
+
+def _check_logs_for_retry_patterns(
+    instance_map: dict[str, dict[str, str]], 
+    question_ids: list[str], 
+    retry_patterns: dict[str, str]
+) -> dict[str, list[str]]:
+    """
+    Check fix-patch-run.log files for patterns indicating retry-worthy issues.
     
+    Returns dict mapping question_id to list of matched pattern names.
+    """
+    retry_needed = {}
+    
+    for question_id in question_ids:
+        if question_id not in instance_map:
+            continue
+            
+        log_path = Path(instance_map[question_id]["fix_log_file"])
+        if not log_path.exists():
+            continue
+            
+        try:
+            log_content = log_path.read_text()
+            matched_patterns = []
+            
+            for pattern_name, pattern_string in retry_patterns.items():
+                if pattern_string in log_content:
+                    matched_patterns.append(pattern_name)
+            
+            if matched_patterns:
+                retry_needed[question_id] = matched_patterns
+        except Exception as e:
+            print(f"Warning: Could not read log for {question_id}: {e}")
+    
+    return retry_needed
+
+
+def _run_evaluation_subprocess(
+    questions: list[dict],
+    answers: list[dict],
+    debug: bool,
+    max_workers: int,
+    only_build_image: bool = False
+) -> tuple[dict[str, int], dict[str, dict[str, str]]]:
+    """
+    Run the evaluation subprocess and parse results.
+    
+    Returns:
+        (results, instance_map) where results maps question_id -> score,
+        and instance_map maps question_id -> metadata including log paths
+    """
     eval_id = shortuuid.uuid()
 
     config_path = Path(LIVE_BENCH_ROOT_PATH / 'agentic_code_runner/eval/config.json')
@@ -229,7 +298,8 @@ def agentic_coding_process_results(questions: list[dict], answers: list[dict], d
         "max_workers_build_image": max_workers,
         "max_workers_run_instance": max_workers,
         "log_dir": f"{log_path.as_posix()}",
-        "log_level": "DEBUG" if debug else "INFO"
+        "log_level": "DEBUG" if debug else "INFO",
+        "instance_timeout": 480
     }
     with open(config_path, 'w') as f:
         json.dump(config, f)
@@ -238,22 +308,22 @@ def agentic_coding_process_results(questions: list[dict], answers: list[dict], d
         res = subprocess.run(['python', LIVE_BENCH_ROOT_PATH / 'agentic_code_runner/eval/harness/run_evaluation.py', '--config', config_path.as_posix()])
         if res.returncode != 0:
             print(f"Error running MSWEB evaluation: {res.returncode}")
-            return dict()
+            return dict(), dict()
     except Exception as e:
         print(f"Error running MSWEB evaluation: {e}")
-        return dict()
+        return dict(), dict()
     finally:
         config_path.unlink(missing_ok=True)
         patch_path.unlink(missing_ok=True)
         dataset_path.unlink(missing_ok=True)
 
     if only_build_image:
-        return dict()
+        return dict(), dict()
 
     report_path = Path(LIVE_BENCH_ROOT_PATH / f'agentic_code_runner/data/report/{model_name}_{eval_id}/final_report.json')
     if not report_path.exists():
         print(f"Report not found for eval {eval_id} for model {model_name}")
-        return dict()
+        return dict(), dict()
     report = json.load(open(report_path))
 
     result = {}
@@ -262,17 +332,8 @@ def agentic_coding_process_results(questions: list[dict], answers: list[dict], d
     for question in questions:
         question_id = question['question_id']
         instance_id = f"{question['org']}/{question['repo']}:pr-{question['number']}"
-        if instance_id not in report['submitted_ids']:
-            print(f"Instance {instance_id} not found in report (question {question_id})")
-            result[question_id] = 0
-        elif instance_id in report['error_ids'] or instance_id in report['incomplete_ids']:
-            # Skip questions with infrastructure errors - don't include in result
-            # This signals that grading should be re-run for these questions
-            print(f"Skipping question {question_id} ({instance_id}) due to infrastructure error")
-            continue
-        else:
-            result[question_id] = 1 if instance_id in report['resolved_ids'] else 0
         
+        # Build instance_dir and paths for all questions (need for retry log checking)
         instance_dir: Path = (
             workdir_path
             / question['org']
@@ -292,8 +353,19 @@ def agentic_coding_process_results(questions: list[dict], answers: list[dict], d
             "eval_id": eval_id,
             "model_name": model_name
         }
+        
+        if instance_id not in report['submitted_ids']:
+            print(f"Instance {instance_id} not found in report (question {question_id})")
+            result[question_id] = 0
+        elif instance_id in report['error_ids'] or instance_id in report['incomplete_ids']:
+            # Skip questions with infrastructure errors - don't include in result
+            # This signals that grading should be re-run for these questions
+            print(f"Skipping question {question_id} ({instance_id}) due to infrastructure error")
+            continue
+        else:
+            result[question_id] = 1 if instance_id in report['resolved_ids'] else 0
 
-        if debug and result[question_id] == 0:
+        if debug and result.get(question_id) == 0:
             if instance_id in report['unresolved_ids']:
                 print(f"INCORRECT, {model_name} {question_id} ({instance_id})")
             elif instance_id in report['incomplete_ids']:
@@ -302,7 +374,7 @@ def agentic_coding_process_results(questions: list[dict], answers: list[dict], d
                 print(f"EMPTY PATCH, {model_name} {question_id} ({instance_id})")
             elif instance_id in report['error_ids']:
                 print(f"ERROR, {model_name} {question_id} ({instance_id})")
-            print('RUN ID', answer['run_id'])
+            print('RUN ID', answers[[i for i, a in enumerate(answers) if a['question_id'] == question_id][0]]['run_id'])
             print('EVAL ID', eval_id)
             print('WORKDIR', workdir_path)
 
@@ -346,4 +418,82 @@ def agentic_coding_process_results(questions: list[dict], answers: list[dict], d
     with open(mapping_path, 'w') as f:
         json.dump(instance_map, f, indent=2)
 
+    return result, instance_map
+
+
+# python agentic_code_runner/eval/harness/run_evaluation.py --config agentic_code_runner/eval/config.json
+def agentic_coding_process_results(questions: list[dict], answers: list[dict], debug=False, max_workers=1, only_build_image=False) -> dict[str, int]:
+
+    if len(answers) == 0:
+        return dict()
+    
+    # Initial evaluation
+    result, instance_map = _run_evaluation_subprocess(questions, answers, debug, max_workers, only_build_image)
+    
+    # Retry logic
+    if AGENTIC_CODING_RETRIES > 0 and not only_build_image:
+        for retry_num in range(AGENTIC_CODING_RETRIES):
+            # Get failing question IDs (including error/incomplete that aren't in result)
+            all_question_ids = [q['question_id'] for q in questions]
+            failing_question_ids = [qid for qid in all_question_ids if result.get(qid, 0) == 0]
+            
+            if not failing_question_ids:
+                break
+            
+            # Check logs for retry-worthy patterns
+            retry_needed = _check_logs_for_retry_patterns(
+                instance_map, 
+                failing_question_ids, 
+                AGENTIC_CODING_RETRY_PATTERNS
+            )
+            
+            # Add questions from AGENTIC_CODING_RETRY_QUESTIONS that are failing
+            for qid in failing_question_ids:
+                if qid in AGENTIC_CODING_RETRY_QUESTIONS:
+                    if qid in retry_needed:
+                        retry_needed[qid].append("in_retry_questions_list")
+                    else:
+                        retry_needed[qid] = ["in_retry_questions_list"]
+            
+            # Add questions with errors/incomplete (not in result) - these should always be retried
+            for qid in all_question_ids:
+                if qid not in result:
+                    if qid in retry_needed:
+                        retry_needed[qid].append("error_or_incomplete")
+                    else:
+                        retry_needed[qid] = ["error_or_incomplete"]
+            
+            if not retry_needed:
+                print(f"No retry-worthy patterns found in logs, skipping remaining retries")
+                break
+            
+            # Filter to questions that need retry
+            retry_questions = [q for q in questions if q['question_id'] in retry_needed]
+            retry_answers = [a for a in answers if a['question_id'] in retry_needed]
+            
+            print(f"Retry {retry_num + 1}/{AGENTIC_CODING_RETRIES}: Found {len(retry_questions)} questions with retry-worthy issues")
+            for qid, patterns in retry_needed.items():
+                print(f"  {qid}: {', '.join(patterns)}")
+            
+            # Retry with reduced parallelism
+            retry_max_workers = min(max_workers, AGENTIC_CODING_RETRY_MAX_PARALLELISM)
+            print(f"  Using max_workers={retry_max_workers} (reduced from {max_workers})")
+            
+            # Run retry evaluation and get UPDATED instance_map
+            retry_result, retry_instance_map = _run_evaluation_subprocess(
+                retry_questions, 
+                retry_answers, 
+                debug, 
+                retry_max_workers,
+                only_build_image
+            )
+            
+            # Update results with any successes
+            for question_id, score in retry_result.items():
+                if score == 1:
+                    result[question_id] = 1
+            
+            # Update instance_map with new paths for next iteration
+            instance_map.update(retry_instance_map)
+    
     return result

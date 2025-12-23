@@ -684,6 +684,8 @@ class MaterialUi(Instance):
         test_log = test_log.replace("\n", "")
 
         for obj in extract_json_objects(test_log):
+            if 'stats' not in obj:
+                continue
             info = MaterialUiInfo.from_dict(obj)
             for test in info.passes:
                 passed_tests.add(f"{test.file}:{test.fullTitle}")
