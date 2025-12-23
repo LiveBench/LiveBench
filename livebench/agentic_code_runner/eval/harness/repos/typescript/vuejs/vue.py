@@ -431,14 +431,11 @@ class Vue(Instance):
         failed_tests = set()
         skipped_tests = set()
 
-        re_pass = re.compile(r"^√ (.+)$")
-        re_fail = re.compile(r"^× (.+)$")
+
+        re_pass = re.compile(r"^ ?[✓√] (.+)$")
+        re_fail = re.compile(r"^ ?× (.+)$")
 
         for line in test_log.splitlines():
-            line = line.strip()
-            if not line:
-                continue
-
             pass_match = re_pass.match(line)
             if pass_match:
                 test = pass_match.group(1)
