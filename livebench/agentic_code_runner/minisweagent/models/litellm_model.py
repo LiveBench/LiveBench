@@ -149,7 +149,6 @@ class LitellmModel:
                 del actual_kwargs['extra_body']
             if 'thinking' not in actual_kwargs:
                 actual_kwargs['thinking'] = {'type': 'disabled'}
-
         try:
             res = litellm.completion(
                 model=self.config.model_name, messages=messages, **actual_kwargs
@@ -240,6 +239,9 @@ class LitellmModel:
             message_copy = message.copy()
             if 'extra' in message_copy:
                 if message_copy['extra'].get('message') is not None:
+                    if 'provider_specific_fields' in message_copy['extra']['message']:
+                        message_copy['extra']['message'] = message_copy['extra']['message'] | message_copy['extra']['message']['provider_specific_fields']
+                        del message_copy['extra']['message']['provider_specific_fields']
                     actual_messages.append(message_copy['extra']['message'])
                 elif message_copy['extra'].get('outputs') is not None:
                     actual_messages.extend(message_copy['extra']['outputs'])
