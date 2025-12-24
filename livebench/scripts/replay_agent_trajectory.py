@@ -6,12 +6,13 @@ This script loads existing trajectories from model answers, replays them in the 
 and generates new answer files with the replay results.
 
 Usage:
-python replay_agent_trajectory.py --model <model_name> --question-ids <id1> <id2> ... [--parallel <n>]
+python replay_agent_trajectory.py --model <model_name> [<model_name2> ...] [--question-id <id1> <id2> ...]
 
 Options:
-- --model: Name of the model whose trajectories to replay (required)
-- --question-ids: List of question IDs to replay (required)
-- --parallel: Number of parallel workers (default: 1)
+- --model: Name(s) of the model(s) whose trajectories to replay (required, can specify multiple)
+- --question-id: List of question IDs to replay (optional - if not provided, replays all questions with no submission and exit status not 'Submitted')
+- --parallel-requests: Number of parallel workers for replay (default: 1)
+- --parallel-grading: Number of parallel workers for grading (default: 1)
 """
 
 import argparse
@@ -81,28 +82,66 @@ def load_questions_from_answer_path(answer_path: str) -> dict[str, dict]:
     return questions_by_id
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Replay agent trajectories for specific questions.")
-    parser.add_argument("--model", required=True, help="Name of the model whose trajectories to replay")
-    parser.add_argument("--question-id", required=True, nargs='+', help="List of question IDs to replay")
-    parser.add_argument("--parallel-requests", type=int, default=1, help="Number of parallel workers for replay (default: 1)")
-    parser.add_argument("--parallel-grading", type=int, default=1, help="Number of parallel workers for grading (default: 1)")
-    args = parser.parse_args()
-
-    print(f"Loading answers for model: {args.model}")
-    model_config = get_model_config(args.model)
+def process_model(model_name: str, question_ids: list[str] | None, parallel_requests: int, parallel_grading: int):
+    """Process a single model for replay."""
+    print(f"\n{'='*80}")
+    print(f"Processing model: {model_name}")
+    print(f"{'='*80}\n")
+    
+    print(f"Loading answers for model: {model_name}")
+    model_config = get_model_config(model_name)
     model_display_name = model_config.display_name
     
     all_answers = load_model_answers(model_display_name)
     print(f"Loaded {len(all_answers)} total answers")
     
-    # Filter to requested question IDs
-    question_ids_set = set(args.question_id)
-    filtered_answers = [ans for ans in all_answers if str(ans.get('question_id', '')) in question_ids_set]
+    # Filter to requested question IDs or find questions with no submission
+    if question_ids:
+        question_ids_set = set(question_ids)
+        filtered_answers = [ans for ans in all_answers if str(ans.get('question_id', '')) in question_ids_set]
+        print(f"Filtering to requested question IDs")
+    else:
+        # Find all questions with no submission and exit status not "Submitted"
+        filtered_answers = []
+        for ans in all_answers:
+            # Check trajectory exit status
+            trajectory_raw = ans.get("trajectory")
+            if trajectory_raw:
+                # Parse trajectory if it's a string
+                trajectory = None
+                if isinstance(trajectory_raw, str):
+                    try:
+                        trajectory = json.loads(trajectory_raw)
+                    except json.JSONDecodeError:
+                        pass
+                elif isinstance(trajectory_raw, dict):
+                    trajectory = trajectory_raw
+                
+                # Check if exit status is "Submitted"
+                if trajectory and isinstance(trajectory, dict):
+                    exit_status = trajectory.get('info', {}).get('exit_status')
+                    if exit_status == "Submitted":
+                        continue
+            
+            # Check if there's no submission in choices/turns
+            choices = ans.get('choices', [])
+            if choices and len(choices) > 0:
+                turns = choices[0].get('turns', [])
+                if turns and len(turns) > 0:
+                    if turns[0] == '':
+                        filtered_answers.append(ans)
+                else:
+                    # No turns means no submission
+                    filtered_answers.append(ans)
+            else:
+                # No choices means no submission
+                filtered_answers.append(ans)
+        print(f"Found {len(filtered_answers)} questions with no submission and exit status not 'Submitted'")
+        question_ids = [ans.get('question_id', '') for ans in filtered_answers]
     
     if not filtered_answers:
-        print(f"Error: No answers found for the specified question IDs")
-        sys.exit(1)
+        print(f"No answers found to replay for model {model_name}")
+        return
     
     print(f"Found {len(filtered_answers)} answers to replay")
     
@@ -174,23 +213,23 @@ def main():
         questions_to_replay.append(question)
     
     if not questions_to_replay:
-        print("Error: No valid trajectories to replay")
-        sys.exit(1)
+        print("No valid trajectories to replay")
+        return
     
     print(f"\nReplaying {len(questions_to_replay)} trajectories...")
     
     # Run inference with replay mode
     # For batch mode or multiple questions, pass the directory
     # For single mode with one question, pass the specific file
-    if args.parallel_requests == 1 and len(questions_to_replay) == 1:
+    if parallel_requests == 1 and len(questions_to_replay) == 1:
         replay_traj_path = str(replay_traj_dir / f"{questions_to_replay[0]['question_id']}.traj.json")
         effective_parallel = 1
     else:
         # Use batch mode for multiple questions or when parallel > 1
         replay_traj_path = str(replay_traj_dir)
-        effective_parallel = max(args.parallel_requests, 1)
+        effective_parallel = max(parallel_requests, 1)
     
-    provider, api_kwargs, api_name = setup_model(model_config)
+    provider, api_kwargs, api_name, api_dict = setup_model(model_config)
     
     run_agentic_coding_inference(
         questions=questions_to_replay,
@@ -199,11 +238,10 @@ def main():
         force_temperature=None,
         num_choices=1,
         model_api_kwargs=api_kwargs,
-        api_dict=None,
+        api_dict=api_dict,
         model_display_name_override=model_display_name,
         answer_file=None,  # We'll write answer files manually after
         parallel=effective_parallel,
-        task_to_answer_file=None,
         replay_traj_dir=replay_traj_path,
         custom_run_id=replay_run_id,
     )
@@ -278,6 +316,7 @@ def main():
             if question_id in answer_index:
                 idx = answer_index[question_id]
                 existing_answers[idx].update({
+                    'answer_id': shortuuid.uuid(),
                     'trajectory': json.dumps(trajectory_copy, indent=4),
                     'choices': [{'turns': [final_answer]}],
                     'total_output_tokens': new_trajectory['info']['model_stats']['total_output_tokens'],
@@ -293,20 +332,20 @@ def main():
     print("\nDone! All answer files updated.")
     
     # Run grading
-    print(f"\nRunning grading for {len(args.question_id)} questions...")
+    print(f"\nRunning grading for {len(filtered_answers)} questions...")
     
     grading_cmd = [
         'python',
         'run_livebench.py',
         '--model',
-        args.model,
+        model_name,
         '--question-source',
         'jsonl',
         '--question-id',
-        *args.question_id,
+        *question_ids,
         '--skip-inference',
         '--parallel-grading',
-        str(args.parallel_grading),
+        str(parallel_grading),
     ]
     
     print(f"Running command: {' '.join(grading_cmd)}")
@@ -318,6 +357,24 @@ def main():
         print(f"Warning: Grading subprocess failed with error: {e}")
     except KeyboardInterrupt:
         print("\nGrading interrupted by user.")
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Replay agent trajectories for specific questions.")
+    parser.add_argument("--model", required=True, nargs='+', help="Name(s) of the model(s) whose trajectories to replay")
+    parser.add_argument("--question-id", nargs='+', help="List of question IDs to replay (optional - if not provided, replays all questions with no submission and exit status not 'Submitted')")
+    parser.add_argument("--parallel-requests", type=int, default=1, help="Number of parallel workers for replay (default: 1)")
+    parser.add_argument("--parallel-grading", type=int, default=1, help="Number of parallel workers for grading (default: 1)")
+    args = parser.parse_args()
+
+    for model_name in args.model:
+        try:
+            process_model(model_name, args.question_id, args.parallel_requests, args.parallel_grading)
+        except Exception as e:
+            print(f"\nError processing model {model_name}: {e}")
+            import traceback
+            traceback.print_exc()
+            print(f"Continuing to next model...\n")
 
 
 if __name__ == "__main__":
