@@ -18,7 +18,7 @@ dependencies = [
     "anthropic>=0.3", "datasets", "httpx", "immutabledict", "langdetect", 
     "levenshtein>=0.20.4", "nltk", "numpy", "openai", "google-genai", "together",
     "pandas", "requests", "rich>=10.0.0",
-    "shortuuid", "sympy>=1.12", "tqdm>=4.62.1", "wheel", "tenacity", "lark", "libtmux", "pyyaml", "dataclasses_json",
+    "shortuuid", "sympy>=1.13", "tqdm>=4.62.1", "wheel", "tenacity", "lark", "libtmux", "pyyaml", "dataclasses_json",
     "docker", "gitpython", "toml", "PyGithub", "unidiff", "ruamel.yaml", "simple-parsing", "rich-argparse", "pydantic_settings", "litellm", "tabulate", "textual>=1.0.0", "jinja2",
     "typer", "platformdirs", "prompt_toolkit", "emoji", "syllapy", "unicodedata2", "spacy"
 ]
