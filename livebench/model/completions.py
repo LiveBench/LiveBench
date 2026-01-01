@@ -56,11 +56,11 @@ def chat_completion_openai(
 
     if api_dict is not None:
         client = OpenAI(
-            api_key=api_dict["api_key"], base_url=api_dict["api_base"], timeout=httpx.Timeout(timeout=2400.0, connect=10.0)
+            api_key=api_dict["api_key"], base_url=api_dict["api_base"], timeout=httpx.Timeout(timeout=600.0, connect=10.0)
         )
 
     else:
-        client = OpenAI(timeout=1000)
+        client = OpenAI(timeout=600)
 
     api_kwargs: API_Kwargs = {
         'temperature': temperature
@@ -165,10 +165,10 @@ def chat_completion_openai_responses(model: str, messages: Conversation, tempera
 
     if api_dict is not None:
         client = OpenAI(
-            api_key=api_dict["api_key"], base_url=api_dict["api_base"], timeout=httpx.Timeout(timeout=2400.0, connect=10.0)
+            api_key=api_dict["api_key"], base_url=api_dict["api_base"], timeout=httpx.Timeout(timeout=600.0, connect=10.0)
         )
     else:
-        client = OpenAI(timeout=2400)
+        client = OpenAI(timeout=600)
 
     messages = [message for message in messages if message['role'] == 'user']
     developer_message = ''
