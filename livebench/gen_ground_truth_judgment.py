@@ -26,7 +26,8 @@ from livebench.process_results.reasoning.spatial.utils import spatial_process_re
 from livebench.process_results.reasoning.sudoku.utils import sudoku_process_results
 from livebench.process_results.math.math_competitions.utils import mathcontest_process_results,aime_process_results 
 from livebench.process_results.math.olympiad.utils import proof_rearrangement_process_results
-from livebench.process_results.math.AMPS_Hard.utils import amps_hard_process_results 
+from livebench.process_results.math.AMPS_Hard.utils import amps_hard_process_results
+from livebench.process_results.math.integrals_with_game.utils import integrals_with_game_process_results 
 from livebench.process_results.writing.plot_unscrambling.utils import plot_unscrambling_process_results
 from livebench.process_results.writing.typos.utils import typos_process_results
 from livebench.process_results.writing.connections.utils import get_connections_puzzle_evaluator
@@ -136,6 +137,9 @@ def play_a_match_gt(match: MatchSingle, output_file: str | None = None, debug=Fa
             category = "data_analysis"
         elif "amps_hard" in task_or_subtask or "amps_hard" in task:
             score = amps_hard_process_results(ground_truth, llm_answer, debug)
+            category = "math"
+        elif task_or_subtask == "integrals_with_game":
+            score = integrals_with_game_process_results(ground_truth, llm_answer, debug)
             category = "math"
         elif task_or_subtask == "web_of_lies_v2" or task_or_subtask == "web_of_lies_v3":
             if task_or_subtask == "web_of_lies_v2":
