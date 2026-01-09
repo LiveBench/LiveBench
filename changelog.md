@@ -1,5 +1,9 @@
 ## Changelog
 
+### 2026-01-08
+Added a new math task: Integrals with Game
+- This version includes a new math task which introduces a game theory problem integraded with integral calculations.
+ 
 ### 2025-12-23
 Added a new reasoning task: Logic with Navigation
 - Tests model to solve a logic problem, and then navigate in the 2D space. 
