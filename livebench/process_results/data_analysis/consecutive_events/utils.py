@@ -85,12 +85,20 @@ def consecutive_events_process_results(ground_truth, llm_answer, debug=False):
     # Jaccard = TP / (TP + FP + FN)
     union = true_positives + false_positives + false_negatives
     jaccard = true_positives / union if union > 0 else 0.0
+
+    precision = true_positives / len(pred_dict) if len(pred_dict) > 0 else 0.0
+    recall = true_positives / len(truth_dict) if len(truth_dict) > 0 else 0.0
+    f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
+
+    print(f"True Positives: {true_positives}")
+    print(f"False Positives: {false_positives}")
+    print(f"False Negatives: {false_negatives}")
+    print(f"Precision: {precision:.4f}")
+    print(f"Recall: {recall:.4f}")
+    print(f"F1 Score: {f1:.4f}")
+    print(f"Jaccard: {jaccard:.4f}")
     
     if debug:
-        precision = true_positives / len(pred_dict) if len(pred_dict) > 0 else 0.0
-        recall = true_positives / len(truth_dict) if len(truth_dict) > 0 else 0.0
-        f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
-        
         print(f"True Positives: {true_positives}")
         print(f"False Positives: {false_positives}")
         print(f"False Negatives: {false_negatives}")
@@ -104,3 +112,4 @@ def consecutive_events_process_results(ground_truth, llm_answer, debug=False):
             print("PREDICTED:", predicted)
     
     return round(jaccard, 4)
+    
