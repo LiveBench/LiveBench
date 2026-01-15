@@ -3,12 +3,13 @@ import os
 import sys
 import time
 import traceback
-from typing import Protocol, cast, Any
-import httpx
+from typing import Any, Protocol, cast
 
+import httpx
 from openai import Stream
-from openai.types.chat import ChatCompletionChunk, ChatCompletion
-from tenacity import retry, stop_after_attempt, retry_if_exception_type, wait_fixed, wait_incrementing
+from openai.types.chat import ChatCompletion, ChatCompletionChunk
+from tenacity import (retry, retry_if_exception_type, stop_after_attempt,
+                      wait_fixed, wait_incrementing)
 
 logging.basicConfig(stream=sys.stdout, level=logging.WARNING)
 
@@ -165,10 +166,10 @@ def chat_completion_openai_responses(model: str, messages: Conversation, tempera
 
     if api_dict is not None:
         client = OpenAI(
-            api_key=api_dict["api_key"], base_url=api_dict["api_base"], timeout=httpx.Timeout(timeout=2400.0, connect=10.0)
+            api_key=api_dict["api_key"], base_url=api_dict["api_base"], timeout=httpx.Timeout(timeout=300.0, connect=10.0)
         )
     else:
-        client = OpenAI(timeout=2400)
+        client = OpenAI(timeout=300)
 
     messages = [message for message in messages if message['role'] == 'user']
     developer_message = ''
@@ -231,7 +232,7 @@ def chat_completion_aws(model: str, messages: Conversation, temperature: float, 
     region_name = "us-east-1"
     if api_dict is not None and "region_name" in api_dict:
         region_name = api_dict["region_name"]
-    
+
     brt = boto3.client("bedrock-runtime", region_name=region_name)
     user_messages = [m['content'] for m in messages if m['role'] == "user"]
     prompt = user_messages[0] if user_messages else ""
@@ -249,17 +250,17 @@ def chat_completion_aws(model: str, messages: Conversation, temperature: float, 
         if 'temperature' in model_api_kwargs:
             inference_config['temperature'] = model_api_kwargs['temperature']
 
-   
+
     # Make the API call
     response = brt.converse(
         modelId=model,
         messages=[{"role": "user", "content": [{"text": prompt}]}],
         inferenceConfig=inference_config,
     )
-    
+
     if response is None:
         raise Exception("No response returned from AWS Bedrock")
-    
+
     output = response["output"]["message"]["content"][0]["text"]
     num_tokens = response["usage"]["outputTokens"]
 
@@ -297,7 +298,7 @@ def chat_completion_google_generativeai(
         api_key = api_dict["api_key"]
     else:
         api_key = os.environ["GEMINI_API_KEY"]
-    
+
     client = genai.Client(api_key=api_key)
 
     if any(message['role'] == 'system' for message in messages):
@@ -316,25 +317,25 @@ def chat_completion_google_generativeai(
 
     # Initialize with default kwargs and safety settings
     api_kwargs: API_Kwargs = {
-        'safety_settings': safety_settings, 
+        'safety_settings': safety_settings,
         'system_instruction': system,
         'temperature': temperature,
         'max_output_tokens': max_tokens
     }
-    
+
     # Update with additional kwargs if provided
     if model_api_kwargs is not None:
         model_api_kwargs = {key: value for key, value in model_api_kwargs.items()}
         api_kwargs.update(model_api_kwargs)
 
     config = types.GenerateContentConfig(**api_kwargs)
-    
+
     response = client.models.generate_content(
         model=model,
         contents=messages,
         config=config
     )
-    
+
     if response is None or response.text is None:
         raise Exception("No response returned from Google")
 
@@ -345,11 +346,11 @@ def chat_completion_google_generativeai(
         num_tokens = response.usage_metadata.candidates_token_count
         if response.usage_metadata.thoughts_token_count is not None:
             num_tokens += response.usage_metadata.thoughts_token_count
-    
+
     if num_tokens is None:
         num_tokens = -1
-    
-    
+
+
     return message, num_tokens
 
 
@@ -382,16 +383,16 @@ def chat_completion_together(model: str, messages: Conversation, temperature: fl
         messages=messages,
         **api_kwargs
     )
-    
+
     if response is None:
         raise Exception("No response returned from Together AI")
     elif response.choices is None:
         raise Exception("No choices returned from Together AI")
-    
+
     message = response.choices[0].message.content
     if message is None:
         raise Exception("No message returned from Together AI")
-    
+
     num_tokens = response.usage.completion_tokens if hasattr(response, 'usage') and hasattr(response.usage, 'completion_tokens') else None
 
     return message, num_tokens
@@ -513,9 +514,9 @@ def chat_completion_mistral(model: str, messages: Conversation, temperature: flo
     else:
         api_key = os.environ["MISTRAL_API_KEY"]
 
-    from mistralai import Mistral, UNSET
+    from mistralai import UNSET, Mistral
     client = Mistral(api_key=api_key)
-    
+
     # Set up API kwargs
     api_kwargs: API_Kwargs = {
         'max_tokens': max_tokens,
@@ -532,16 +533,16 @@ def chat_completion_mistral(model: str, messages: Conversation, temperature: flo
         messages=messages,
         **actual_api_kwargs
     )
-    
+
     if chat_response is None:
         raise Exception("No response returned from Mistral")
     elif not hasattr(chat_response, 'choices') or not chat_response.choices:
         raise Exception("No choices returned from Mistral")
-    
+
     message = chat_response.choices[0].message.content
     if message is None:
         raise Exception("No message returned from Mistral")
-    
+
     num_tokens = chat_response.usage.completion_tokens if hasattr(chat_response, 'usage') and hasattr(chat_response.usage, 'completion_tokens') else None
 
     return message.strip(), num_tokens
@@ -575,7 +576,7 @@ def individual_completion_deepinfra(client, model, messages, ai_message, actual_
 
 
 def chat_completion_deepinfra(model: str, messages: Conversation, temperature: float, max_tokens: int, model_api_kwargs: API_Kwargs | None = None, api_dict: dict[str, str] | None = None, stream: bool = False) -> tuple[str, int]:
-    from openai import OpenAI, NOT_GIVEN
+    from openai import NOT_GIVEN, OpenAI
 
     if api_dict is not None and "api_key" in api_dict:
         api_key = api_dict["api_key"]
