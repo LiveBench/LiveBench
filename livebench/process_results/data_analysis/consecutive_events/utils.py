@@ -89,14 +89,6 @@ def consecutive_events_process_results(ground_truth, llm_answer, debug=False):
     precision = true_positives / len(pred_dict) if len(pred_dict) > 0 else 0.0
     recall = true_positives / len(truth_dict) if len(truth_dict) > 0 else 0.0
     f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
-
-    print(f"True Positives: {true_positives}")
-    print(f"False Positives: {false_positives}")
-    print(f"False Negatives: {false_negatives}")
-    print(f"Precision: {precision:.4f}")
-    print(f"Recall: {recall:.4f}")
-    print(f"F1 Score: {f1:.4f}")
-    print(f"Jaccard: {jaccard:.4f}")
     
     if debug:
         print(f"True Positives: {true_positives}")
