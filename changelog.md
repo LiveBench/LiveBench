@@ -1,8 +1,9 @@
 ## Changelog
 
 ### 2026-01-08
-Added a new math task: Integrals with Game
+Added a new math task (Integrals with Game) and a new data analysis task (consecutive events)
 - This version includes a new math task which introduces a game theory problem integraded with integral calculations.
+- We also introduce a new data analysis task (consecutive events) which test the LLMs on detecting specific events.
  
 ### 2025-12-23
 Added a new reasoning task: Logic with Navigation
