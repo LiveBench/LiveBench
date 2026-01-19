@@ -36,6 +36,7 @@ from livebench.process_results.instruction_following.utils import instruction_fo
 from livebench.process_results.reasoning.web_of_lies_v3.utils import web_of_lies_v3_process_results
 from livebench.process_results.reasoning.theory_of_mind.utils import theory_of_mind_process_results
 from livebench.process_results.reasoning.logic_with_navigation.utils import logic_with_navigation_process_results
+from livebench.process_results.data_analysis.consecutive_events.utils import consecutive_events_process_results
 from livebench.common import (
     LIVE_BENCH_RELEASES,
     load_questions,
@@ -134,6 +135,9 @@ def play_a_match_gt(match: MatchSingle, output_file: str | None = None, debug=Fa
             category = "data_analysis"
         elif task_or_subtask == "tablejoin":
             score = joinmap_process_results(question_text, ground_truth, llm_answer, debug)
+            category = "data_analysis"
+        elif task_or_subtask == "consecutive_events":
+            score = consecutive_events_process_results(ground_truth, llm_answer, debug)
             category = "data_analysis"
         elif "amps_hard" in task_or_subtask or "amps_hard" in task:
             score = amps_hard_process_results(ground_truth, llm_answer, debug)
