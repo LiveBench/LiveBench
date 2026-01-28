@@ -194,5 +194,6 @@ api_kwargs:
     temperature: 0.6
     top_p: 0.95
     max_tokens: 32768
+    stream: true
     extra_body:
       enable_thinking: true
