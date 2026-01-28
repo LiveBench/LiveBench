@@ -479,15 +479,36 @@ def chat_completion_anthropic(model: str, messages: Conversation, temperature: f
     del actual_api_kwargs['max_tokens']
     del actual_api_kwargs['temperature']
 
-    text_messages = [c for c in message if c['type'] == 'text']
+    # # DEBUG: Log all content blocks (uncomment to debug)
+    # print(f"\n[DEBUG] Total content blocks: {len(message)}")
+    # for i, block in enumerate(message):
+    #     block_type = block.get('type', 'unknown')
+    #     if block_type == 'text':
+    #         text_preview = repr(block.get('text', '')[:100])
+    #         print(f"[DEBUG]   Block {i}: type={block_type}, text={text_preview}")
+    #     elif block_type == 'thinking':
+    #         thinking_preview = repr(block.get('thinking', '')[:50])
+    #         print(f"[DEBUG]   Block {i}: type={block_type}, thinking={thinking_preview}")
+    #     else:
+    #         print(f"[DEBUG]   Block {i}: type={block_type}")
+
+    # Filter out empty text blocks (needed for auto-thinking responses)
+    text_messages = [c for c in message if c['type'] == 'text' and c.get('text', '').strip()]
+    # print(f"[DEBUG] Non-empty text blocks count: {len(text_messages)}")
+    # for i, tm in enumerate(text_messages):
+    #     text_preview = repr(tm.get('text', '')[:100])
+    #     print(f"[DEBUG]   text_messages[{i}]: {text_preview}")
+
     if len(text_messages) == 0:
         raise Exception("No response from Anthropic")
 
+    # Filter out empty text blocks for token counting too
+    message_for_counting = [c for c in message if c['type'] != 'text' or c.get('text', '').strip()]
     try:
         tokens = client.messages.count_tokens(
             model=model,
             messages=[
-                {"role": "assistant", "content": message}
+                {"role": "assistant", "content": message_for_counting}
             ],
             **actual_api_kwargs
         ).input_tokens
@@ -497,6 +518,7 @@ def chat_completion_anthropic(model: str, messages: Conversation, temperature: f
         tokens = -1
 
     message_text = text_messages[0]['text']
+    # print(f"[DEBUG] Returning message_text (first 100 chars): {repr(message_text[:100])}")
 
     return message_text, tokens
 
