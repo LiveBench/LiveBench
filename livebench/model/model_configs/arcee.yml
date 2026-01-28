@@ -1,0 +1,16 @@
+# Arcee AI Models
+---
+display_name: arcee-trinity-large-preview
+api_name:
+  https://openrouter.ai/api/v1: arcee-ai/trinity-large-preview:free
+default_provider: https://openrouter.ai/api/v1
+api_keys:
+  https://openrouter.ai/api/v1: OPENROUTER_API_KEY
+aliases:
+  - trinity-large-preview
+  - arcee-trinity
+api_kwargs:
+  default:
+    extra_body:
+      reasoning:
+        enabled: true
