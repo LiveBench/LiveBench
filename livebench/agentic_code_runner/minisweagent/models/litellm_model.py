@@ -127,7 +127,7 @@ class LitellmModel:
         """Direct Anthropic SDK call to support features not yet in LiteLLM (e.g., thinking.type: auto)"""
         from anthropic import NOT_GIVEN, Anthropic
         
-        print(f"[DEBUG] _query_completion_anthropic_direct called for model: {self.config.model_name}")
+        # print(f"[DEBUG] _query_completion_anthropic_direct called for model: {self.config.model_name}")
         
         client = Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
         
@@ -190,7 +190,7 @@ class LitellmModel:
                 
                 actual_messages.append(sanitized_msg)
         
-        print(f"[DEBUG] Processed {len(actual_messages)} messages (excluding system)")
+        # print(f"[DEBUG] Processed {len(actual_messages)} messages (excluding system)")
         
         # Get the actual model name (remove 'anthropic/' prefix if present)
         actual_model_name = self.config.model_name
@@ -204,12 +204,12 @@ class LitellmModel:
         max_tokens = actual_api_kwargs.pop('max_tokens', 8192)
         temperature = actual_api_kwargs.pop('temperature', NOT_GIVEN)
         
-        print(f"[DEBUG] Model: {actual_model_name}, Betas: {betas}")
-        print(f"[DEBUG] thinking config: {thinking}")
-        print(f"[DEBUG] output_config: {output_config}")
-        print(f"[DEBUG] max_tokens: {max_tokens}")
-        print(f"[DEBUG] temperature: {temperature}")
-        print(f"[DEBUG] remaining kwargs: {list(actual_api_kwargs.keys())}")
+        # print(f"[DEBUG] Model: {actual_model_name}, Betas: {betas}")
+        # print(f"[DEBUG] thinking config: {thinking}")
+        # print(f"[DEBUG] output_config: {output_config}")
+        # print(f"[DEBUG] max_tokens: {max_tokens}")
+        # print(f"[DEBUG] temperature: {temperature}")
+        # print(f"[DEBUG] remaining kwargs: {list(actual_api_kwargs.keys())}")
         
         # Build call kwargs - only include supported parameters
         call_kwargs: dict[str, Any] = {
@@ -231,23 +231,23 @@ class LitellmModel:
         # User's working code passes output_config directly to client.beta.messages.stream()
         if output_config is not None:
             call_kwargs['output_config'] = output_config
-            print(f"[DEBUG] Added output_config directly: {output_config}")
+            # print(f"[DEBUG] Added output_config directly: {output_config}")
         
-        print(f"[DEBUG] Final call_kwargs keys: {list(call_kwargs.keys())}")
-        print(f"[DEBUG] Full call_kwargs: {call_kwargs}")
+        # print(f"[DEBUG] Final call_kwargs keys: {list(call_kwargs.keys())}")
+        # print(f"[DEBUG] Full call_kwargs: {call_kwargs}")
         
         # Always use beta client for this method (it handles thinking.type=auto)
-        print(f"[DEBUG] client type: {type(client)}")
-        print(f"[DEBUG] client.beta type: {type(client.beta)}")
-        print(f"[DEBUG] client.beta.messages type: {type(client.beta.messages)}")
+        # print(f"[DEBUG] client type: {type(client)}")
+        # print(f"[DEBUG] client.beta type: {type(client.beta)}")
+        # print(f"[DEBUG] client.beta.messages type: {type(client.beta.messages)}")
         
         # Stream the response - matching exact working pattern
-        print(f"[DEBUG] Starting stream request...")
+        # print(f"[DEBUG] Starting stream request...")
         with client.beta.messages.stream(**call_kwargs) as stream:
             response = stream.get_final_message()
         
-        print(f"[DEBUG] Got response, id: {response.id}")
-        print(f"[DEBUG] Response content blocks: {len(response.content)}")
+        # print(f"[DEBUG] Got response, id: {response.id}")
+        # print(f"[DEBUG] Response content blocks: {len(response.content)}")
         
         # Extract non-empty text and build sanitized content for history
         content = ""
@@ -258,7 +258,7 @@ class LitellmModel:
             
             if block_type == "text":
                 text = getattr(block, 'text', '')
-                print(f"[DEBUG]     text length: {len(text)}, stripped: {len(text.strip())}")
+                # print(f"[DEBUG]     text length: {len(text)}, stripped: {len(text.strip())}")
                 # Only include non-empty text blocks in sanitized content
                 if text.strip():
                     sanitized_content.append({"type": "text", "text": text})
@@ -268,7 +268,7 @@ class LitellmModel:
             elif block_type == "thinking":
                 thinking_text = getattr(block, 'thinking', '')
                 signature = getattr(block, 'signature', '')
-                print(f"[DEBUG]     thinking length: {len(thinking_text)}")
+                # print(f"[DEBUG]     thinking length: {len(thinking_text)}")
                 # Include thinking blocks in sanitized content (needed for multi-turn)
                 thinking_block = {"type": "thinking", "thinking": thinking_text}
                 if signature:
@@ -287,11 +287,11 @@ class LitellmModel:
             "role": "assistant",
             "content": sanitized_content
         }
-        print(f"[DEBUG] Sanitized message content blocks: {len(sanitized_content)}")
+        # print(f"[DEBUG] Sanitized message content blocks: {len(sanitized_content)}")
         
         input_tokens = response.usage.input_tokens if response.usage else 0
         output_tokens = response.usage.output_tokens if response.usage else 0
-        print(f"[DEBUG] Tokens - input: {input_tokens}, output: {output_tokens}")
+        # print(f"[DEBUG] Tokens - input: {input_tokens}, output: {output_tokens}")
         
         result: dict[str, Any] = {
             'response': response,
@@ -301,7 +301,7 @@ class LitellmModel:
             'output_tokens': output_tokens,
         }
         
-        print(f"[DEBUG] _query_completion_anthropic_direct completed successfully")
+        # print(f"[DEBUG] _query_completion_anthropic_direct completed successfully")
         return result
 
     def _needs_direct_anthropic_call(self) -> bool:
