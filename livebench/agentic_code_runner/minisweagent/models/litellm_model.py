@@ -118,6 +118,170 @@ class LitellmModel:
         before_sleep=before_sleep_log(logger, logging.WARNING),
         retry=retry_if_not_exception_type(
             (
+                KeyboardInterrupt,
+            )
+        ),
+        reraise=True,
+    )
+    def _query_completion_anthropic_direct(self, messages: list[dict[str, str]], **kwargs):
+        """Direct Anthropic SDK call to support features not yet in LiteLLM (e.g., thinking.type: auto)"""
+        from anthropic import NOT_GIVEN, Anthropic
+        
+        client = Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+        
+        api_kwargs = self.config.model_kwargs | kwargs
+        actual_api_kwargs = {key: (value if value is not None else NOT_GIVEN) for key, value in api_kwargs.items()}
+        
+        # Extract system message and sanitize other messages
+        system_content = None
+        actual_messages = []
+        for msg in messages:
+            if msg['role'] == 'system':
+                if system_content is None:
+                    system_content = msg['content']
+                else:
+                    system_content += "\n" + msg['content']
+            else:
+                # Sanitize message content to remove any extra fields the API doesn't accept
+                sanitized_msg = {"role": msg['role']}
+                msg_content = msg.get('content')
+                
+                if isinstance(msg_content, str):
+                    # Simple string content
+                    sanitized_msg['content'] = msg_content
+                elif isinstance(msg_content, list):
+                    # Content is a list of blocks - sanitize each block
+                    sanitized_blocks = []
+                    for block in msg_content:
+                        if isinstance(block, dict):
+                            block_type = block.get('type')
+                            if block_type == 'text':
+                                # Only keep 'type' and 'text' fields
+                                sanitized_blocks.append({
+                                    "type": "text",
+                                    "text": block.get('text', '')
+                                })
+                            elif block_type == 'thinking':
+                                # Keep 'type', 'thinking', and 'signature'
+                                thinking_block = {
+                                    "type": "thinking",
+                                    "thinking": block.get('thinking', '')
+                                }
+                                if 'signature' in block:
+                                    thinking_block['signature'] = block['signature']
+                                sanitized_blocks.append(thinking_block)
+                            elif block_type == 'redacted_thinking':
+                                sanitized_blocks.append({
+                                    "type": "redacted_thinking",
+                                    "data": block.get('data', '')
+                                })
+                            else:
+                                # Unknown block type - pass through
+                                sanitized_blocks.append(block)
+                        else:
+                            sanitized_blocks.append(block)
+                    sanitized_msg['content'] = sanitized_blocks
+                else:
+                    # Unknown content format - pass through
+                    sanitized_msg['content'] = msg_content
+                
+                actual_messages.append(sanitized_msg)
+        
+        # Get the actual model name (remove 'anthropic/' prefix if present)
+        actual_model_name = self.config.model_name
+        if actual_model_name.startswith('anthropic/'):
+            actual_model_name = actual_model_name[len('anthropic/'):]
+        
+        # Extract special parameters
+        betas = actual_api_kwargs.pop('betas', [])
+        output_config = actual_api_kwargs.pop('output_config', None)
+        thinking = actual_api_kwargs.pop('thinking', None)
+        max_tokens = actual_api_kwargs.pop('max_tokens', 8192)
+        temperature = actual_api_kwargs.pop('temperature', NOT_GIVEN)
+        
+        # Build call kwargs - only include supported parameters
+        call_kwargs: dict[str, Any] = {
+            'model': actual_model_name,
+            'messages': actual_messages,
+            'max_tokens': max_tokens,
+        }
+        
+        if system_content:
+            call_kwargs['system'] = system_content
+        if thinking is not None:
+            call_kwargs['thinking'] = thinking
+        if temperature is not NOT_GIVEN:
+            call_kwargs['temperature'] = temperature
+        if betas:
+            call_kwargs['betas'] = betas
+        if output_config is not None:
+            call_kwargs['output_config'] = output_config
+        
+        # Always use beta client for this method (it handles thinking.type=auto)
+        with client.beta.messages.stream(**call_kwargs) as stream:
+            response = stream.get_final_message()
+        
+        # Extract non-empty text and build sanitized content for history
+        content = ""
+        sanitized_content = []
+        for block in response.content:
+            block_type = getattr(block, 'type', 'unknown')
+            
+            if block_type == "text":
+                text = getattr(block, 'text', '')
+                # Only include non-empty text blocks in sanitized content
+                if text.strip():
+                    sanitized_content.append({"type": "text", "text": text})
+                    if not content:  # Use first non-empty text as the content
+                        content = text.strip()
+            elif block_type == "thinking":
+                thinking_text = getattr(block, 'thinking', '')
+                signature = getattr(block, 'signature', '')
+                # Include thinking blocks in sanitized content (needed for multi-turn)
+                thinking_block = {"type": "thinking", "thinking": thinking_text}
+                if signature:
+                    thinking_block["signature"] = signature
+                sanitized_content.append(thinking_block)
+            elif block_type == "redacted_thinking":
+                # Include redacted thinking blocks
+                data = getattr(block, 'data', '')
+                sanitized_content.append({"type": "redacted_thinking", "data": data})
+        
+        if not content:
+            raise Exception("No text response from Anthropic")
+        
+        # Create sanitized message for conversation history
+        sanitized_message = {
+            "role": "assistant",
+            "content": sanitized_content
+        }
+        
+        input_tokens = response.usage.input_tokens if response.usage else 0
+        output_tokens = response.usage.output_tokens if response.usage else 0
+        
+        result: dict[str, Any] = {
+            'response': response,
+            'content': content,
+            'message': sanitized_message,  # Use sanitized message, not full response
+            'input_tokens': input_tokens,
+            'output_tokens': output_tokens,
+        }
+        
+        return result
+
+    def _needs_direct_anthropic_call(self) -> bool:
+        """Check if we need to bypass LiteLLM for direct Anthropic SDK call"""
+        if 'anthropic' not in self.config.model_name:
+            return False
+        thinking = self.config.model_kwargs.get('thinking', {})
+        return thinking.get('type') == 'auto'
+
+    @retry(
+        stop=stop_after_attempt(15),
+        wait=wait_exponential(multiplier=2, min=4, max=120),
+        before_sleep=before_sleep_log(logger, logging.WARNING),
+        retry=retry_if_not_exception_type(
+            (
                 litellm.exceptions.UnsupportedParamsError,
                 litellm.exceptions.NotFoundError,
                 litellm.exceptions.PermissionDeniedError,
@@ -253,6 +417,8 @@ class LitellmModel:
 
         if 'gemini-3' in self.config.model_name:
             result = self._query_completion_generativeai(actual_messages, **kwargs)
+        elif self._needs_direct_anthropic_call():
+            result = self._query_completion_anthropic_direct(actual_messages, **kwargs)
         elif self.config.api_type == "completion":
             result = self._query_completion(actual_messages, **kwargs)
         elif self.config.api_type == "responses":
@@ -278,11 +444,23 @@ class LitellmModel:
         self.n_calls += 1
         self.input_tokens += input_tokens
         self.output_tokens += output_tokens
+        
+        # Handle message serialization - some methods return Pydantic models, some return dicts
+        message_data = None
+        if 'message' in result:
+            msg = result['message']
+            if hasattr(msg, 'model_dump'):
+                message_data = msg.model_dump()
+            elif isinstance(msg, dict):
+                message_data = msg
+            else:
+                message_data = msg
+        
         res = {
             "content": content or "",
             "extra": {
-                "response": response.model_dump(),
-                "message": result['message'].model_dump() if 'message' in result else None,
+                "response": response.model_dump() if hasattr(response, 'model_dump') else response,
+                "message": message_data,
                 "outputs": result['outputs'] if 'outputs' in result else None
             },
         }
