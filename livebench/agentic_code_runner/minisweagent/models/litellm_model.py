@@ -239,7 +239,7 @@ class LitellmModel:
             message_copy = message.copy()
             if 'extra' in message_copy:
                 if message_copy['extra'].get('message') is not None:
-                    if 'provider_specific_fields' in message_copy['extra']['message']:
+                    if 'provider_specific_fields' in message_copy['extra']['message'] and message_copy['extra']['message']['provider_specific_fields'] is not None:
                         message_copy['extra']['message'] = message_copy['extra']['message'] | message_copy['extra']['message']['provider_specific_fields']
                         del message_copy['extra']['message']['provider_specific_fields']
                     actual_messages.append(message_copy['extra']['message'])
