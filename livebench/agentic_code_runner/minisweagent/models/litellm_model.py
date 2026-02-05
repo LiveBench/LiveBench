@@ -171,6 +171,7 @@ class LitellmModel:
                                 }
                                 if 'signature' in block:
                                     thinking_block['signature'] = block['signature']
+                                print(f"[THINKING-DEBUG] Reconstructing thinking block for API: has_signature={'signature' in block}")
                                 sanitized_blocks.append(thinking_block)
                             elif block_type == 'redacted_thinking':
                                 sanitized_blocks.append({
@@ -268,7 +269,7 @@ class LitellmModel:
             elif block_type == "thinking":
                 thinking_text = getattr(block, 'thinking', '')
                 signature = getattr(block, 'signature', '')
-                # print(f"[DEBUG]     thinking length: {len(thinking_text)}")
+                print(f"[THINKING-DEBUG] Captured thinking block: thinking_len={len(thinking_text)}, has_signature={bool(signature)}")
                 # Include thinking blocks in sanitized content (needed for multi-turn)
                 thinking_block = {"type": "thinking", "thinking": thinking_text}
                 if signature:

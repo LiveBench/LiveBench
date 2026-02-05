@@ -175,7 +175,8 @@ agent:
     DO NOT COMMIT YOUR WORK. If you are finished, issue the above command ONLY.
     </instructions>
 
-    NOW RESPOND WITH EXACTLY ONE BASH BLOCK, THEN STOP:
+    Critical instructions: RESPOND WITH EXACTLY ONE BASH BLOCK. You can use thinking if needed.
+
   action_observation_template: |
     <returncode>{{output.returncode}}</returncode>
     {% if output.output | length < 10000 -%}
