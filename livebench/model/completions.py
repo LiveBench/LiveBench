@@ -479,15 +479,18 @@ def chat_completion_anthropic(model: str, messages: Conversation, temperature: f
     del actual_api_kwargs['max_tokens']
     del actual_api_kwargs['temperature']
 
-    text_messages = [c for c in message if c['type'] == 'text']
+    # Filter out empty text blocks (needed for auto-thinking responses)
+    text_messages = [c for c in message if c['type'] == 'text' and c.get('text', '').strip()]
     if len(text_messages) == 0:
         raise Exception("No response from Anthropic")
 
+    # Filter out empty text blocks for token counting too
+    message_for_counting = [c for c in message if c['type'] != 'text' or c.get('text', '').strip()]
     try:
         tokens = client.messages.count_tokens(
             model=model,
             messages=[
-                {"role": "assistant", "content": message}
+                {"role": "assistant", "content": message_for_counting}
             ],
             **actual_api_kwargs
         ).input_tokens

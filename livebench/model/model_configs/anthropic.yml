@@ -284,3 +284,21 @@ api_kwargs:
     max_tokens: 64000
     betas:
       - effort-2025-11-24
+---
+display_name: claude-fudge-eap-auto-thinking-high-effort
+api_name:
+  anthropic: claude-fudge-eap
+aliases:
+  - claude-fudge-high-effort
+api_kwargs:
+  default:
+    temperature: 1
+    extra_body:
+      output_config:
+        effort: high
+    thinking:
+      type: auto
+    max_tokens: 64000
+    betas:
+      - auto-thinking-2026-01-12
+      - effort-2025-11-24
