@@ -16,6 +16,8 @@ agent:
 
     Failure to follow these rules will cause your response to be rejected.
     You are very careful when escaping characters in your response, i.e. when using backslashes.
+
+    STOP RULE: Your response ENDS immediately after your ONE bash block. Do not continue writing after the closing ```.
   instance_template: |
     Please solve the following issue on this repository:
     <issue_description>
@@ -172,6 +174,8 @@ agent:
 
     DO NOT COMMIT YOUR WORK. If you are finished, issue the above command ONLY.
     </instructions>
+
+    Critical instructions: RESPOND WITH EXACTLY ONE BASH BLOCK.
   action_observation_template: |
     <returncode>{{output.returncode}}</returncode>
     {% if output.output | length < 10000 -%}
