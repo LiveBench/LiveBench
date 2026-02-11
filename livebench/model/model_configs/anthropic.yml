@@ -302,3 +302,17 @@ api_kwargs:
     betas:
       - auto-thinking-2026-01-12
       - effort-2025-11-24
+---
+display_name: claude-churro-adaptive-thinking-high-effort
+api_name:
+  anthropic: claude-churro-eap
+aliases:
+  - claude-churro-eap
+api_kwargs:
+  default:
+    temperature: 1
+    output_config:
+      effort: high
+    thinking:
+      type: adaptive
+    max_tokens: 64000
