@@ -482,6 +482,17 @@ def chat_completion_anthropic(model: str, messages: Conversation, temperature: f
     # Filter out empty text blocks (needed for auto-thinking responses)
     text_messages = [c for c in message if c['type'] == 'text' and c.get('text', '').strip()]
     if len(text_messages) == 0:
+        # Log what we DID receive before failing (helps debug adaptive thinking issues)
+        print(f"DEBUG: Received {len(message)} blocks but no valid text. Block types: {[c.get('type') for c in message]}")
+        for block in message:
+            if block.get('type') == 'thinking':
+                thinking_text = block.get('thinking', '')
+                print(f"DEBUG: Thinking block ({len(thinking_text)} chars)")
+                print(f"DEBUG: Thinking START: {thinking_text[:1000]}...")
+                print(f"DEBUG: Thinking END: ...{thinking_text[-1000:]}")
+            elif block.get('type') == 'text':
+                text_content = block.get('text', '')
+                print(f"DEBUG: Empty/whitespace text block ({len(text_content)} chars): '{text_content[:100]}'")
         raise Exception("No response from Anthropic")
 
     # Filter out empty text blocks for token counting too

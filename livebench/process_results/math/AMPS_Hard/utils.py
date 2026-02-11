@@ -240,7 +240,7 @@ def is_equiv_llm(x1: str, x2: str) -> bool:
         if response.choices[0].message.content.lower() == 'yes':
             return True
         return False
-    except Exception:
+    except Exception as e:
         warnings.warn(f"Failed using LLM to comparing {x1} and {x2}: {e}")
         traceback.print_tb(e.__traceback__)
     return False
