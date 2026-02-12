@@ -8,3 +8,17 @@ api_kwargs:
     temperature: 1
     max_tokens: 131072
 preserve_reasoning: true
+---
+display_name: minimax-m2.5
+api_name:
+  anthropic: MiniMax-M2.5
+aliases:
+  - minimax-m2.5-thinking
+api_kwargs:
+  default:
+    temperature: 1
+    thinking:
+      type: enabled
+      budget_tokens: 75000
+    max_tokens: 80000
+preserve_reasoning: true
