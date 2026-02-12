@@ -77,3 +77,18 @@ api_kwargs:
     temperature: 1.0
     top_p: 0.95
     max_tokens: 32768
+---
+display_name: glm-5
+api_name:
+  https://open.bigmodel.cn/api/paas/v4: glm-5
+default_provider: https://open.bigmodel.cn/api/paas/v4
+api_keys:
+  https://open.bigmodel.cn/api/paas/v4: ZAI_API_KEY_v2
+api_kwargs:
+  default:
+    temperature: 1.0
+    top_p: 0.95
+    max_tokens: 131072
+    stream: true
+    extra_body:
+      enable_thinking: true
