@@ -285,11 +285,11 @@ api_kwargs:
     betas:
       - effort-2025-11-24
 ---
-display_name: claude-fudge-eap-auto-thinking-high-effort
+display_name: claude-opus-4-6-thinking-auto-high-effort
 api_name:
-  anthropic: claude-fudge-eap
+  anthropic: claude-opus-4-6
 aliases:
-  - claude-fudge-high-effort
+  - claude-opus-4-6-thinking
 api_kwargs:
   default:
     temperature: 1
