@@ -302,3 +302,21 @@ api_kwargs:
     betas:
       - auto-thinking-2026-01-12
       - effort-2025-11-24
+---
+display_name: claude-sonnet-4-6-thinking-auto-high-effort
+api_name:
+  anthropic: claude-sonnet-4-6
+aliases:
+  - claude-sonnet-4-6-thinking
+api_kwargs:
+  default:
+    temperature: 1
+    extra_body:
+      output_config:
+        effort: high
+    thinking:
+      type: auto
+    max_tokens: 128000
+    betas:
+      - auto-thinking-2026-01-12
+      - effort-2025-11-24
