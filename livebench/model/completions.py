@@ -82,6 +82,10 @@ def chat_completion_openai(
         stream = actual_api_kwargs['stream']
         del actual_api_kwargs['stream']
 
+    print('\n')
+    print(f'\nctual_api_kwargs: {actual_api_kwargs}')
+    print(f'\nmessages: {messages}\n')
+
     try:
         if stream:
             stream: Stream[ChatCompletionChunk] = client.chat.completions.create(
@@ -107,29 +111,46 @@ def chat_completion_openai(
                     print(message)
                 raise
         else:
-            response: ChatCompletion = client.chat.completions.create(
-                model=model,
-                messages=messages,
-                stream=False,
-                **actual_api_kwargs
-            )
-            if response is None:
-                raise Exception("No response returned from OpenAI")
-            elif response.choices is None:
-                print(response)
-                raise Exception("API request failed")
-            if isinstance(response.choices[0], str):
-                message = response.choices[0]
-            else:
-                message = response.choices[0].message.content
-            if response.usage is not None:
-                num_tokens = response.usage.completion_tokens
-                if hasattr(response.usage, 'completion_tokens_details') and hasattr(response.usage.completion_tokens_details, 'reasoning_tokens'):
-                    reasoning_tokens = response.usage.completion_tokens_details.reasoning_tokens
-                    if num_tokens is not None and reasoning_tokens is not None:
-                        num_tokens += reasoning_tokens
-            else:
-                num_tokens = None
+            reasoning_efforts = ['high', 'medium', 'low']
+
+            if 'reasoning_effort' in actual_api_kwargs:
+                reasoning_efforts = [actual_api_kwargs['reasoning_effort']]
+                del actual_api_kwargs['reasoning_effort']
+            
+
+            for reasoning_effort in reasoning_efforts:
+                print(f'\nreasoning_effort: {reasoning_effort}\n')
+                
+                response: ChatCompletion = client.chat.completions.create(
+                    model=model,
+                    messages=messages,
+                    stream=False,
+                    reasoning_effort=reasoning_effort,
+                    **actual_api_kwargs
+                )
+                if response is None:
+                    raise Exception("No response returned from OpenAI")
+                elif response.choices is None:
+                    print(response)
+                    raise Exception("API request failed")
+                if isinstance(response.choices[0], str):
+                    message = response.choices[0]
+                else:
+                    message = response.choices[0].message.content
+                if response.usage is not None:
+                    num_tokens = response.usage.completion_tokens
+                    if hasattr(response.usage, 'completion_tokens_details') and hasattr(response.usage.completion_tokens_details, 'reasoning_tokens'):
+                        reasoning_tokens = response.usage.completion_tokens_details.reasoning_tokens
+                        if num_tokens is not None and reasoning_tokens is not None:
+                            num_tokens += reasoning_tokens
+                else:
+                    num_tokens = None
+
+                if message is None or message == '':
+                    print(f'\nmessage is None or message == '' - response: {response}\n')
+                    continue
+                else:
+                    break
 
             if hasattr(response, 'provider') and response.provider is not None:
                 metadata = {
@@ -137,7 +158,10 @@ def chat_completion_openai(
                 }
 
             if message is None or message == '':
-                print(response)
+                print(f'\nmessage is None or message == '' - response: {response}\n')
+
+        print(f'\nresponse: {response}\n')
+        print(f'\nmessage: {message}\n')
 
         if message is None or message == '':
             raise Exception("No message returned from OpenAI")
