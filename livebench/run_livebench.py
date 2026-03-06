@@ -17,7 +17,7 @@ dotenv.load_dotenv()
 # Default benchmarks used when none specified
 DEFAULT_BENCHMARKS = [
     "live_bench/coding",
-    "live_bench/data_analysis", 
+    "live_bench/data_analysis",
     "live_bench/instruction_following",
     "live_bench/language",
     "live_bench/math",
@@ -71,7 +71,7 @@ class LiveBenchParams:
     def from_args(cls, args, model: str | None = None):
         """
         Create a LiveBenchParams instance from parsed command-line arguments
-        
+
         Args:
             args: The parsed command-line arguments
             model: Optional model name to use instead of the one in args
@@ -126,7 +126,7 @@ def run_command(cmd: str, env: dict[str, str] | None = None) -> int:
 def setup_tmux_session(session_name: str, benchmarks: list[str], commands: list[str], venv_path: str | None = None) -> None:
     """
     Set up a tmux session with panes for each benchmark.
-    
+
     Args:
         session_name: Name for the tmux session
         benchmarks: List of benchmark paths to run
@@ -134,10 +134,10 @@ def setup_tmux_session(session_name: str, benchmarks: list[str], commands: list[
         venv_path: Optional path to virtual environment to activate
     """
     print(f"\nSetting up tmux session '{session_name}' for benchmarks: {', '.join(benchmarks)}")
-    
+
     # Initialize tmux server
     server = libtmux.Server()
-    
+
     # Kill existing session if it exists
     try:
         existing_sessions = [s for s in server.sessions if s.name == session_name]
@@ -155,7 +155,7 @@ def setup_tmux_session(session_name: str, benchmarks: list[str], commands: list[
     # Create panes one at a time
     print("Creating panes...")
     panes = [window.panes[0]]  # Start with the initial pane
-    
+
     # Create additional panes as needed
     for i in range(1, len(benchmarks)):
         try:
@@ -173,7 +173,7 @@ def setup_tmux_session(session_name: str, benchmarks: list[str], commands: list[
     print("Setting up panes...")
     for i, (pane, benchmark, cmd) in enumerate(zip(panes, benchmarks, commands)):
         print(f"Setting up pane {i+1} for benchmark: {benchmark}")
-        
+
         # Activate virtualenv if provided
         if venv_path:
             if not os.path.exists(venv_path):
@@ -186,7 +186,7 @@ def setup_tmux_session(session_name: str, benchmarks: list[str], commands: list[
         # Run the command
         pane.send_keys(cmd)
         time.sleep(0.5)
-    
+
     # Final layout adjustment
     print("Adjusting final layout...")
     window.select_layout('tiled')
@@ -233,15 +233,15 @@ def build_run_command(
     only_incorrect: bool = False
 ) -> str:
     """Build the command to run gen_api_answer and gen_ground_truth_judgment in sequence"""
-    
+
     # Build gen_api_answer command
     gen_api_cmd = f"python -u gen_api_answer.py --model {model} --question-source {question_source}"
-    
+
     # Build gen_ground_truth_judgment command
     gen_judge_cmd = f"python -u gen_ground_truth_judgment.py --question-source {question_source}"
     if model:
         gen_judge_cmd += f" --model {model}"
-    
+
     # Add bench_name to both commands
     if isinstance(bench_name, list):
         bench_str = ' '.join(bench_name)
@@ -250,7 +250,7 @@ def build_run_command(
     elif bench_name:
         gen_api_cmd += f" --bench-name {bench_name}"
         gen_judge_cmd += f" --bench-name {bench_name}"
-    
+
     # Add optional arguments to gen_api_answer
     if api_base:
         gen_api_cmd += f" --api-base {api_base}"
@@ -275,10 +275,10 @@ def build_run_command(
         gen_api_cmd += " --resume"
     elif resume_grading:
         gen_judge_cmd += " --resume"
-        
+
     if retry_failures:
         gen_api_cmd += " --retry-failures"
-    
+
     # Add new optional arguments
     if force_temperature is not None:
         gen_api_cmd += f" --force-temperature {force_temperature}"
@@ -311,7 +311,7 @@ def build_run_command(
     # Add debug flag only to judgment command
     if debug:
         gen_judge_cmd += " --debug"
-    
+
     # Chain the commands together with && to ensure they run in sequence
     # Only run gen_ground_truth_judgment if gen_api_answer succeeds
     if skip_inference and not skip_grading:
@@ -369,22 +369,23 @@ def run_sequential(params: LiveBenchParams) -> None:
     """Run benchmarks together in a single tmux session"""
     print(f"\nRunning benchmarks for model: {params.model}")
     session_name = f"livebench-{params.model}".replace(".", "_").replace(":", "_")
-    
+
     # If no bench_names provided, run all benchmarks in sequence using live_bench
     if not params.bench_names:
         print("No specific benchmarks provided, running all benchmarks in sequence")
         cmd = build_run_command_from_params(params, bench_name=DEFAULT_BENCHMARKS)
         setup_tmux_session(session_name, ["live_bench"], [cmd], params.venv)
         return
-    elif params.bench_names == ["live_bench/agentic_coding"]:
+    elif len(params.bench_names) == 1:
         # allow running agentic coding benchmark separately from the rest
-        session_name += "-agentic-coding"
-    
+        bench = params.bench_names[0].split('/')[-1].replace('_', '-')
+        session_name += f"-{bench}"
+
     print(f"Running benchmarks together: {', '.join(params.bench_names)}")
     # Build a single command with all benchmarks to take advantage of parallel execution
     print("Building command with all benchmarks...")
     cmd = build_run_command_from_params(params, bench_name=params.bench_names)
-    
+
     # Set up tmux session
     setup_tmux_session(session_name, [params.bench_names[0]], [cmd], params.venv)
 
@@ -393,56 +394,57 @@ def run_parallel(params: LiveBenchParams) -> None:
     print(f"\nRunning parallel benchmarks for model: {params.model}")
     session_name = f"livebench-{params.model}".replace(".", "_").replace(":", "_")
 
-    if params.bench_names == ["live_bench/agentic_coding"]:
-        # allow running agentic coding benchmark separately from the rest 
-        session_name += "-agentic-coding"
-    
+    if params.bench_names and len(params.bench_names) == 1:
+        # allow running agentic coding benchmark separately from the rest
+        bench = params.bench_names[0].split('/')[-1].replace('_', '-')
+        session_name += f"-{bench}"
+
     # If no bench_names provided, use DEFAULT_BENCHMARKS for parallelization
     benchmarks = params.bench_names if params.bench_names else DEFAULT_BENCHMARKS
     print(f"Using benchmarks: {', '.join(benchmarks)}")
-    
+
     # Build commands for each benchmark
     print("Building commands for each benchmark...")
     commands = []
     for bench in benchmarks:
         cmd = build_run_command_from_params(params, bench_name=bench)
         commands.append(cmd)
-    
+
     # Set up tmux session with parallel panes
     setup_tmux_session(session_name, benchmarks, commands, params.venv)
 
 def run_single(params: LiveBenchParams) -> int:
     """
     Run benchmarks together in a single process.
-    
+
     Args:
         params: Parameters for the benchmark run
-    
+
     Returns:
         Exit code from the last command executed
     """
     # If no bench_names provided, use live_bench (runs all benchmarks)
     bench_name = params.bench_names if params.bench_names else "live_bench"
-    
+
     if isinstance(bench_name, list):
         print(f"\nRunning benchmarks together for model: {params.model}")
         print(f"Benchmarks: {', '.join(bench_name)}")
     else:
         print(f"\nRunning benchmark '{bench_name}' for model: {params.model}")
-    
+
     # Build the chained command using build_run_command
     cmd = build_run_command_from_params(params, bench_name=bench_name)
-    
+
     # Run the command
     if params.venv:
         print(f"Activating virtual environment: {params.venv}")
         os.environ["PATH"] = f"{os.path.dirname(params.venv)}:{os.environ['PATH']}"
         run_command(f"source {params.venv}")
-    
+
     print("\nRunning benchmark command:")
     print(cmd)
     exit_code = run_command(cmd)
-    
+
     if exit_code != 0:
         print("Benchmark failed!")
     else:
@@ -451,13 +453,13 @@ def run_single(params: LiveBenchParams) -> int:
 
 def main():
     parser = argparse.ArgumentParser(description="Run LiveBench benchmarks with various execution modes")
-    
+
     # Get default venv path - check for active venv first
     default_venv = detect_active_venv()
-    
+
     # Required arguments
     parser.add_argument("--model", required=False, default=None, nargs="+", help="One or more model identifiers (e.g., gpt-4)")
-    
+
     # Optional arguments
     parser.add_argument("--venv", help="Path to virtual environment to activate", default=default_venv)
     parser.add_argument("--mode", choices=["single", "parallel", "sequential"], default="single",
@@ -497,15 +499,15 @@ def main():
                       help="When used with --resume-grading or --resume, only re-evaluate questions that previously scored 0")
     parser.add_argument("--ignore-missing-answers", action="store_true",
                       help="Ignore missing answers when running gen_ground_truth_judgment.py")
-    parser.add_argument("--debug", action="store_true", 
+    parser.add_argument("--debug", action="store_true",
                       help="Enable debug mode for gen_ground_truth_judgment.py (not passed to gen_api_answer.py)")
     parser.add_argument("--model-provider-override", help="Override the model provider for gen_api_answer.py")
-    
+
     args = parser.parse_args()
 
     if args.model is None and not args.skip_inference:
         raise ValueError("Model is required when performing inference")
-    
+
     print("\nStarting LiveBench evaluation")
     print(f"Mode: {args.mode}")
     if args.model:
@@ -513,7 +515,7 @@ def main():
     if args.bench_name:
         print(f"Benchmarks: {', '.join(args.bench_name)}")
     print(f"Question source: {args.question_source}")
-    
+
     # Run each model in its own tmux session
     if args.model:
         for model in args.model:
