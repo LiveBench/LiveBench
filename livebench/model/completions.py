@@ -17,7 +17,7 @@ logging.basicConfig(stream=sys.stdout, level=logging.WARNING)
 logger = logging.getLogger(__name__)
 
 # API setting constants
-API_MAX_RETRY = 2
+API_MAX_RETRY = 1
 API_RETRY_SLEEP_MIN = 10
 API_RETRY_SLEEP_MAX = 60
 API_ERROR_OUTPUT = "$ERROR$"
@@ -154,22 +154,16 @@ def chat_completion_openai(
             return API_ERROR_OUTPUT, 0
         raise e
 
-@retry(
-    stop=stop_after_attempt(API_MAX_RETRY),
-    wait=wait_fixed(API_RETRY_SLEEP_MIN),
-    retry=retry_if_exception_type(Exception),
-    after=retry_log,
-    retry_error_callback=retry_fail
-)
+
 def chat_completion_openai_responses(model: str, messages: Conversation, temperature: float, max_tokens: int, model_api_kwargs: API_Kwargs | None = None, api_dict: dict[str, str] | None = None, stream: bool = False) -> tuple[str, int]:
     from openai import NOT_GIVEN, OpenAI
 
     if api_dict is not None:
         client = OpenAI(
-            api_key=api_dict["api_key"], base_url=api_dict["api_base"], timeout=httpx.Timeout(timeout=300.0, connect=10.0)
+            api_key=api_dict["api_key"], base_url=api_dict["api_base"], timeout=httpx.Timeout(timeout=1800.0, connect=20.0)
         )
     else:
-        client = OpenAI(timeout=300)
+        client = OpenAI(timeout=1800)
 
     messages = [message for message in messages if message['role'] == 'user']
     developer_message = ''
