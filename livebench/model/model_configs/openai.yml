@@ -969,3 +969,29 @@ api_kwargs:
     reasoning:
       effort: none
       summary: auto
+---
+display_name: gpt-5.4-mini-xhigh
+api_name:
+  openai_responses: gpt-5.4-mini
+aliases:
+  - gpt-5.4-mini-xhigh
+api_kwargs:
+  default:
+    temperature: null
+    max_completion_tokens: null
+    reasoning:
+      effort: xhigh
+      summary: auto
+---
+display_name: gpt-5.4-nano-xhigh
+api_name:
+  openai_responses: gpt-5.4-nano
+aliases:
+  - gpt-5.4-nano-xhigh
+api_kwargs:
+  default:
+    temperature: null
+    max_completion_tokens: null
+    reasoning:
+      effort: xhigh
+      summary: auto
