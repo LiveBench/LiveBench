@@ -983,6 +983,58 @@ api_kwargs:
       effort: xhigh
       summary: auto
 ---
+display_name: gpt-5.4-mini-high
+api_name:
+  openai_responses: gpt-5.4-mini
+aliases:
+  - gpt-5.4-mini-high
+api_kwargs:
+  default:
+    temperature: null
+    max_completion_tokens: null
+    reasoning:
+      effort: high
+      summary: auto
+---
+display_name: gpt-5.4-mini-medium
+api_name:
+  openai_responses: gpt-5.4-mini
+aliases:
+  - gpt-5.4-mini-medium
+api_kwargs:
+  default:
+    temperature: null
+    max_completion_tokens: null
+    reasoning:
+      effort: medium
+      summary: auto
+---
+display_name: gpt-5.4-mini-low
+api_name:
+  openai_responses: gpt-5.4-mini
+aliases:
+  - gpt-5.4-mini-low
+api_kwargs:
+  default:
+    temperature: null
+    max_completion_tokens: null
+    reasoning:
+      effort: low
+      summary: auto
+---
+display_name: gpt-5.4-mini
+api_name:
+  openai_responses: gpt-5.4-mini
+aliases:
+  - gpt-5.4-mini
+api_kwargs:
+  default:
+    temperature: null
+    max_completion_tokens: null
+    reasoning:
+      effort: none
+      summary: auto
+---
 display_name: gpt-5.4-nano-xhigh
 api_name:
   openai_responses: gpt-5.4-nano
@@ -994,4 +1046,56 @@ api_kwargs:
     max_completion_tokens: null
     reasoning:
       effort: xhigh
+      summary: auto
+---
+display_name: gpt-5.4-nano-high
+api_name:
+  openai_responses: gpt-5.4-nano
+aliases:
+  - gpt-5.4-nano-high
+api_kwargs:
+  default:
+    temperature: null
+    max_completion_tokens: null
+    reasoning:
+      effort: high
+      summary: auto
+---
+display_name: gpt-5.4-nano-medium
+api_name:
+  openai_responses: gpt-5.4-nano
+aliases:
+  - gpt-5.4-nano-medium
+api_kwargs:
+  default:
+    temperature: null
+    max_completion_tokens: null
+    reasoning:
+      effort: medium
+      summary: auto
+---
+display_name: gpt-5.4-nano-low
+api_name:
+  openai_responses: gpt-5.4-nano
+aliases:
+  - gpt-5.4-nano-low
+api_kwargs:
+  default:
+    temperature: null
+    max_completion_tokens: null
+    reasoning:
+      effort: low
+      summary: auto
+---
+display_name: gpt-5.4-nano
+api_name:
+  openai_responses: gpt-5.4-nano
+aliases:
+  - gpt-5.4-nano
+api_kwargs:
+  default:
+    temperature: null
+    max_completion_tokens: null
+    reasoning:
+      effort: none
       summary: auto
