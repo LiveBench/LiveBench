@@ -10,4 +10,8 @@ api_kwargs:
   default:
     temperature: 1
     max_tokens: 131072
+    extra_body:
+      reasoning:
+        enabled: true
+        effort: xhigh
 preserve_reasoning: true
