@@ -92,3 +92,20 @@ api_kwargs:
     stream: true
     extra_body:
       enable_thinking: true
+---
+display_name: glm-5v-turbo
+api_name:
+  https://api.z.ai/api/paas/v4: glm-5v-turbo
+default_provider: https://api.z.ai/api/paas/v4
+api_keys:
+  https://api.z.ai/api/paas/v4: ZAI_API_KEY
+api_kwargs:
+  default:
+    temperature: 1.0
+    top_p: 0.95
+    max_tokens: 128000
+    stream: true
+    extra_body:
+      thinking:
+        type: enabled
+preserve_reasoning: true
