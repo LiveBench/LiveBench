@@ -44,7 +44,7 @@ def extract_expression_completions_from_generation(generation, debug):
             n = n.strip().split(' ')[-1].replace('$', '').replace('{', '').replace('}', '').replace('\\', '').replace('boxed', '').replace('<', '').replace('>', '')
             try:
                 numbers.append(int(n))
-            except:
+            except Exception:
                 if debug:
                     print('ERROR', n)
                 numbers.append('NO ANSWER')
@@ -63,7 +63,7 @@ def extract_expression_completions_from_generation(generation, debug):
         for n in string.strip().split(','):
             try:
                 numbers.append(int(n.strip()))
-            except:
+            except Exception:
                 numbers.append('NO ANSWER')
         if len(numbers) == 0 or set(numbers) == {'NO ANSWER'}:
             numbers = None
@@ -78,7 +78,7 @@ def extract_expression_completions_from_generation(generation, debug):
                 continue
             try:
                 numbers.append(int(n.strip()))
-            except:
+            except Exception:
                 numbers.append('NO ANSWER')
         if len(numbers) == 0 or set(numbers) == {'NO ANSWER'}:
             numbers = None
