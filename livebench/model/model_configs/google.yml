@@ -370,3 +370,22 @@ api_kwargs:
     max_output_tokens: 65536
     temperature: 1
     top_p: 0.95
+---
+display_name: gemma-4-31b-it
+api_name:
+  google: gemma-4-31b-it
+  https://openrouter.ai/api/v1: google/gemma-4-31b-it
+default_provider: https://openrouter.ai/api/v1
+api_keys:
+  https://openrouter.ai/api/v1: OPENROUTER_API_KEY
+aliases:
+  - gemma-4-31b
+api_kwargs:
+  default:
+    temperature: 1.0
+    top_p: 0.95
+    max_tokens: 65536
+  https://openrouter.ai/api/v1:
+    extra_body:
+      reasoning:
+        enabled: true
