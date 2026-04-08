@@ -144,7 +144,7 @@ def setup_tmux_session(session_name: str, benchmarks: list[str], commands: list[
         if existing_sessions:
             print(f"Killing existing session '{session_name}'")
             existing_sessions[0].kill()
-    except:
+    except Exception:
         pass
 
     # Create new session

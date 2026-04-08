@@ -160,11 +160,11 @@ def parse(x: str) -> list[sympy.Expr]:
         try:
             # this almost only happened for amazon.nova-pro-v1:0 where it outputs e.g. \\frac or \\sqrt all the time
             parsed_xs = parse_latex(x.replace('\\\\', '\\'), backend='lark')
-        except:
+        except Exception:
             try:
                 # if all else fails, try to parse using default backend
                 parsed_xs = parse_latex(x)
-            except:
+            except Exception:
                 warnings.warn(f"couldn't parse {x}")
                 return []
 
