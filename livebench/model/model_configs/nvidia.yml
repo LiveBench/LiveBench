@@ -1,0 +1,13 @@
+# NVIDIA Models
+---
+display_name: nemotron-3-super-120b-a12b
+api_name:
+  https://openrouter.ai/api/v1: nvidia/nemotron-3-super-120b-a12b:free
+default_provider: https://openrouter.ai/api/v1
+api_keys:
+  https://openrouter.ai/api/v1: OPENROUTER_API_KEY
+api_kwargs:
+  default:
+    extra_body:
+      reasoning:
+        enabled: true
