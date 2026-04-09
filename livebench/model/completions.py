@@ -21,6 +21,7 @@ API_MAX_RETRY = 1
 API_RETRY_SLEEP_MIN = 10
 API_RETRY_SLEEP_MAX = 60
 API_ERROR_OUTPUT = "$ERROR$"
+TIMEOUT = 1800
 
 # model api function takes in Model, list of messages, temperature, max tokens, api kwargs, and an api dict
 # returns tuple of (output, num tokens)
@@ -57,7 +58,7 @@ def chat_completion_openai(
 
     if api_dict is not None:
         client = OpenAI(
-            api_key=api_dict["api_key"], base_url=api_dict["api_base"], timeout=httpx.Timeout(timeout=2400.0, connect=10.0)
+            api_key=api_dict["api_key"], base_url=api_dict["api_base"], timeout=httpx.Timeout(timeout=TIMEOUT, connect=10.0)
         )
 
     else:
@@ -160,10 +161,10 @@ def chat_completion_openai_responses(model: str, messages: Conversation, tempera
 
     if api_dict is not None:
         client = OpenAI(
-            api_key=api_dict["api_key"], base_url=api_dict["api_base"], timeout=httpx.Timeout(timeout=1800.0, connect=20.0)
+            api_key=api_dict["api_key"], base_url=api_dict["api_base"], timeout=httpx.Timeout(timeout=TIMEOUT, connect=20.0)
         )
     else:
-        client = OpenAI(timeout=1800)
+        client = OpenAI(timeout=TIMEOUT)
 
     messages = [message for message in messages if message['role'] == 'user']
     developer_message = ''
@@ -580,7 +581,7 @@ def chat_completion_deepinfra(model: str, messages: Conversation, temperature: f
     else:
         api_key = os.environ["DEEPINFRA_API_KEY"]
 
-    client = OpenAI(api_key=api_key, base_url="https://api.deepinfra.com/v1/openai", timeout=httpx.Timeout(timeout=2400.0, connect=10.0))
+    client = OpenAI(api_key=api_key, base_url="https://api.deepinfra.com/v1/openai", timeout=httpx.Timeout(timeout=TIMEOUT, connect=10.0))
 
     api_kwargs: API_Kwargs = {
         'max_tokens': max_tokens,

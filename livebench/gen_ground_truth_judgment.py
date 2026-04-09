@@ -112,6 +112,7 @@ def play_a_match_gt(match: MatchSingle, output_file: str | None = None, debug=Fa
             score = ifbench_process_results(question, llm_answer, debug)
             category = "instruction_following"
         elif len(splits) > 0 and (splits[0] in ["amc", "smc", "aime", "imo", "usamo"] or (len(splits) > 1 and splits[1] == "amc")):
+            category = "math"
             if splits[0] in ["amc", "smc"] or (len(splits) > 1 and splits[1] == "amc"):
                 score = mathcontest_process_results(ground_truth, llm_answer, question_text, debug)
                 category = "math"
@@ -120,7 +121,6 @@ def play_a_match_gt(match: MatchSingle, output_file: str | None = None, debug=Fa
                 category = "math"
             elif splits[0] in ["imo", "usamo"]:
                 score = proof_rearrangement_process_results(ground_truth, llm_answer, edit_distance=True, debug=debug)
-                category = "math"
             else:
                 raise Exception("Invalid task or subtask provided: ", question['task'], question['subtask'])
         elif task_or_subtask == "cta":
@@ -204,7 +204,8 @@ def play_a_match_gt(match: MatchSingle, output_file: str | None = None, debug=Fa
         else:
             raise NotImplementedError(f"This task ({task_or_subtask}) has not been implemented yet.")
     except Exception as e:
-        raise RuntimeError(f"Error occurred evaluating question {question['question_id']}") from e
+        #raise RuntimeError(f"Error occurred evaluating question {question['question_id']}") from e
+        score = 0
 
     if not category:
         raise NotImplementedError(f"A category must be assigned to each task")
