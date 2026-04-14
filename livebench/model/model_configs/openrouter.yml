@@ -1,0 +1,11 @@
+# OpenRouter Models
+---
+display_name: elephant-alpha
+api_name:
+  https://openrouter.ai/api/v1: openrouter/elephant-alpha
+api_keys:
+  https://openrouter.ai/api/v1: OPENROUTER_API_KEY
+api_kwargs:
+  default:
+    max_completion_tokens: 32768
+    stream: true
