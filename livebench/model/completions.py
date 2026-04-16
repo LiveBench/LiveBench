@@ -17,10 +17,11 @@ logging.basicConfig(stream=sys.stdout, level=logging.WARNING)
 logger = logging.getLogger(__name__)
 
 # API setting constants
-API_MAX_RETRY = 1
+API_MAX_RETRY = 3
 API_RETRY_SLEEP_MIN = 10
 API_RETRY_SLEEP_MAX = 60
 API_ERROR_OUTPUT = "$ERROR$"
+API_REFUSAL_OUTPUT = "$REFUSAL$"
 TIMEOUT = 1800
 
 # model api function takes in Model, list of messages, temperature, max tokens, api kwargs, and an api dict
@@ -407,7 +408,7 @@ def chat_completion_anthropic(model: str, messages: Conversation, temperature: f
         api_key = os.environ["ANTHROPIC_API_KEY"]
 
     from anthropic import NOT_GIVEN, Anthropic
-    c = Anthropic(api_key=api_key)
+    c = Anthropic(api_key=api_key, timeout=httpx.Timeout(TIMEOUT))
 
     api_kwargs: API_Kwargs = {
         'max_tokens': max_tokens,
@@ -435,6 +436,7 @@ def chat_completion_anthropic(model: str, messages: Conversation, temperature: f
     if actual_api_kwargs.get('betas', []):
         client = c.beta
 
+    logger.warning(f"Calling Anthropic API: model={model}, kwargs_keys={[k for k, v in actual_api_kwargs.items() if v is not NOT_GIVEN]}")
     with client.messages.stream(
         model=model,
         messages=messages,
@@ -442,7 +444,10 @@ def chat_completion_anthropic(model: str, messages: Conversation, temperature: f
         **actual_api_kwargs
     ) as stream:
         new_block = {}
+        stop_reason = None
         for event in stream:
+            if event.type == 'message_delta':
+                stop_reason = event.delta.stop_reason
             if event.type == 'content_block_start':
                 new_block = {}
                 if event.content_block.type == 'redacted_thinking':
@@ -477,6 +482,10 @@ def chat_completion_anthropic(model: str, messages: Conversation, temperature: f
     # Filter out empty text blocks (needed for auto-thinking responses)
     text_messages = [c for c in message if c['type'] == 'text' and c.get('text', '').strip()]
     if len(text_messages) == 0:
+        if stop_reason == 'refusal':
+            logger.warning(f"Model refused to answer (stop_reason=refusal). Returning refusal sentinel.")
+            return API_REFUSAL_OUTPUT, 0
+        logger.warning(f"No text blocks found (stop_reason={stop_reason}). Blocks received: {[{k: (v[:50] if isinstance(v, str) else v) for k, v in b.items()} for b in message]}")
         raise Exception("No response from Anthropic")
 
     # Filter out empty text blocks and empty thinking blocks for token counting
