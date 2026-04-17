@@ -450,7 +450,7 @@ def filter_questions(questions, answer_file, resume=False, retry_failures=False)
     If resume is true, include only unanswered questions.
     If retry_failures is true, include questions for which the existing answer is an error.
     """
-    from livebench.model.completions import API_ERROR_OUTPUT
+    from livebench.model.completions import API_ERROR_OUTPUT, API_REFUSAL_OUTPUT
     reorg_answer_file(answer_file)
     new_questions_ids = set([q["question_id"] for q in questions])
     
@@ -477,7 +477,7 @@ def filter_questions(questions, answer_file, resume=False, retry_failures=False)
         for line in fin:
             ans = json.loads(line)
             qid = ans["question_id"]
-            error = ans["choices"][0]["turns"][0] == API_ERROR_OUTPUT or ans['choices'][0]['turns'] == API_ERROR_OUTPUT
+            error = ans["choices"][0]["turns"][0] in (API_ERROR_OUTPUT, API_REFUSAL_OUTPUT) or ans['choices'][0]['turns'] in (API_ERROR_OUTPUT, API_REFUSAL_OUTPUT)
             if qid in new_questions_ids and (resume or retry_failures) and not error:
                 new_questions_ids.remove(qid)
             elif qid in new_questions_ids and error and resume and not retry_failures:
