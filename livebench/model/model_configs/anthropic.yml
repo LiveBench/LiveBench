@@ -356,3 +356,34 @@ api_kwargs:
     betas:
       - auto-thinking-2026-01-12
       - effort-2025-11-24
+---
+display_name: claude-opus-4-7-high-effort
+api_name:
+  anthropic: claude-nougat-eap
+aliases:
+  - claude-opus-4-7-thinking
+  - claude-opus-4-7
+api_kwargs:
+  default:
+    temperature: null
+    extra_body:
+      output_config:
+        effort: high
+    thinking:
+      type: adaptive
+    max_tokens: 100000
+---
+display_name: claude-opus-4-7-xhigh-effort
+api_name:
+  anthropic: claude-nougat-eap
+aliases:
+  - claude-opus-4-7-xhigh
+api_kwargs:
+  default:
+    temperature: null
+    extra_body:
+      output_config:
+        effort: xhigh
+    thinking:
+      type: adaptive
+    max_tokens: 100000
