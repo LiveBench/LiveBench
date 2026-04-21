@@ -57,3 +57,19 @@ api_kwargs:
       thinking:
         type: enabled
 preserve_reasoning: true
+---
+display_name: kimi-k2.6-thinking
+api_name:
+  https://api.moonshot.ai/v1: kimi-k2.6
+api_keys:
+  https://api.moonshot.ai/v1: MOONSHOTAI_API_KEY
+default_provider: https://api.moonshot.ai/v1
+api_kwargs:
+  default:
+    temperature: 1.0
+    max_tokens: 128000
+    stream: true
+    extra_body:
+      thinking:
+        type: enabled
+preserve_reasoning: true
