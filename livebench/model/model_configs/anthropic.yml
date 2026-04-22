@@ -356,3 +356,64 @@ api_kwargs:
     betas:
       - auto-thinking-2026-01-12
       - effort-2025-11-24
+---
+display_name: claude-opus-4-7-high-effort
+api_name:
+  anthropic: claude-opus-4-7
+aliases:
+  - claude-opus-4-7-thinking
+  - claude-opus-4-7
+api_kwargs:
+  default:
+    temperature: 1
+    extra_body:
+      output_config:
+        effort: high
+    thinking:
+      type: adaptive
+    max_tokens: 128000
+---
+display_name: claude-opus-4-7-xhigh-effort
+api_name:
+  anthropic: claude-opus-4-7
+aliases:
+  - claude-opus-4-7-xhigh
+api_kwargs:
+  default:
+    temperature: 1
+    extra_body:
+      output_config:
+        effort: xhigh
+    thinking:
+      type: adaptive
+    max_tokens: 128000
+---
+display_name: claude-opus-4-7-medium-effort
+api_name:
+  anthropic: claude-opus-4-7
+aliases:
+  - claude-opus-4-7-thinking-medium-effort
+api_kwargs:
+  default:
+    temperature: 1
+    extra_body:
+      output_config:
+        effort: medium
+    thinking:
+      type: adaptive
+    max_tokens: 128000
+---
+display_name: claude-opus-4-7-low-effort
+api_name:
+  anthropic: claude-opus-4-7
+aliases:
+  - claude-opus-4-7-thinking-low-effort
+api_kwargs:
+  default:
+    temperature: 1
+    extra_body:
+      output_config:
+        effort: low
+    thinking:
+      type: adaptive
+    max_tokens: 128000
