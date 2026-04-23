@@ -12,7 +12,7 @@ def clean_llm_output(s):
         return clean_llm_output(matches[-1].strip())
     try:
         match_d = literal_eval(s)
-    except:
+    except Exception:
         matches = re.findall('%s(.*?)%s' % ("```python", "```"), s.replace("\n",""),re.MULTILINE)
         if len(matches) == 0:
             matches = re.findall('%s(.*?)%s' % ("```json", "```"), s.replace("\n",""),re.MULTILINE)
@@ -31,7 +31,7 @@ def clean_llm_output(s):
         matches = matches.replace('null', 'None')
         try:
             match_d = literal_eval(matches)
-        except:
+        except Exception:
             return {}
     if not isinstance(match_d, dict):
         return {}
