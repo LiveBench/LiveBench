@@ -30,7 +30,7 @@ api_name:
   deepinfra: deepseek-ai/DeepSeek-R1-Distill-Llama-70B
 default_provider: deepinfra
 api_kwargs:
-  default:  
+  default:
     temperature: 0.7
     top_p: 0.95
     max_tokens: 64000
@@ -176,3 +176,25 @@ api_kwargs:
   default:
     temperature: 1
     max_tokens: 64000
+---
+display_name: deepseek-v4-pro
+api_name:
+  https://api.deepseek.com: deepseek-v4-pro
+default_provider: https://api.deepseek.com
+api_keys:
+  https://api.deepseek.com: DEEPSEEK_API_KEY
+api_kwargs:
+  default:
+    temperature: 1
+    max_tokens: 384000
+---
+display_name: deepseek-v4-flash
+api_name:
+  https://api.deepseek.com: deepseek-v4-flash
+default_provider: https://api.deepseek.com
+api_keys:
+  https://api.deepseek.com: DEEPSEEK_API_KEY
+api_kwargs:
+  default:
+    temperature: 1
+    max_tokens: 384000
