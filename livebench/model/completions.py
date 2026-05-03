@@ -193,23 +193,32 @@ def chat_completion_openai_responses(model: str, messages: Conversation, tempera
 
     input = '\n'.join([message['content'] for message in messages])
 
-    response = client.responses.create(
-        model=model,
-        instructions=developer_message,
-        input=input,
-        store=False,
-        **actual_api_kwargs
-    )
+    output_text = 'BLOCKED'
+    output_tokens = 1
+    try:
+        response = client.responses.create(
+            model=model,
+            instructions=developer_message,
+            input=input,
+            store=False,
+            **actual_api_kwargs
+        )
 
-    if response is None:
-        raise Exception("No response received from OpenAI Responses")
-    elif response.output_text is None:
-        raise Exception("No output text received from OpenAI Responses")
-    elif response.usage is None:
-        raise Exception("No usage received from OpenAI Responses")
+        if response is None:
+            raise Exception("No response received from OpenAI Responses")
+        elif response.output_text is None:
+            raise Exception("No output text received from OpenAI Responses")
+        elif response.usage is None:
+            raise Exception("No usage received from OpenAI Responses")
 
-    output_text = response.output_text
-    output_tokens = response.usage.output_tokens
+        output_text = response.output_text
+        output_tokens = response.usage.output_tokens
+
+    except Exception as e:
+        if 'risk' in str(e):
+            pass
+        else:
+            raise
 
     return output_text, output_tokens
 
