@@ -136,3 +136,14 @@ api_kwargs:
     max_tokens: null
     max_completion_tokens: null
     temperature: 0.7
+---
+display_name: grok-4.3
+api_name:
+  https://api.x.ai/v1: grok-4.3
+api_keys:
+  https://api.x.ai/v1: XAI_API_KEY
+api_kwargs:
+  default:
+    max_tokens: null
+    max_completion_tokens: null
+    temperature: 0.7
