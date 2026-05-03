@@ -1099,3 +1099,80 @@ api_kwargs:
     reasoning:
       effort: none
       summary: auto
+---
+display_name: gpt-5.5-xhigh
+api_name:
+  openai_responses: gpt-5.5
+aliases:
+  - gpt-5.5-xhigh
+api_kwargs:
+  default:
+    temperature: null
+    max_completion_tokens: null
+    reasoning:
+      effort: xhigh
+      summary: auto
+---
+display_name: gpt-5.5-xhigh
+api_name:
+  openai_responses: gpt-5.5
+aliases:
+  - gpt-5.5-xhigh
+api_kwargs:
+  default:
+    temperature: null
+    max_completion_tokens: null
+    reasoning:
+      effort: xhigh
+      summary: auto
+---
+display_name: gpt-5.5-high
+api_name:
+  openai_responses: gpt-5.5
+aliases:
+  - gpt-5.5-high
+api_kwargs:
+  default:
+    temperature: null
+    max_completion_tokens: null
+    reasoning:
+      effort: high
+      summary: auto
+---
+display_name: gpt-5.5
+api_name:
+  openai_responses: gpt-5.5
+aliases:
+  - gpt-5.5
+api_kwargs:
+  default:
+    temperature: null
+    max_completion_tokens: null
+    reasoning:
+      summary: auto
+---
+display_name: gpt-5.5-low
+api_name:
+  openai_responses: gpt-5.5
+aliases:
+  - gpt-5.5-low
+api_kwargs:
+  default:
+    temperature: null
+    max_completion_tokens: null
+    reasoning:
+      effort: low
+      summary: auto
+---
+display_name: gpt-5.5-no-thinking
+api_name:
+  openai_responses: gpt-5.5
+aliases:
+  - gpt-5.5-no-thinking
+api_kwargs:
+  default:
+    temperature: null
+    max_completion_tokens: null
+    reasoning:
+      effort: none
+      summary: auto
