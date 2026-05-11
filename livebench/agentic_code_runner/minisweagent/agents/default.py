@@ -159,7 +159,11 @@ class DefaultAgent:
 
     def step(self) -> dict:
         """Query the LM, execute the action, return the observation."""
-        return self.get_observation(self.query())
+        n = self.model.n_calls + 1
+        print(f"[step {n}] model call", flush=True)
+        response = self.query()
+        print(f"[step {n}] executing", flush=True)
+        return self.get_observation(response)
 
     def query(self) -> dict:
         """Query the model and return the response.

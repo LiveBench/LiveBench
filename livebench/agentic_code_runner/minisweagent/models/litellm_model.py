@@ -282,6 +282,53 @@ class LitellmModel:
         before_sleep=before_sleep_log(logger, logging.WARNING),
         retry=retry_if_not_exception_type(
             (
+                KeyboardInterrupt,
+            )
+        ),
+        reraise=True,
+    )
+    def _query_completion_openai_direct(self, messages: list[dict[str, str]], **kwargs):
+        from openai import OpenAI
+        import httpx
+
+        api_base = self.config.model_kwargs.get('api_base')
+        api_key = self.config.model_kwargs.get('api_key') or os.environ.get('TINKER_API_KEY')
+
+        client = OpenAI(
+            api_key=api_key,
+            base_url=api_base,
+            timeout=httpx.Timeout(timeout=600.0, connect=10.0),
+        )
+
+        actual_model_name = self.config.model_name.split('/')[-1]
+        skip_keys = {'api_base', 'api_key', 'allowed_openai_params'}
+        api_kwargs = {k: v for k, v in (self.config.model_kwargs | kwargs).items() if k not in skip_keys}
+
+        response = client.chat.completions.create(
+            model=actual_model_name,
+            messages=messages,
+            **api_kwargs,
+        )
+
+        msg = response.choices[0].message
+        content = msg.content
+        msg_dict: dict[str, Any] = {'role': msg.role, 'content': content}
+        if msg.tool_calls:
+            msg_dict['tool_calls'] = [tc.model_dump() for tc in msg.tool_calls]
+        return {
+            'response': response,
+            'content': content,
+            'message': msg_dict,
+            'input_tokens': response.usage.prompt_tokens if response.usage else 0,
+            'output_tokens': response.usage.completion_tokens if response.usage else 0,
+        }
+
+    @retry(
+        stop=stop_after_attempt(15),
+        wait=wait_exponential(multiplier=2, min=4, max=120),
+        before_sleep=before_sleep_log(logger, logging.WARNING),
+        retry=retry_if_not_exception_type(
+            (
                 litellm.exceptions.UnsupportedParamsError,
                 litellm.exceptions.NotFoundError,
                 litellm.exceptions.PermissionDeniedError,
@@ -419,6 +466,8 @@ class LitellmModel:
             result = self._query_completion_generativeai(actual_messages, **kwargs)
         elif self._needs_direct_anthropic_call():
             result = self._query_completion_anthropic_direct(actual_messages, **kwargs)
+        elif 'livebench-kimi-finetune' in self.config.model_name:
+            result = self._query_completion_openai_direct(actual_messages, **kwargs)
         elif self.config.api_type == "completion":
             result = self._query_completion(actual_messages, **kwargs)
         elif self.config.api_type == "responses":
