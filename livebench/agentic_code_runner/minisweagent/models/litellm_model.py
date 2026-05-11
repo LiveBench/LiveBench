@@ -299,10 +299,11 @@ class LitellmModel:
                     message['role'] = 'user'
         actual_kwargs = self.config.model_kwargs | kwargs
         reasoning_param_name = 'thinking' if 'anthropic' in self.config.model_name else 'reasoning_effort'
-        if 'allowed_openai_params' in actual_kwargs:
-            actual_kwargs['allowed_openai_params'] = actual_kwargs['allowed_openai_params'] + [reasoning_param_name]
-        else:
-            actual_kwargs['allowed_openai_params'] = [reasoning_param_name]
+        if reasoning_param_name in actual_kwargs:
+            if 'allowed_openai_params' in actual_kwargs:
+                actual_kwargs['allowed_openai_params'] = actual_kwargs['allowed_openai_params'] + [reasoning_param_name]
+            else:
+                actual_kwargs['allowed_openai_params'] = [reasoning_param_name]
 
         if 'anthropic' in self.config.model_name:
             if 'betas' in actual_kwargs:
