@@ -88,7 +88,7 @@ aliases:
   - gemini-2.0-flash-thinking-exp
 api_kwargs:
   max_output_tokens: 65536
-  temperature: 0.7  
+  temperature: 0.7
   top_p: 0.95
   thinking_config:
     include_thoughts: true
@@ -337,6 +337,19 @@ api_name:
   google: gemini-3-flash-preview
 aliases:
   - gemini-3-flash-preview-high
+api_kwargs:
+  default:
+    thinking_config:
+      thinking_level: high
+    max_output_tokens: 65536
+    temperature: 1
+    top_p: 0.95
+---
+display_name: gemini-3.5-flash-high
+api_name:
+  google: gemini-3.5-flash
+aliases:
+  - gemini-3.5-flash-high
 api_kwargs:
   default:
     thinking_config:
