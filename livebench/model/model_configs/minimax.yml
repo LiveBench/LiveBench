@@ -21,3 +21,26 @@ api_kwargs:
     temperature: 1
     max_tokens: 80000
 preserve_reasoning: true
+---
+display_name: minimax-m2.7
+api_name:
+  https://api.minimax.io/v1: MiniMax-M2.7
+api_keys:
+  https://api.minimax.io/v1: MINIMAX_API_KEY
+aliases:
+  - minimax-m2.7-thinking
+api_kwargs:
+  default:
+    temperature: 1
+    max_tokens: 40960
+preserve_reasoning: true
+---
+display_name: minimax-m2.7-highspeed
+api_name:
+  https://api.minimax.io/v1: MiniMax-M2.7-highspeed
+api_keys:
+  https://api.minimax.io/v1: MINIMAX_API_KEY
+api_kwargs:
+  default:
+    temperature: 1
+    max_tokens: 40960
