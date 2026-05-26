@@ -34,6 +34,8 @@ agent:
 
     IMPORTANT: This is an interactive process where you will think and issue ONE command, see its result, then think and issue your next command.
 
+    You have up to {{step_limit}} turns available — there is no need to plan multiple commands in one turn. Use one command per turn, see the result, then choose the next one.
+
     For each response:
     1. Include a THOUGHT section explaining your reasoning and what you're trying to accomplish
     2. Provide exactly ONE bash command to execute

@@ -181,3 +181,25 @@ git checkout {pr.base.sha} {test_files}
 {copy_commands}
 
 """
+
+
+class CustomBuildImage(SWEImageDefault):
+    """Variant of SWEImageDefault that resolves dependency images via a configurable local prefix."""
+
+    # Local-image prefix — must match what scripts/04_validate_prs.py
+    # tags per-PR images with. Kept overridable via constructor for
+    # future repos that may use a different prefix (e.g. python_v4).
+    DEFAULT_BASE_PREFIX = "python_v3"
+
+    def __init__(self, pr, config, base_prefix: str = DEFAULT_BASE_PREFIX):
+        super().__init__(pr, config)
+        self._base_prefix = base_prefix
+
+    def dependency(self) -> str:
+        # The pre-built per-PR base image. Must exist locally — produced
+        # by 04_validate_prs.py committing a container after a successful
+        # F2P/P2P measurement.
+        return (
+            f"{self._base_prefix}/{self.pr.org}_m_{self.pr.repo}"
+            f":pr-{self.pr.number}"
+        ).lower()
