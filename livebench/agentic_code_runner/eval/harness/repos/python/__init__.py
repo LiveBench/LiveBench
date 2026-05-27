@@ -1,5 +1,7 @@
 from livebench.agentic_code_runner.eval.harness.repos.python.astropy import *
 from livebench.agentic_code_runner.eval.harness.repos.python.django import *
+from livebench.agentic_code_runner.eval.harness.repos.python.fastapi import *
+from livebench.agentic_code_runner.eval.harness.repos.python.marshmallow_code import *
 from livebench.agentic_code_runner.eval.harness.repos.python.matplotlib import *
 from livebench.agentic_code_runner.eval.harness.repos.python.mwaskom import *
 from livebench.agentic_code_runner.eval.harness.repos.python.pallets import *

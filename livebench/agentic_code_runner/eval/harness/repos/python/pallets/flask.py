@@ -28,14 +28,26 @@ class Flask(Instance):
 
     def parse_log(self, log: str) -> TestResult:
         test_status_map = {}
+        status_values = {x.value for x in TestStatus}
+
         for line in log.split("\n"):
-            if any([line.startswith(x.value) for x in TestStatus]):
-                # Additional parsing for FAILED status
+            line = line.strip()
+            if not line:
+                continue
+
+            # Format B (pytest short summary): "<STATUS> <test_path> [- reason]"
+            if any(line.startswith(sv) for sv in status_values):
                 if line.startswith(TestStatus.FAILED.value):
                     line = line.replace(" - ", " ")
                 test_case = line.split()
-                if len(test_case) <= 1:
-                    continue
-                test_status_map[test_case[1]] = test_case[0]
+                if len(test_case) >= 2:
+                    test_status_map[test_case[1]] = test_case[0]
+
+            # Format A (pytest verbose): "<test_path> <STATUS> [ pct%]"
+            # pytest 9.0.2+ no longer emits PASSED in the short summary.
+            elif "::" in line:
+                test_case = line.split()
+                if len(test_case) >= 2 and test_case[1] in status_values:
+                    test_status_map[test_case[0]] = test_case[1]
 
         return mapping_to_testresult(test_status_map)
