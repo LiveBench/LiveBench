@@ -29,21 +29,31 @@ class Astropy(Instance):
 
     def parse_log(self, log: str) -> TestResult:
         test_status_map = {}
+        status_values = {x.value for x in TestStatus}
         escapes = "".join([chr(char) for char in range(1, 32)])
+
         for line in log.split("\n"):
             line = re.sub(r"\[(\d+)m", "", line)
             translator = str.maketrans("", "", escapes)
             line = line.translate(translator)
-            if any([line.startswith(x.value) for x in TestStatus]):
+            line = line.strip()
+            if not line:
+                continue
+
+            # Format B (pytest short summary): "<STATUS> <test_path> [- reason]"
+            if any(line.startswith(sv) for sv in status_values):
                 if line.startswith(TestStatus.FAILED.value):
                     line = line.replace(" - ", " ")
                 test_case = line.split()
                 if len(test_case) >= 2:
                     test_status_map[test_case[1]] = test_case[0]
-            # Support older pytest versions by checking if the line ends with the test status
-            elif any([line.endswith(x.value) for x in TestStatus]):
+
+            # Format A (pytest verbose): "<test_path> <STATUS> [ pct%]"
+            # Handles both modern format (with "[ pct%]") and older format (status at end).
+            # pytest 9.0.2+ no longer emits PASSED in the short summary.
+            elif "::" in line:
                 test_case = line.split()
-                if len(test_case) >= 2:
+                if len(test_case) >= 2 and test_case[1] in status_values:
                     test_status_map[test_case[0]] = test_case[1]
 
         return mapping_to_testresult(test_status_map)
