@@ -61,6 +61,7 @@ class LiveBenchParams:
     question_id: list[str] | None = None
     livebench_release_option: str | None = None
     stream: bool = False
+    use_litellm: bool = False
     remove_existing_judgment_file: bool = False
     ignore_missing_answers: bool = False
     debug: bool = False
@@ -102,6 +103,7 @@ class LiveBenchParams:
             question_id=args.question_id,
             livebench_release_option=args.livebench_release_option,
             stream=args.stream,
+            use_litellm=args.use_litellm,
             remove_existing_judgment_file=args.remove_existing_judgment_file,
             ignore_missing_answers=args.ignore_missing_answers,
             debug=args.debug,
@@ -226,6 +228,7 @@ def build_run_command(
     question_id: list[str] | None = None,
     livebench_release_option: str | None = None,
     stream: bool = False,
+    use_litellm: bool = False,
     remove_existing_judgment_file: bool = False,
     ignore_missing_answers: bool = False,
     debug: bool = False,
@@ -299,6 +302,8 @@ def build_run_command(
         gen_judge_cmd += f" --livebench-release-option {livebench_release_option}"
     if stream:
         gen_api_cmd += " --stream"
+    if use_litellm:
+        gen_api_cmd += " --use-litellm"
     if remove_existing_judgment_file:
         gen_judge_cmd += " --remove-existing-file"
     if ignore_missing_answers:
@@ -349,6 +354,7 @@ def build_run_command_from_params(params: LiveBenchParams, bench_name: str | lis
         question_id=params.question_id,
         livebench_release_option=params.livebench_release_option,
         stream=params.stream,
+        use_litellm=params.use_litellm,
         remove_existing_judgment_file=params.remove_existing_judgment_file,
         only_incorrect=params.only_incorrect,
         ignore_missing_answers=params.ignore_missing_answers,
@@ -493,6 +499,7 @@ def main():
     parser.add_argument("--question-id", nargs="+", help="Specific question IDs to process")
     parser.add_argument("--livebench-release-option", help="LiveBench release option")
     parser.add_argument("--stream", action="store_true", help="Enable streaming mode")
+    parser.add_argument("--use-litellm", action="store_true", help="Route requests through LiteLLM instead of per-provider clients")
     parser.add_argument("--remove-existing-judgment-file", action="store_true",
                       help="Remove existing judgment file before running")
     parser.add_argument("--only-incorrect", action="store_true",

@@ -95,6 +95,8 @@ def chat_completion_openai(
 
             message = ''
             num_tokens = None
+            input_tokens = None
+            cached_tokens = None
             try:
                 for chunk in stream:
                     if chunk.choices and len(chunk.choices) > 0 and chunk.choices[0].delta.content is not None:
@@ -103,6 +105,11 @@ def chat_completion_openai(
                         num_tokens = chunk.usage.completion_tokens
                         if hasattr(chunk.usage, 'reasoning_tokens'):
                             num_tokens += chunk.usage.reasoning_tokens
+                        if getattr(chunk.usage, 'prompt_tokens', None) is not None:
+                            input_tokens = chunk.usage.prompt_tokens
+                        details = getattr(chunk.usage, 'prompt_tokens_details', None)
+                        if details is not None and getattr(details, 'cached_tokens', None) is not None:
+                            cached_tokens = details.cached_tokens
             except Exception:
                 if message != '':
                     print(message)
@@ -123,12 +130,18 @@ def chat_completion_openai(
                 message = response.choices[0]
             else:
                 message = response.choices[0].message.content
+            input_tokens = None
+            cached_tokens = None
             if response.usage is not None:
                 num_tokens = response.usage.completion_tokens
                 if hasattr(response.usage, 'completion_tokens_details') and hasattr(response.usage.completion_tokens_details, 'reasoning_tokens'):
                     reasoning_tokens = response.usage.completion_tokens_details.reasoning_tokens
                     if num_tokens is not None and reasoning_tokens is not None:
                         num_tokens += reasoning_tokens
+                input_tokens = getattr(response.usage, 'prompt_tokens', None)
+                details = getattr(response.usage, 'prompt_tokens_details', None)
+                if details is not None:
+                    cached_tokens = getattr(details, 'cached_tokens', None)
             else:
                 num_tokens = None
 
@@ -147,6 +160,10 @@ def chat_completion_openai(
         output = message
 
         metadata: dict[str, Any] | None = None
+        if input_tokens is not None:
+            metadata = {'input_tokens': input_tokens}
+            if cached_tokens is not None:
+                metadata['cached_tokens'] = cached_tokens
 
         return output, num_tokens, metadata
     except Exception as e:
@@ -624,7 +641,80 @@ def chat_completion_deepinfra(model: str, messages: Conversation, temperature: f
 
     return ai_message['content'], total_tokens
 
-def get_api_function(provider_name: str) -> ModelAPI:
+@retry(
+    stop=stop_after_attempt(API_MAX_RETRY),
+    wait=wait_fixed(API_RETRY_SLEEP_MIN),
+    retry=retry_if_exception_type(Exception),
+    after=retry_log,
+    retry_error_callback=retry_fail
+)
+def chat_completion_litellm(
+    model: str, messages: Conversation, temperature: float, max_tokens: int, model_api_kwargs: API_Kwargs | None = None, api_dict: dict[str, str] | None = None, stream: bool = False
+) -> tuple[str, int, dict[str, Any] | None]:
+    """Provider-agnostic path via LiteLLM, selected by the --use-litellm flag."""
+    import litellm
+
+    api_kwargs: dict[str, Any] = {'temperature': temperature}
+    if model_api_kwargs is not None:
+        api_kwargs.update({k: v for k, v in model_api_kwargs.items()})
+    if 'max_tokens' not in api_kwargs and 'max_completion_tokens' not in api_kwargs:
+        api_kwargs['max_tokens'] = max_tokens
+    if 'stream' in api_kwargs:
+        stream = bool(api_kwargs.pop('stream'))
+    api_kwargs = {k: v for k, v in api_kwargs.items() if v is not None}
+
+    call: dict[str, Any] = {'messages': messages, **api_kwargs}
+    if api_dict is not None and api_dict.get('api_base'):
+        call['api_base'] = api_dict['api_base']
+        if api_dict.get('api_key'):
+            call['api_key'] = api_dict['api_key']
+        call['model'] = f"openai/{model}"
+    else:
+        call['model'] = model
+
+    def _read_usage(usage):
+        n_out = getattr(usage, 'completion_tokens', None)
+        det = getattr(usage, 'completion_tokens_details', None)
+        if n_out is not None and det is not None and getattr(det, 'reasoning_tokens', None):
+            n_out += det.reasoning_tokens
+        n_in = getattr(usage, 'prompt_tokens', None)
+        pdet = getattr(usage, 'prompt_tokens_details', None)
+        n_cached = getattr(pdet, 'cached_tokens', None) if pdet is not None else None
+        return n_out, n_in, n_cached
+
+    message = ''
+    num_tokens = input_tokens = cached_tokens = None
+    if stream:
+        call['stream'] = True
+        call['stream_options'] = {'include_usage': True}
+        for chunk in litellm.completion(**call):
+            if chunk.choices and getattr(chunk.choices[0].delta, 'content', None):
+                message += chunk.choices[0].delta.content
+            if getattr(chunk, 'usage', None) is not None:
+                num_tokens, input_tokens, cached_tokens = _read_usage(chunk.usage)
+    else:
+        resp = litellm.completion(**call)
+        message = resp.choices[0].message.content
+        if getattr(resp, 'usage', None) is not None:
+            num_tokens, input_tokens, cached_tokens = _read_usage(resp.usage)
+
+    if message is None or message == '':
+        raise Exception("No message returned from litellm")
+    if num_tokens is None:
+        num_tokens = -1
+
+    metadata: dict[str, Any] | None = None
+    if input_tokens is not None:
+        metadata = {'input_tokens': input_tokens}
+        if cached_tokens is not None:
+            metadata['cached_tokens'] = cached_tokens
+
+    return message, num_tokens, metadata
+
+
+def get_api_function(provider_name: str, use_litellm: bool = False) -> ModelAPI:
+    if use_litellm:
+        return chat_completion_litellm
     if provider_name == 'openai':
         return chat_completion_openai
     elif provider_name == 'openai_responses':

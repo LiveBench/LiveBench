@@ -15,6 +15,7 @@ class ModelConfig:
     api_kwargs: APIKwargs | None = None # mapping of provider name to additional arguments to pass to the API call
     prompt_prefix: str | None = None # prefix to add to the prompt
     preserve_reasoning: bool | None = None # whether to preserve reasoning in multi-turn tasks
+    cost_per_million: dict[str, float] | None = None # USD per 1M tokens; keys: input, cached_input, output
 
 @cache
 def load_model_configs(file_path: str) -> dict[str, ModelConfig]:
