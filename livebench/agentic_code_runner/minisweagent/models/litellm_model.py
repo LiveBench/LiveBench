@@ -194,7 +194,11 @@ class LitellmModel:
         
         # Extract special parameters
         betas = actual_api_kwargs.pop('betas', [])
-        output_config = actual_api_kwargs.pop('output_config', None)
+        # output_config can be at the top level OR nested inside extra_body
+        # (LiteLLM uses extra_body as a pass-through wrapper; the direct SDK
+        # doesn't need it, so we flatten it here.)
+        extra_body = actual_api_kwargs.pop('extra_body', {}) or {}
+        output_config = actual_api_kwargs.pop('output_config', None) or extra_body.get('output_config', None)
         thinking = actual_api_kwargs.pop('thinking', None)
         max_tokens = actual_api_kwargs.pop('max_tokens', 8192)
         temperature = actual_api_kwargs.pop('temperature', NOT_GIVEN)
@@ -274,7 +278,11 @@ class LitellmModel:
         if 'anthropic' not in self.config.model_name:
             return False
         thinking = self.config.model_kwargs.get('thinking', {})
-        return thinking.get('type') == 'auto'
+        # 'auto' and 'adaptive' thinking types require the direct SDK path because
+        # LiteLLM does not preserve the `signature` field on thinking blocks when
+        # they are passed back in conversation history, causing Anthropic to reject
+        # them as "modified".
+        return thinking.get('type') in ('auto', 'adaptive')
 
     @retry(
         stop=stop_after_attempt(15),

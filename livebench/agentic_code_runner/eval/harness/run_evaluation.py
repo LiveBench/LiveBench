@@ -696,10 +696,13 @@ class CliArgs:
                 if line.startswith('diff --git'):
                     if current_file:
                         files[current_file] = '\n'.join(current_content)
-                    current_file = line.rstrip()
-                    current_content = [line.rstrip()]
+                    current_file = line.rstrip('\r')
+                    current_content = [line.rstrip('\r')]
                 elif current_file:
-                    current_content.append(line.rstrip())
+                    # Use rstrip('\r') not rstrip(): unified diff blank context lines are
+                    # represented as ' ' (single space). rstrip() would strip that space,
+                    # making git miscount hunk lines and report "corrupt patch".
+                    current_content.append(line.rstrip('\r'))
             
             if current_file:
                 files[current_file] = '\n'.join(current_content)
