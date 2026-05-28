@@ -646,7 +646,7 @@ def chat_completion_deepinfra(model: str, messages: Conversation, temperature: f
     retry_error_callback=retry_fail
 )
 def chat_completion_litellm(
-    model: str, messages: Conversation, temperature: float, max_tokens: int, model_api_kwargs: API_Kwargs | None = None, api_dict: dict[str, str] | None = None, stream: bool = False
+    model: str, messages: Conversation, temperature: float, max_tokens: int, model_api_kwargs: API_Kwargs | None = None, api_dict: dict[str, str] | None = None, stream: bool = False, provider: str | None = None
 ) -> tuple[str, int, dict[str, Any] | None]:
     """Provider-agnostic path via LiteLLM, selected by the --use-litellm flag."""
     import litellm
@@ -668,13 +668,38 @@ def chat_completion_litellm(
 
     actual_api_kwargs = {key: value for key, value in api_kwargs.items() if value is not None}
 
+    # LiveBench provider names → LiteLLM provider prefixes
+    litellm_provider_aliases = {'google': 'gemini', 'together': 'together_ai'}
+
     if api_dict is not None and api_dict.get('api_base'):
         litellm_model = f"openai/{model}"
         actual_api_kwargs['api_base'] = api_dict['api_base']
         if api_dict.get('api_key'):
             actual_api_kwargs['api_key'] = api_dict['api_key']
+    elif provider and provider not in ('local', ''):
+        litellm_model = f"{litellm_provider_aliases.get(provider, provider)}/{model}"
     else:
         litellm_model = model
+
+    # Provider-specific kwargs munging, mirroring
+    # livebench/agentic_code_runner/.../litellm_model.py:_query_completion
+    if 'deepseek' in litellm_model:
+        messages = [{**m, 'role': 'user'} if m.get('role') == 'system' else m for m in messages]
+
+    reasoning_param_name = 'thinking' if 'anthropic' in litellm_model else 'reasoning_effort'
+    if reasoning_param_name in actual_api_kwargs:
+        existing = actual_api_kwargs.get('allowed_openai_params') or []
+        actual_api_kwargs['allowed_openai_params'] = list(existing) + [reasoning_param_name]
+
+    if 'anthropic' in litellm_model:
+        if 'betas' in actual_api_kwargs:
+            actual_api_kwargs['extra_headers'] = {'anthropic-beta': beta for beta in actual_api_kwargs['betas']}
+            del actual_api_kwargs['betas']
+        if 'extra_body' in actual_api_kwargs:
+            actual_api_kwargs = actual_api_kwargs | actual_api_kwargs['extra_body']
+            del actual_api_kwargs['extra_body']
+        if 'thinking' not in actual_api_kwargs:
+            actual_api_kwargs['thinking'] = {'type': 'disabled'}
 
     if stream and 'stream_options' not in actual_api_kwargs:
         actual_api_kwargs['stream_options'] = {'include_usage': True}
@@ -718,7 +743,8 @@ def chat_completion_litellm(
 
 def get_api_function(provider_name: str, use_litellm: bool = False) -> ModelAPI:
     if use_litellm:
-        return chat_completion_litellm
+        from functools import partial
+        return partial(chat_completion_litellm, provider=provider_name)
     if provider_name == 'openai':
         return chat_completion_openai
     elif provider_name == 'openai_responses':
