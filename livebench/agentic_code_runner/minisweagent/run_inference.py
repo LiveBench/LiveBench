@@ -232,13 +232,14 @@ def run_agentic_coding_inference(
             except Exception:
                 cpm = None
             if cpm:
-                # agentic resends context each step, so most input is cached (read) tokens
                 cached = cached_tok if 'cached_input' in cpm else 0
                 uncached = max(in_tok - cached, 0)
                 cost_usd = round(
-                    uncached / 1e6 * cpm.get('input', 0)
-                    + cached / 1e6 * cpm.get('cached_input', cpm.get('input', 0))
-                    + out_tok / 1e6 * cpm.get('output', 0), 6)
+                    (uncached / 1_000_000) * cpm.get('input', 0)
+                    + (cached / 1_000_000) * cpm.get('cached_input', cpm.get('input', 0))
+                    + (out_tok / 1_000_000) * cpm.get('output', 0),
+                    6,
+                )
 
             ans.update({
                 'trajectory': json.dumps(trajectory, indent=4),

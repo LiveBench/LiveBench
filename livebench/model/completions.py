@@ -105,11 +105,9 @@ def chat_completion_openai(
                         num_tokens = chunk.usage.completion_tokens
                         if hasattr(chunk.usage, 'reasoning_tokens'):
                             num_tokens += chunk.usage.reasoning_tokens
-                        if getattr(chunk.usage, 'prompt_tokens', None) is not None:
-                            input_tokens = chunk.usage.prompt_tokens
-                        details = getattr(chunk.usage, 'prompt_tokens_details', None)
-                        if details is not None and getattr(details, 'cached_tokens', None) is not None:
-                            cached_tokens = details.cached_tokens
+                        input_tokens = chunk.usage.prompt_tokens
+                        if hasattr(chunk.usage, 'prompt_tokens_details') and chunk.usage.prompt_tokens_details is not None:
+                            cached_tokens = chunk.usage.prompt_tokens_details.cached_tokens
             except Exception:
                 if message != '':
                     print(message)
@@ -138,10 +136,9 @@ def chat_completion_openai(
                     reasoning_tokens = response.usage.completion_tokens_details.reasoning_tokens
                     if num_tokens is not None and reasoning_tokens is not None:
                         num_tokens += reasoning_tokens
-                input_tokens = getattr(response.usage, 'prompt_tokens', None)
-                details = getattr(response.usage, 'prompt_tokens_details', None)
-                if details is not None:
-                    cached_tokens = getattr(details, 'cached_tokens', None)
+                input_tokens = response.usage.prompt_tokens
+                if hasattr(response.usage, 'prompt_tokens_details') and response.usage.prompt_tokens_details is not None:
+                    cached_tokens = response.usage.prompt_tokens_details.cached_tokens
             else:
                 num_tokens = None
 
@@ -654,49 +651,72 @@ def chat_completion_litellm(
     """Provider-agnostic path via LiteLLM, selected by the --use-litellm flag."""
     import litellm
 
-    api_kwargs: dict[str, Any] = {'temperature': temperature}
+    api_kwargs: API_Kwargs = {
+        'temperature': temperature
+    }
+
     if model_api_kwargs is not None:
-        api_kwargs.update({k: v for k, v in model_api_kwargs.items()})
+        model_api_kwargs = {key: value for key, value in model_api_kwargs.items()}
+        api_kwargs.update(model_api_kwargs)
+
     if 'max_tokens' not in api_kwargs and 'max_completion_tokens' not in api_kwargs:
         api_kwargs['max_tokens'] = max_tokens
+
     if 'stream' in api_kwargs:
-        stream = bool(api_kwargs.pop('stream'))
-    api_kwargs = {k: v for k, v in api_kwargs.items() if v is not None}
+        stream = bool(api_kwargs['stream'])
+        del api_kwargs['stream']
 
-    call: dict[str, Any] = {'messages': messages, **api_kwargs}
+    actual_api_kwargs = {key: value for key, value in api_kwargs.items() if value is not None}
+
     if api_dict is not None and api_dict.get('api_base'):
-        call['api_base'] = api_dict['api_base']
+        litellm_model = f"openai/{model}"
+        actual_api_kwargs['api_base'] = api_dict['api_base']
         if api_dict.get('api_key'):
-            call['api_key'] = api_dict['api_key']
-        call['model'] = f"openai/{model}"
+            actual_api_kwargs['api_key'] = api_dict['api_key']
     else:
-        call['model'] = model
-
-    def _read_usage(usage):
-        n_out = getattr(usage, 'completion_tokens', None)
-        det = getattr(usage, 'completion_tokens_details', None)
-        if n_out is not None and det is not None and getattr(det, 'reasoning_tokens', None):
-            n_out += det.reasoning_tokens
-        n_in = getattr(usage, 'prompt_tokens', None)
-        pdet = getattr(usage, 'prompt_tokens_details', None)
-        n_cached = getattr(pdet, 'cached_tokens', None) if pdet is not None else None
-        return n_out, n_in, n_cached
+        litellm_model = model
 
     message = ''
-    num_tokens = input_tokens = cached_tokens = None
+    num_tokens = None
+    input_tokens = None
+    cached_tokens = None
     if stream:
-        call['stream'] = True
-        call['stream_options'] = {'include_usage': True}
-        for chunk in litellm.completion(**call):
-            if chunk.choices and getattr(chunk.choices[0].delta, 'content', None):
+        response = litellm.completion(
+            model=litellm_model,
+            messages=messages,
+            stream=True,
+            stream_options={'include_usage': True},
+            **actual_api_kwargs
+        )
+        for chunk in response:
+            if chunk.choices and len(chunk.choices) > 0 and chunk.choices[0].delta.content is not None:
                 message += chunk.choices[0].delta.content
-            if getattr(chunk, 'usage', None) is not None:
-                num_tokens, input_tokens, cached_tokens = _read_usage(chunk.usage)
+            if chunk.usage is not None:
+                num_tokens = chunk.usage.completion_tokens
+                if hasattr(chunk.usage, 'completion_tokens_details') and chunk.usage.completion_tokens_details is not None:
+                    reasoning_tokens = getattr(chunk.usage.completion_tokens_details, 'reasoning_tokens', None)
+                    if num_tokens is not None and reasoning_tokens is not None:
+                        num_tokens += reasoning_tokens
+                input_tokens = chunk.usage.prompt_tokens
+                if hasattr(chunk.usage, 'prompt_tokens_details') and chunk.usage.prompt_tokens_details is not None:
+                    cached_tokens = chunk.usage.prompt_tokens_details.cached_tokens
     else:
-        resp = litellm.completion(**call)
-        message = resp.choices[0].message.content
-        if getattr(resp, 'usage', None) is not None:
-            num_tokens, input_tokens, cached_tokens = _read_usage(resp.usage)
+        response = litellm.completion(
+            model=litellm_model,
+            messages=messages,
+            stream=False,
+            **actual_api_kwargs
+        )
+        message = response.choices[0].message.content
+        if response.usage is not None:
+            num_tokens = response.usage.completion_tokens
+            if hasattr(response.usage, 'completion_tokens_details') and response.usage.completion_tokens_details is not None:
+                reasoning_tokens = getattr(response.usage.completion_tokens_details, 'reasoning_tokens', None)
+                if num_tokens is not None and reasoning_tokens is not None:
+                    num_tokens += reasoning_tokens
+            input_tokens = response.usage.prompt_tokens
+            if hasattr(response.usage, 'prompt_tokens_details') and response.usage.prompt_tokens_details is not None:
+                cached_tokens = response.usage.prompt_tokens_details.cached_tokens
 
     if message is None or message == '':
         raise Exception("No message returned from litellm")

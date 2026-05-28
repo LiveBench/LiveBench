@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Total API spend per task and per run from model_answer/<model>.jsonl files.
 
 Usage:
@@ -10,12 +9,9 @@ import argparse
 import glob
 import json
 import os
-import sys
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from livebench.model.api_model_config import get_model_config
-
-DATA_ROOT = os.path.join(os.path.dirname(__file__), '..', 'data')
+from livebench.common import LIVE_BENCH_ROOT_PATH
+from livebench.model import get_model_config
 
 
 def load_price(model: str):
@@ -32,19 +28,19 @@ def load_price(model: str):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Total API spend for a model's run")
-    ap.add_argument('--model', required=True, help='model display name (e.g. minimax-m2.7)')
-    ap.add_argument('--bench-name', default='live_bench',
-                    help='subtree to scan, e.g. live_bench or live_bench/math (default: live_bench)')
-    ap.add_argument('--active-only', action='store_true',
-                    help='count only questions with empty livebench_removal_date')
-    args = ap.parse_args()
+    parser = argparse.ArgumentParser(description="Total API spend for a model's run")
+    parser.add_argument('--model', required=True, help='model display name (e.g. minimax-m2.7)')
+    parser.add_argument('--bench-name', default='live_bench',
+                        help='subtree to scan, e.g. live_bench or live_bench/math (default: live_bench)')
+    parser.add_argument('--active-only', action='store_true',
+                        help='count only questions with empty livebench_removal_date')
+    args = parser.parse_args()
 
     price = load_price(args.model)
     in_price, cached_price, out_price = price if price else (None, None, None)
 
     model_file = f'{args.model.lower()}.jsonl'
-    pattern = os.path.join(DATA_ROOT, args.bench_name, '**', 'model_answer', model_file)
+    pattern = str(LIVE_BENCH_ROOT_PATH / 'data' / args.bench_name / '**' / 'model_answer' / model_file)
     answer_files = sorted(glob.glob(pattern, recursive=True))
     if not answer_files:
         print(f'No answer files for {args.model} under {args.bench_name}')
@@ -85,7 +81,7 @@ def main():
             if c is None and price is not None:
                 cached = min(ct, it)
                 uncached = max(it - cached, 0)
-                c = (uncached / 1e6) * in_price + (cached / 1e6) * cached_price + (ot / 1e6) * out_price
+                c = (uncached / 1_000_000) * in_price + (cached / 1_000_000) * cached_price + (ot / 1_000_000) * out_price
                 if not it:
                     partial += 1
             cost += (c or 0.0)

@@ -346,8 +346,9 @@ class LitellmModel:
             result['content'] = content
             result['input_tokens'] = res.usage.prompt_tokens
             result['output_tokens'] = res.usage.completion_tokens
-            details = getattr(res.usage, 'prompt_tokens_details', None)
-            result['cached_tokens'] = (getattr(details, 'cached_tokens', 0) or 0) if details is not None else 0
+            result['cached_tokens'] = 0
+            if hasattr(res.usage, 'prompt_tokens_details') and res.usage.prompt_tokens_details is not None:
+                result['cached_tokens'] = res.usage.prompt_tokens_details.cached_tokens or 0
         return result
 
     @retry(
