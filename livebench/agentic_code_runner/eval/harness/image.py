@@ -203,3 +203,52 @@ class CustomBuildImage(SWEImageDefault):
             f"{self._base_prefix}/{self.pr.org}_m_{self.pr.repo}"
             f":pr-{self.pr.number}"
         ).lower()
+
+
+class TypeScriptCustomBuildImage(SWEImageDefault):
+    """Like CustomBuildImage but generates a Node.js fix-run.sh (no conda/miniconda).
+
+    Used for typescript_v2 repos whose per-PR images are built by
+    typescript_v2/scripts/04_validate_prs.py and tagged typescript_v2/<org>_m_<repo>:pr-N.
+    """
+
+    DEFAULT_BASE_PREFIX = "typescript_v2"
+
+    def __init__(self, pr, config, base_prefix: str = DEFAULT_BASE_PREFIX):
+        super().__init__(pr, config)
+        self._base_prefix = base_prefix
+
+    def dependency(self) -> str:
+        return (
+            f"{self._base_prefix}/{self.pr.org}_m_{self.pr.repo}"
+            f":pr-{self.pr.number}"
+        ).lower()
+
+    def files(self) -> list[File]:
+        test_files = get_modified_files(self.pr.test_patch)
+        test_files_str = " ".join(test_files)
+        return [
+            File(
+                ".",
+                "fix-run.sh",
+                """#!/bin/bash
+set -uxo pipefail
+cd /testbed
+git apply --whitespace=nowarn /home/fix.patch
+git config --global --add safe.directory /testbed
+git status
+git -c core.fileMode=false diff {pr.base.sha}
+git checkout {pr.base.sha} {test_files}
+git apply -v - <<'EOF_114329324912'
+{pr.test_patch}
+EOF_114329324912
+: '>>>>> Start Test Output'
+{pr.base.ref}
+: '>>>>> End Test Output'
+git checkout {pr.base.sha} {test_files}
+""".format(
+                    pr=self.pr,
+                    test_files=test_files_str,
+                ),
+            )
+        ]

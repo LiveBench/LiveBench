@@ -1,4 +1,5 @@
 from livebench.agentic_code_runner.eval.harness.repos.typescript.ant_design import *
+from livebench.agentic_code_runner.eval.harness.repos.typescript.honojs import *
 from livebench.agentic_code_runner.eval.harness.repos.typescript.colinhacks import *
 from livebench.agentic_code_runner.eval.harness.repos.typescript.darkreader import *
 from livebench.agentic_code_runner.eval.harness.repos.typescript.facebook import *
