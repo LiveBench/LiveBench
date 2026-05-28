@@ -157,7 +157,7 @@ def run_agentic_coding_inference(
                 'environment_class': 'docker',
             }
             if question['task'] != 'python':
-                instance_obj['cwd'] = '/' + question['repo']
+                instance_obj['cwd'] = '/home/' + question['repo']
             f.write(json.dumps(instance_obj) + '\n')
     
     run_script = LIVE_BENCH_ROOT_PATH / 'agentic_code_runner/minisweagent/run/run_single.py' if parallel == 1 else LIVE_BENCH_ROOT_PATH / 'agentic_code_runner/minisweagent/run/run_batch.py'
