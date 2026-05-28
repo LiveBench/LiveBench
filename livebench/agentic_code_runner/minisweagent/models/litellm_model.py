@@ -243,10 +243,10 @@ class LitellmModel:
                         content = text.strip()
             elif block_type == "thinking":
                 thinking_text = getattr(block, 'thinking', '')
-                signature = getattr(block, 'signature', '')
+                signature = getattr(block, 'signature', None)
                 # Include thinking blocks in sanitized content (needed for multi-turn)
                 thinking_block = {"type": "thinking", "thinking": thinking_text}
-                if signature:
+                if signature is not None:
                     thinking_block["signature"] = signature
                 sanitized_content.append(thinking_block)
             elif block_type == "redacted_thinking":
