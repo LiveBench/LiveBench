@@ -44,6 +44,7 @@ def get_answer(
     answer_file: str | None = None,
     model_display_name_override: str | None = None,
     model_provider_override: str | None = None,
+    use_litellm: bool = False,
 
 ):
     """
@@ -74,6 +75,8 @@ def get_answer(
     
     choices = []
     total_num_tokens = 0
+    total_input_tokens = 0
+    total_cached_tokens = 0
     for i in range(num_choices):
         messages = []
 
@@ -87,7 +90,7 @@ def get_answer(
                 prompt = model_config.prompt_prefix + "\n" + prompt
             messages.append({"role": "user", "content": prompt})
 
-            res = get_api_function(provider)(
+            res = get_api_function(provider, use_litellm)(
                 model=model_api_name,
                 messages=messages,
                 temperature=temperature,
@@ -104,6 +107,12 @@ def get_answer(
                 m = None
 
             if m is not None:
+                turn_input_tokens = m.pop('input_tokens', None)
+                if turn_input_tokens is not None:
+                    total_input_tokens += turn_input_tokens
+                turn_cached_tokens = m.pop('cached_tokens', None)
+                if turn_cached_tokens is not None:
+                    total_cached_tokens += turn_cached_tokens
                 metadata.update(m)
 
             messages.append({"role": "assistant", "content": output})
@@ -111,6 +120,19 @@ def get_answer(
             total_num_tokens += num_tokens
 
         choices.append({"index": i, "turns": turns})
+
+    cost_usd = None
+    if getattr(model_config, 'cost_per_million', None):
+        cpm = model_config.cost_per_million
+        out_tokens = total_num_tokens if total_num_tokens and total_num_tokens > 0 else 0
+        cached = total_cached_tokens if 'cached_input' in cpm else 0
+        uncached = max(total_input_tokens - cached, 0)
+        cost_usd = round(
+            (uncached / 1_000_000) * cpm.get('input', 0)
+            + (cached / 1_000_000) * cpm.get('cached_input', cpm.get('input', 0))
+            + (out_tokens / 1_000_000) * cpm.get('output', 0),
+            6,
+        )
 
     # Dump answers
     ans = {
@@ -120,6 +142,9 @@ def get_answer(
         "choices": choices,
         "tstamp": time.time(),
         "total_output_tokens": total_num_tokens,
+        "total_input_tokens": total_input_tokens,
+        "total_cached_tokens": total_cached_tokens,
+        "cost_usd": cost_usd,
         "api_info": {
             "provider": provider if provider != 'local' else api_dict['api_base'],
             "api_name": model_api_name,
@@ -193,6 +218,7 @@ def run_questions(
     model_provider_override: str | None,
     model_display_name_override: str | None = None,
     api_dict: dict[str, str] | None = None,
+    use_litellm: bool = False,
 ):
     """
     Perform inference on a list of questions. Output answers to answer_file.
@@ -256,6 +282,7 @@ def run_questions(
                     model_display_name_override=model_display_name_override,
                     answer_file=answer_file,
                     model_config=model_config,
+                    use_litellm=use_litellm,
                 )
         else:
             with concurrent.futures.ThreadPoolExecutor(max_workers=parallel) as executor:
@@ -275,6 +302,7 @@ def run_questions(
                         model_display_name_override=model_display_name_override,
                         answer_file=answer_file,
                         model_config=model_config,
+                        use_litellm=use_litellm,
                     )
                     futures.append(future)
 
@@ -391,6 +419,12 @@ if __name__ == "__main__":
         help="Stream responses, for models that support streaming"
     )
     parser.add_argument(
+        "--use-litellm",
+        action="store_true",
+        default=False,
+        help="Route requests through LiteLLM instead of the per-provider clients"
+    )
+    parser.add_argument(
         "--model-provider-override",
         type=str,
         default=None,
@@ -478,6 +512,7 @@ if __name__ == "__main__":
                 answer_file=None,  # Will use answer_file from question dict
                 api_dict=api_dict,
                 stream=args.stream,
+                use_litellm=args.use_litellm,
                 force_temperature=args.force_temperature,
                 model_provider_override=args.model_provider_override,
                 model_display_name_override=model_display_name
@@ -534,6 +569,7 @@ if __name__ == "__main__":
                 answer_file=None,  # Will use answer_file from question dict
                 api_dict=api_dict,
                 stream=args.stream,
+                use_litellm=args.use_litellm,
                 force_temperature=args.force_temperature,
                 model_provider_override=args.model_provider_override
             )

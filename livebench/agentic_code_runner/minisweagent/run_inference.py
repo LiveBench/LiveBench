@@ -9,6 +9,7 @@ from livebench.common import LIVE_BENCH_ROOT_PATH
 
 from livebench.process_results.coding.utils import agentic_coding_process_results
 from livebench.model.completions import API_ERROR_OUTPUT
+from livebench.model.api_model_config import get_model_config
 
 
 def update_dict_recursively(d1, d2):
@@ -222,11 +223,34 @@ def run_agentic_coding_inference(
 
             del trajectory['info']['submission']
 
+            stats = trajectory['info'].get('model_stats', {}) or {}
+            in_tok = stats.get('total_input_tokens') or 0
+            out_tok = stats.get('total_output_tokens') or 0
+            cached_tok = stats.get('total_cached_tokens') or 0
+            cost_usd = stats.get('instance_cost')
+            try:
+                cpm = get_model_config(model_name).cost_per_million
+            except Exception:
+                cpm = None
+            if cpm:
+                cached = cached_tok if 'cached_input' in cpm else 0
+                uncached = max(in_tok - cached, 0)
+                cost_usd = round(
+                    (uncached / 1_000_000) * cpm.get('input', 0)
+                    + (cached / 1_000_000) * cpm.get('cached_input', cpm.get('input', 0))
+                    + (out_tok / 1_000_000) * cpm.get('output', 0),
+                    6,
+                )
+
             ans.update({
                 'trajectory': json.dumps(trajectory, indent=4),
                 'choices': [{'turns': [final_answer]}],
-                'total_output_tokens': trajectory['info']['model_stats']['total_output_tokens'],
-                'total_input_tokens': trajectory['info']['model_stats']['total_input_tokens'],
+                'total_output_tokens': out_tok,
+                'total_input_tokens': in_tok,
+                'total_cached_tokens': cached_tok,
+                'n_model_calls': stats.get('api_calls'),
+                'model_cost': stats.get('instance_cost'),
+                'cost_usd': cost_usd,
             })
 
         # Use answer_file parameter if provided (as override), otherwise use question's answer_file

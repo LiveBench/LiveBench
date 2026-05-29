@@ -37,6 +37,7 @@ class LitellmModel:
         self.n_calls = 0
         self.input_tokens = 0
         self.output_tokens = 0
+        self.cached_tokens = 0
         if self.config.litellm_model_registry and Path(self.config.litellm_model_registry).is_file():
             litellm.utils.register_model(json.loads(Path(self.config.litellm_model_registry).read_text()))
 
@@ -322,6 +323,8 @@ class LitellmModel:
                 del actual_kwargs['extra_body']
             if 'thinking' not in actual_kwargs:
                 actual_kwargs['thinking'] = {'type': 'disabled'}
+        if actual_kwargs.get('stream', False) and 'stream_options' not in actual_kwargs:
+            actual_kwargs['stream_options'] = {'include_usage': True}
         try:
             res = litellm.completion(
                 model=self.config.model_name, messages=messages, **actual_kwargs
@@ -351,6 +354,9 @@ class LitellmModel:
             result['content'] = content
             result['input_tokens'] = res.usage.prompt_tokens
             result['output_tokens'] = res.usage.completion_tokens
+            result['cached_tokens'] = 0
+            if hasattr(res.usage, 'prompt_tokens_details') and res.usage.prompt_tokens_details is not None:
+                result['cached_tokens'] = res.usage.prompt_tokens_details.cached_tokens or 0
         return result
 
     @retry(
@@ -453,7 +459,8 @@ class LitellmModel:
         self.n_calls += 1
         self.input_tokens += input_tokens
         self.output_tokens += output_tokens
-        
+        self.cached_tokens += result.get('cached_tokens', 0) or 0
+
         # Handle message serialization - some methods return Pydantic models, some return dicts
         message_data = None
         if 'message' in result:

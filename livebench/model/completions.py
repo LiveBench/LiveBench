@@ -95,6 +95,8 @@ def chat_completion_openai(
 
             message = ''
             num_tokens = None
+            input_tokens = None
+            cached_tokens = None
             try:
                 for chunk in stream:
                     if chunk.choices and len(chunk.choices) > 0 and chunk.choices[0].delta.content is not None:
@@ -103,6 +105,9 @@ def chat_completion_openai(
                         num_tokens = chunk.usage.completion_tokens
                         if hasattr(chunk.usage, 'reasoning_tokens'):
                             num_tokens += chunk.usage.reasoning_tokens
+                        input_tokens = chunk.usage.prompt_tokens
+                        if hasattr(chunk.usage, 'prompt_tokens_details') and chunk.usage.prompt_tokens_details is not None:
+                            cached_tokens = chunk.usage.prompt_tokens_details.cached_tokens
             except Exception:
                 if message != '':
                     print(message)
@@ -123,12 +128,17 @@ def chat_completion_openai(
                 message = response.choices[0]
             else:
                 message = response.choices[0].message.content
+            input_tokens = None
+            cached_tokens = None
             if response.usage is not None:
                 num_tokens = response.usage.completion_tokens
                 if hasattr(response.usage, 'completion_tokens_details') and hasattr(response.usage.completion_tokens_details, 'reasoning_tokens'):
                     reasoning_tokens = response.usage.completion_tokens_details.reasoning_tokens
                     if num_tokens is not None and reasoning_tokens is not None:
                         num_tokens += reasoning_tokens
+                input_tokens = response.usage.prompt_tokens
+                if hasattr(response.usage, 'prompt_tokens_details') and response.usage.prompt_tokens_details is not None:
+                    cached_tokens = response.usage.prompt_tokens_details.cached_tokens
             else:
                 num_tokens = None
 
@@ -147,6 +157,10 @@ def chat_completion_openai(
         output = message
 
         metadata: dict[str, Any] | None = None
+        if input_tokens is not None:
+            metadata = {'input_tokens': input_tokens}
+            if cached_tokens is not None:
+                metadata['cached_tokens'] = cached_tokens
 
         return output, num_tokens, metadata
     except Exception as e:
@@ -624,7 +638,113 @@ def chat_completion_deepinfra(model: str, messages: Conversation, temperature: f
 
     return ai_message['content'], total_tokens
 
-def get_api_function(provider_name: str) -> ModelAPI:
+@retry(
+    stop=stop_after_attempt(API_MAX_RETRY),
+    wait=wait_fixed(API_RETRY_SLEEP_MIN),
+    retry=retry_if_exception_type(Exception),
+    after=retry_log,
+    retry_error_callback=retry_fail
+)
+def chat_completion_litellm(
+    model: str, messages: Conversation, temperature: float, max_tokens: int, model_api_kwargs: API_Kwargs | None = None, api_dict: dict[str, str] | None = None, stream: bool = False, provider: str | None = None
+) -> tuple[str, int, dict[str, Any] | None]:
+    """Provider-agnostic path via LiteLLM, selected by the --use-litellm flag."""
+    import litellm
+
+    api_kwargs: API_Kwargs = {
+        'temperature': temperature
+    }
+
+    if model_api_kwargs is not None:
+        model_api_kwargs = {key: value for key, value in model_api_kwargs.items()}
+        api_kwargs.update(model_api_kwargs)
+
+    if 'max_tokens' not in api_kwargs and 'max_completion_tokens' not in api_kwargs:
+        api_kwargs['max_tokens'] = max_tokens
+
+    if 'stream' in api_kwargs:
+        stream = bool(api_kwargs['stream'])
+        del api_kwargs['stream']
+
+    actual_api_kwargs = {key: value for key, value in api_kwargs.items() if value is not None}
+
+    # LiveBench provider names → LiteLLM provider prefixes
+    litellm_provider_aliases = {'google': 'gemini', 'together': 'together_ai'}
+
+    if api_dict is not None and api_dict.get('api_base'):
+        litellm_model = f"openai/{model}"
+        actual_api_kwargs['api_base'] = api_dict['api_base']
+        if api_dict.get('api_key'):
+            actual_api_kwargs['api_key'] = api_dict['api_key']
+    elif provider and provider not in ('local', ''):
+        litellm_model = f"{litellm_provider_aliases.get(provider, provider)}/{model}"
+    else:
+        litellm_model = model
+
+    # Provider-specific kwargs munging, mirroring
+    # livebench/agentic_code_runner/.../litellm_model.py:_query_completion
+    if 'deepseek' in litellm_model:
+        messages = [{**m, 'role': 'user'} if m.get('role') == 'system' else m for m in messages]
+
+    reasoning_param_name = 'thinking' if 'anthropic' in litellm_model else 'reasoning_effort'
+    if reasoning_param_name in actual_api_kwargs:
+        existing = actual_api_kwargs.get('allowed_openai_params') or []
+        actual_api_kwargs['allowed_openai_params'] = list(existing) + [reasoning_param_name]
+
+    if 'anthropic' in litellm_model:
+        if 'betas' in actual_api_kwargs:
+            actual_api_kwargs['extra_headers'] = {'anthropic-beta': beta for beta in actual_api_kwargs['betas']}
+            del actual_api_kwargs['betas']
+        if 'extra_body' in actual_api_kwargs:
+            actual_api_kwargs = actual_api_kwargs | actual_api_kwargs['extra_body']
+            del actual_api_kwargs['extra_body']
+        if 'thinking' not in actual_api_kwargs:
+            actual_api_kwargs['thinking'] = {'type': 'disabled'}
+
+    if stream and 'stream_options' not in actual_api_kwargs:
+        actual_api_kwargs['stream_options'] = {'include_usage': True}
+
+    response = litellm.completion(
+        model=litellm_model, messages=messages, stream=stream, **actual_api_kwargs
+    )
+
+    if stream:
+        chunks = list(response)
+        response = litellm.stream_chunk_builder(chunks, messages=messages)
+
+    message = response.choices[0].message.content
+
+    num_tokens = None
+    input_tokens = None
+    cached_tokens = None
+    if response.usage is not None:
+        num_tokens = response.usage.completion_tokens
+        if hasattr(response.usage, 'completion_tokens_details') and response.usage.completion_tokens_details is not None:
+            reasoning_tokens = getattr(response.usage.completion_tokens_details, 'reasoning_tokens', None)
+            if num_tokens is not None and reasoning_tokens is not None:
+                num_tokens += reasoning_tokens
+        input_tokens = response.usage.prompt_tokens
+        if hasattr(response.usage, 'prompt_tokens_details') and response.usage.prompt_tokens_details is not None:
+            cached_tokens = response.usage.prompt_tokens_details.cached_tokens
+
+    if message is None or message == '':
+        raise Exception("No message returned from litellm")
+    if num_tokens is None:
+        num_tokens = -1
+
+    metadata: dict[str, Any] | None = None
+    if input_tokens is not None:
+        metadata = {'input_tokens': input_tokens}
+        if cached_tokens is not None:
+            metadata['cached_tokens'] = cached_tokens
+
+    return message, num_tokens, metadata
+
+
+def get_api_function(provider_name: str, use_litellm: bool = False) -> ModelAPI:
+    if use_litellm:
+        from functools import partial
+        return partial(chat_completion_litellm, provider=provider_name)
     if provider_name == 'openai':
         return chat_completion_openai
     elif provider_name == 'openai_responses':
