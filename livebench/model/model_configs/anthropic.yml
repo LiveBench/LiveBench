@@ -417,3 +417,68 @@ api_kwargs:
     thinking:
       type: adaptive
     max_tokens: 128000
+---
+display_name: claude-queso-eap-high-effort
+api_name:
+  anthropic: claude-queso-eap
+aliases:
+  - claude-queso-eap-thinking
+  - claude-queso-eap
+  - claude-opus-4-8-high-effort
+api_kwargs:
+  default:
+    temperature: 1
+    extra_body:
+      output_config:
+        effort: high
+    thinking:
+      type: adaptive
+    max_tokens: 128000
+---
+display_name: claude-queso-eap-xhigh-effort
+api_name:
+  anthropic: claude-queso-eap
+aliases:
+  - claude-queso-eap-xhigh
+  - claude-opus-4-8-xhigh-effort
+api_kwargs:
+  default:
+    temperature: 1
+    extra_body:
+      output_config:
+        effort: xhigh
+    thinking:
+      type: adaptive
+    max_tokens: 128000
+---
+display_name: claude-queso-eap-medium-effort
+api_name:
+  anthropic: claude-queso-eap
+aliases:
+  - claude-queso-eap-thinking-medium-effort
+  - claude-opus-4-8-medium-effort
+api_kwargs:
+  default:
+    temperature: 1
+    extra_body:
+      output_config:
+        effort: medium
+    thinking:
+      type: adaptive
+    max_tokens: 128000
+---
+display_name: claude-queso-eap-low-effort
+api_name:
+  anthropic: claude-queso-eap
+aliases:
+  - claude-queso-eap-thinking-low-effort
+  - claude-opus-4-8-low-effort
+api_kwargs:
+  default:
+    temperature: 1
+    extra_body:
+      output_config:
+        effort: low
+    thinking:
+      type: adaptive
+    max_tokens: 128000

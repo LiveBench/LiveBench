@@ -47,3 +47,6 @@ livebench/question_edit
 trajectories
 
 prompts.txt
+
+# Local eval run configs
+livebench/agentic_code_runner/eval/config.json
