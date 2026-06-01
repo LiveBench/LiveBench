@@ -718,12 +718,8 @@ def chat_completion_litellm(
     input_tokens = None
     cached_tokens = None
     if response.usage is not None:
-        num_tokens = response.usage.completion_tokens or getattr(response.usage, 'output_tokens', None)
-        if hasattr(response.usage, 'completion_tokens_details') and response.usage.completion_tokens_details is not None:
-            reasoning_tokens = getattr(response.usage.completion_tokens_details, 'reasoning_tokens', None)
-            if num_tokens is not None and reasoning_tokens is not None:
-                num_tokens += reasoning_tokens
-        input_tokens = response.usage.prompt_tokens or getattr(response.usage, 'input_tokens', None)
+        num_tokens = getattr(response.usage, 'output_tokens', None) or response.usage.completion_tokens
+        input_tokens = getattr(response.usage, 'input_tokens', None) or response.usage.prompt_tokens
         if hasattr(response.usage, 'prompt_tokens_details') and response.usage.prompt_tokens_details is not None:
             cached_tokens = response.usage.prompt_tokens_details.cached_tokens
 
