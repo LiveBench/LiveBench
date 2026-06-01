@@ -27,7 +27,8 @@ class Click(Instance):
         return self._pr
 
     def dependency(self) -> Optional[Image]:
-        return CustomBuildImage(self.pr, self._config)
+        prefix = self._pr.image_prefix or "python_v4"
+        return CustomBuildImage(self.pr, self._config, base_prefix=prefix)
 
     def fix_patch_run(self, fix_patch_run_cmd: str = "") -> str:
         if fix_patch_run_cmd:

@@ -1,13 +1,14 @@
-"""Harness handler for `marshmallow-code/marshmallow`.
+"""Harness handler for `arrow-py/arrow`.
 
-NOTE: The GitHub org name `marshmallow-code` contains a hyphen, so the
-directory is named `marshmallow_code` (underscore) to be a valid Python
-package name. The Instance.register key still uses the real org string
-`marshmallow-code` to match the org field in question.jsonl.
+NOTE: The GitHub org name `arrow-py` contains a hyphen, so this directory
+is named `arrow_py` (underscore) to be a valid Python package name.
+Instance.register still uses the real hyphenated org string `arrow-py`
+to match the org field in question.jsonl.
 
-Images are tagged python_v4/marshmallow-code_m_marshmallow:pr-N
-(built by python_v4/scripts/04_validate_prs.py). base_prefix="python_v4"
-is passed explicitly so the harness finds those images.
+Images are tagged python_abacus/arrow-py_m_arrow:pr-N (built by
+python_abacus/scripts/04_validate_prs.py). The handler reads image_prefix
+from the question row so it works for both python_v4 and python_abacus
+questions without hardcoding.
 """
 
 from typing import Optional
@@ -25,8 +26,8 @@ from livebench.agentic_code_runner.eval.harness.test_result import (
 )
 
 
-@Instance.register("marshmallow-code", "marshmallow")
-class Marshmallow(Instance):
+@Instance.register("arrow-py", "arrow")
+class Arrow(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -37,7 +38,7 @@ class Marshmallow(Instance):
         return self._pr
 
     def dependency(self) -> Optional[Image]:
-        prefix = self._pr.image_prefix or "python_v4"
+        prefix = self._pr.image_prefix or "python_abacus"
         return CustomBuildImage(self.pr, self._config, base_prefix=prefix)
 
     def fix_patch_run(self, fix_patch_run_cmd: str = "") -> str:

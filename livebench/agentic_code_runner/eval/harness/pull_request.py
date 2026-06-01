@@ -178,6 +178,7 @@ class PullRequest(PullRequestBase):
     resolved_issues: list[ResolvedIssue]
     fix_patch: str
     test_patch: str
+    image_prefix: Optional[str] = None
 
     def __post_init__(self):
         if not isinstance(self.state, str):

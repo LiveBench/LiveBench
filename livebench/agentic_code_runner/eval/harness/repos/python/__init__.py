@@ -1,4 +1,7 @@
+from livebench.agentic_code_runner.eval.harness.repos.python.arrow_py import *
 from livebench.agentic_code_runner.eval.harness.repos.python.astropy import *
+from livebench.agentic_code_runner.eval.harness.repos.python.python_attrs import *
+from livebench.agentic_code_runner.eval.harness.repos.python.textualize import *
 from livebench.agentic_code_runner.eval.harness.repos.python.django import *
 from livebench.agentic_code_runner.eval.harness.repos.python.fastapi import *
 from livebench.agentic_code_runner.eval.harness.repos.python.marshmallow_code import *
