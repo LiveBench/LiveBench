@@ -37,9 +37,8 @@ class Typer(Instance):
         return self._pr
 
     def dependency(self) -> Optional[Image]:
-        # base_prefix="python_v4": typer images are tagged python_v4/fastapi_m_typer:pr-N.
-        # This differs from pallets/click whose images stay on the python_v3/ prefix.
-        return CustomBuildImage(self.pr, self._config, base_prefix="python_v4")
+        prefix = self._pr.image_prefix or "python_v4"
+        return CustomBuildImage(self.pr, self._config, base_prefix=prefix)
 
     def fix_patch_run(self, fix_patch_run_cmd: str = "") -> str:
         if fix_patch_run_cmd:
