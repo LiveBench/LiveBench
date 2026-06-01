@@ -1,7 +1,7 @@
-"""Harness handler for `honojs/hono` (typescript_v2).
+"""Harness handler for `honojs/hono` (typescript_abacus).
 
-Images are tagged typescript_v2/honojs_m_hono:pr-N, built by
-typescript_v2/scripts/04_validate_prs.py.
+Images are tagged typescript_abacus/honojs_m_hono:pr-N, built by
+typescript_abacus/scripts/04_validate_prs.py.
 
 Test runner: Vitest (verbose reporter).  Output lines look like:
   " ✓  main  src/utils/url.test.ts > suite > test name  5ms"
@@ -23,7 +23,7 @@ from livebench.agentic_code_runner.eval.harness.test_result import mapping_to_te
 
 # ── Vitest verbose output parser ──────────────────────────────────────────
 # These regexes MUST stay in sync with parse_vitest_jest() in
-# typescript_v2/scripts/04_validate_prs.py.
+# typescript_abacus/scripts/04_validate_prs.py.
 
 _RE_ANSI   = re.compile(r"\x1b\[[0-9;]*[mGKHFABCDJst]")
 _RE_PASS   = re.compile(r"^\s*[✓√] (.+?)(?:\s+\d+(?:\.\d+)?(?:ms|s))?$")
@@ -50,7 +50,7 @@ class Hono(Instance):
         return self._pr
 
     def dependency(self) -> Optional[Image]:
-        return TypeScriptCustomBuildImage(self.pr, self._config)
+        return TypeScriptCustomBuildImage(self.pr, self._config, base_prefix="typescript_abacus")
 
     def fix_patch_run(self, fix_patch_run_cmd: str = "") -> str:
         if fix_patch_run_cmd:

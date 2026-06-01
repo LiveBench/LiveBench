@@ -588,6 +588,7 @@ class CliArgs:
                 f.write(f"\nRUN ln -s /home/{image.pr.repo} /{image.pr.repo}") # symlink so repo is at root (for swe-agent)
             elif isinstance(image, SWEImageDefault):
                 f.write(f"\nRUN ln -s /testbed /{image.pr.repo}")
+                f.write(f"\nRUN ln -s /testbed /home/{image.pr.repo}")
 
         for file in image.files():
             file_path = image_dir / file.dir / file.name
