@@ -189,7 +189,7 @@ class CustomBuildImage(SWEImageDefault):
     # Local-image prefix — must match what scripts/04_validate_prs.py
     # tags per-PR images with. Kept overridable via constructor for
     # future repos that may use a different prefix (e.g. python_v4).
-    DEFAULT_BASE_PREFIX = "python_v3"
+    DEFAULT_BASE_PREFIX = "python_abacus"
 
     def __init__(self, pr, config, base_prefix: str = DEFAULT_BASE_PREFIX):
         super().__init__(pr, config)
