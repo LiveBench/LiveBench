@@ -710,21 +710,18 @@ def chat_completion_litellm(
 
     if stream:
         chunks = list(response)
-        # save the last chunk's usage before stream_chunk_builder potentially loses it
         last_usage = None
         for chunk in reversed(chunks):
             if hasattr(chunk, 'usage') and chunk.usage is not None:
                 last_usage = chunk.usage
                 break
         response = litellm.stream_chunk_builder(chunks, messages=messages)
-        # stream_chunk_builder sometimes loses input tokens; recover from last chunk
         if response.usage is not None and last_usage is not None:
             if not response.usage.prompt_tokens and getattr(last_usage, 'prompt_tokens', None):
                 response.usage.prompt_tokens = last_usage.prompt_tokens
 
     message = response.choices[0].message.content
 
-    # read tokens — same fields as agentic_code_runner/minisweagent/models/litellm_model.py
     num_tokens = None
     input_tokens = None
     cached_tokens = None
