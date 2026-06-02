@@ -731,7 +731,8 @@ def chat_completion_litellm(
     if response.usage is not None:
         num_tokens = response.usage.completion_tokens
         input_tokens = response.usage.prompt_tokens
-        if hasattr(response.usage, 'prompt_tokens_details') and response.usage.prompt_tokens_details is not None:
+        cached_tokens = getattr(response.usage, 'cache_read_input_tokens', None) or 0
+        if not cached_tokens and hasattr(response.usage, 'prompt_tokens_details') and response.usage.prompt_tokens_details is not None:
             cached_tokens = response.usage.prompt_tokens_details.cached_tokens or 0
 
     if message is None or message == '':
