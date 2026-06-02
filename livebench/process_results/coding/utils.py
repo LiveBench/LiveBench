@@ -80,7 +80,7 @@ def LCB_generation_process_results(question: dict, llm_answer: str, debug=False)
 
     try:
         private_test_cases = json.loads(question['private_test_cases'])  # type: ignore
-    except:
+    except Exception:
         private_test_cases = json.loads(
             pickle.loads(
                 zlib.decompress(
