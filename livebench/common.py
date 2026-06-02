@@ -121,7 +121,11 @@ def get_categories_tasks(bench_name: str):
 
     else:
         # specify a category or task
-        category_name = split_bench_name[1].split('_')[0]
+        category_name = split_bench_name[1]
+        if category_name not in LIVE_BENCH_CATEGORIES:
+            raise ValueError(
+                f"Unknown LiveBench category '{category_name}' in bench name '{bench_name}'"
+            )
 
         categories = {category_name: get_hf_dataset(category_name)}
 
