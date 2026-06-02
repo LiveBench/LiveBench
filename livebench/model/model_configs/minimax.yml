@@ -34,5 +34,6 @@ api_kwargs:
     stream: true
 cost_per_million:
   input: 0.30
+  cached_input: 0.06
   output: 1.20
 preserve_reasoning: true
