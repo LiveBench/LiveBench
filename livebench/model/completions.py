@@ -710,7 +710,15 @@ def chat_completion_litellm(
 
     if stream:
         chunks = list(response)
+        last_usage = None
+        for chunk in reversed(chunks):
+            if hasattr(chunk, 'usage') and chunk.usage is not None:
+                last_usage = chunk.usage
+                break
         response = litellm.stream_chunk_builder(chunks, messages=messages)
+        if response.usage is not None and last_usage is not None:
+            if not response.usage.prompt_tokens and getattr(last_usage, 'prompt_tokens', None):
+                response.usage.prompt_tokens = last_usage.prompt_tokens
 
     message = response.choices[0].message.content
 
@@ -718,10 +726,11 @@ def chat_completion_litellm(
     input_tokens = None
     cached_tokens = None
     if response.usage is not None:
-        num_tokens = getattr(response.usage, 'output_tokens', None) or response.usage.completion_tokens
-        input_tokens = getattr(response.usage, 'input_tokens', None) or response.usage.prompt_tokens
-        if hasattr(response.usage, 'prompt_tokens_details') and response.usage.prompt_tokens_details is not None:
-            cached_tokens = response.usage.prompt_tokens_details.cached_tokens
+        num_tokens = response.usage.completion_tokens
+        input_tokens = response.usage.prompt_tokens
+        cached_tokens = getattr(response.usage, 'cache_read_input_tokens', None) or 0
+        if not cached_tokens and hasattr(response.usage, 'prompt_tokens_details') and response.usage.prompt_tokens_details is not None:
+            cached_tokens = response.usage.prompt_tokens_details.cached_tokens or 0
 
     if message is None or message == '':
         raise Exception("No message returned from litellm")
