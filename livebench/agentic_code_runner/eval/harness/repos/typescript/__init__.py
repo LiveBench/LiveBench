@@ -10,6 +10,7 @@ from livebench.agentic_code_runner.eval.harness.repos.typescript.nuxt import *
 from livebench.agentic_code_runner.eval.harness.repos.typescript.puppeteer import *
 from livebench.agentic_code_runner.eval.harness.repos.typescript.reduxjs import *
 from livebench.agentic_code_runner.eval.harness.repos.typescript.remix_run import *
+from livebench.agentic_code_runner.eval.harness.repos.typescript.effect_ts import *
 from livebench.agentic_code_runner.eval.harness.repos.typescript.trpc import *
 from livebench.agentic_code_runner.eval.harness.repos.typescript.vuejs import *
 from livebench.agentic_code_runner.eval.harness.repos.typescript.withastro import *

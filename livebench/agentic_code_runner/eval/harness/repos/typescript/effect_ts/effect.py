@@ -1,12 +1,14 @@
-"""Harness handler for `colinhacks/zod` (typescript_abacus).
+"""Harness handler for `effect-ts/effect` (typescript_abacus).
 
-Images are tagged typescript_abacus/colinhacks_m_zod:pr-N, built by
+Images are tagged typescript_abacus/effect_ts_m_effect:pr-N, built by
 typescript_abacus/scripts/04_validate_prs.py.
 
-Test runner: Vitest (verbose reporter) run from workspace root, scoped to
-the "zod" project inside the pnpm workspace.  Output lines look like:
-  " ✓  src/__tests__/foo.test.ts > suite > test name  5ms"
-  " ×  src/__tests__/foo.test.ts > suite > test name"
+Test runner: Vitest (verbose reporter) run from workspace root.
+Root vitest.workspace.ts uses `packages/*/vitest.config.ts` and
+`packages/ai/*/vitest.config.ts` so all packages run; tests live
+primarily in packages/<pkg>/test/.  Output lines look like:
+  " ✓  packages/effect/test/foo.test.ts > suite > test name  5ms"
+  " ×  packages/effect/test/foo.test.ts > suite > test name"
 ANSI escape codes are stripped before matching.
 """
 
@@ -39,8 +41,8 @@ def _clean(name: str) -> str:
     return _RE_WS.sub(" ", name).strip()
 
 
-@Instance.register("colinhacks", "zod")
-class Zod(Instance):
+@Instance.register("effect-ts", "effect")
+class Effect(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
