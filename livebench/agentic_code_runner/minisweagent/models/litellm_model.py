@@ -110,6 +110,8 @@ class LitellmModel:
                 result['output_tokens'] = response.usage_metadata.candidates_token_count
             if response.usage_metadata.thoughts_token_count is not None:
                 result['output_tokens'] += response.usage_metadata.thoughts_token_count
+            if response.usage_metadata.cached_content_token_count is not None:
+                result['cached_tokens'] = response.usage_metadata.cached_content_token_count
 
         return result
 
