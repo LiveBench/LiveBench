@@ -308,7 +308,7 @@ def gemini_custom_wait(retry_state):
 )
 def chat_completion_google_generativeai(
     model: str, messages: Conversation, temperature: float, max_tokens: int, model_api_kwargs: API_Kwargs | None = None, api_dict: dict[str, str] | None = None, stream: bool = False
-) -> tuple[str, int]:
+) -> tuple[str, int, dict[str, Any] | None]:
     from google import genai
     from google.genai import types
 
@@ -360,16 +360,25 @@ def chat_completion_google_generativeai(
     message = response.text
 
     num_tokens = None
+    input_tokens = None
+    cached_tokens = None
     if response.usage_metadata is not None:
         num_tokens = response.usage_metadata.candidates_token_count
         if response.usage_metadata.thoughts_token_count is not None:
             num_tokens += response.usage_metadata.thoughts_token_count
+        input_tokens = response.usage_metadata.prompt_token_count
+        cached_tokens = response.usage_metadata.cached_content_token_count
 
     if num_tokens is None:
         num_tokens = -1
 
+    metadata: dict[str, Any] | None = None
+    if input_tokens is not None:
+        metadata = {'input_tokens': input_tokens}
+        if cached_tokens is not None:
+            metadata['cached_tokens'] = cached_tokens
 
-    return message, num_tokens
+    return message, num_tokens, metadata
 
 
 @retry(
