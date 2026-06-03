@@ -220,6 +220,29 @@ def _check_logs_for_retry_patterns(
     return retry_needed
 
 
+
+def _classify_eval_status(report_file, fix_log_file=None):
+    if not report_file.exists():
+        return "unresolved", ""
+    try:
+        r = json.load(open(report_file))
+    except Exception:
+        return "unresolved", ""
+
+    if r.get("valid", True):
+        return "unresolved", ""
+
+    err = r.get("error_msg", "")
+    fr = r.get("fix_patch_result", {})
+    fix_total = fr.get("passed_count", 0) + fr.get("failed_count", 0) + fr.get("skipped_count", 0)
+
+    if fix_total == 0:
+        if fix_log_file and fix_log_file.exists() and fix_log_file.stat().st_size > 0:
+            return "patch_error", err
+        return "eval_timeout", err
+    return "unresolved", err
+
+
 def _run_evaluation_subprocess(
     questions: list[dict],
     answers: list[dict],
@@ -357,13 +380,20 @@ def _run_evaluation_subprocess(
         if instance_id not in report['submitted_ids']:
             print(f"Instance {instance_id} not found in report (question {question_id})")
             result[question_id] = 0
+            instance_map[question_id]["eval_status"] = "not_submitted"
         elif instance_id in report['error_ids'] or instance_id in report['incomplete_ids']:
-            # Skip questions with infrastructure errors - don't include in result
-            # This signals that grading should be re-run for these questions
-            print(f"Skipping question {question_id} ({instance_id}) due to infrastructure error")
+            print(f"Skipping {question_id} ({instance_id}) - infrastructure error")
+            instance_map[question_id]["eval_status"] = "eval_error"
             continue
+        elif instance_id in report['resolved_ids']:
+            result[question_id] = 1
+            instance_map[question_id]["eval_status"] = "resolved"
         else:
-            result[question_id] = 1 if instance_id in report['resolved_ids'] else 0
+            result[question_id] = 0
+            status, err = _classify_eval_status(report_file, fix_log_file)
+            instance_map[question_id]["eval_status"] = status
+            if err:
+                instance_map[question_id]["error_msg"] = err
 
         if debug and result.get(question_id) == 0:
             if instance_id in report['unresolved_ids']:
@@ -421,11 +451,10 @@ def _run_evaluation_subprocess(
     return result, instance_map
 
 
-# python agentic_code_runner/eval/harness/run_evaluation.py --config agentic_code_runner/eval/config.json
-def agentic_coding_process_results(questions: list[dict], answers: list[dict], debug=False, max_workers=1, only_build_image=False) -> dict[str, int]:
+def agentic_coding_process_results(questions: list[dict], answers: list[dict], debug=False, max_workers=1, only_build_image=False) -> tuple[dict[str, int], dict[str, dict]]:
 
     if len(answers) == 0:
-        return dict()
+        return dict(), dict()
     
     # Initial evaluation
     result, instance_map = _run_evaluation_subprocess(questions, answers, debug, max_workers, only_build_image)
@@ -501,4 +530,20 @@ def agentic_coding_process_results(questions: list[dict], answers: list[dict], d
             # Update instance_map with new paths for next iteration
             instance_map.update(retry_instance_map)
     
-    return result
+    eval_metadata = {}
+    answers_by_qid = {a['question_id']: a for a in answers}
+    for q in questions:
+        qid = q['question_id']
+        info = instance_map.get(qid, {})
+        meta = {
+            "eval_status": info.get("eval_status", "unknown"),
+            "eval_id": info.get("eval_id", ""),
+            "instance_id": info.get("instance_id", ""),
+        }
+        if info.get("error_msg"):
+            meta["error_msg"] = info["error_msg"]
+        if qid in answers_by_qid and "run_id" in answers_by_qid[qid]:
+            meta["run_id"] = answers_by_qid[qid]["run_id"]
+        eval_metadata[qid] = meta
+
+    return result, eval_metadata
