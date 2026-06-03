@@ -193,7 +193,7 @@ def play_a_match_gt(match: MatchSingle, output_file: str | None = None, debug=Fa
                 else:
                     # Note: agentic_coding typically uses batch processing in gen_judgments
                     # This single-question path wraps the question/answer in lists
-                    eval_result = agentic_coding_process_results([question], [answer], debug)
+                    eval_result, _ = agentic_coding_process_results([question], [answer], debug)
                     # If the question was skipped due to infrastructure error, return None
                     # to signal that judgment should not be written
                     if question['question_id'] not in eval_result:
@@ -396,26 +396,35 @@ def gen_judgments(
                 # Run evaluation (with internal retry logic)
                 model_questions = [m.question for m in model_matches]
                 answers = [m.answer for m in model_matches]
-                eval_result = agentic_coding_process_results(model_questions, answers, debug=debug, max_workers=parallel)
+                eval_result, eval_metadata = agentic_coding_process_results(model_questions, answers, debug=debug, max_workers=parallel)
                 
                 # Write final results
                 for question_id in sorted(eval_result.keys()):
                     model_answer = model_answers[model_id][question_id]
                     question = [q for q in model_questions if q['question_id'] == question_id][0]
+                    meta = eval_metadata.get(question_id, {})
                     result = {
                         "question_id": question_id,
                         "task": question['task'],
                         "model": model_id,
                         "score": eval_result[question_id],
+                        "eval_status": meta.get("eval_status", ""),
                         "tstamp": time.time(),
                         "category": "agentic_coding",
                     }
                     if "answer_id" in model_answer:
                         result["answer_id"] = model_answer["answer_id"]
+                    if "run_id" in model_answer:
+                        result["run_id"] = model_answer["run_id"]
+                    if meta.get("eval_id"):
+                        result["eval_id"] = meta["eval_id"]
+                    if meta.get("error_msg"):
+                        result["error_msg"] = meta["error_msg"]
 
                     print(
                         f"question: {question_id}, model: {model_id}, "
-                        f"score: {eval_result[question_id]}, ")
+                        f"score: {eval_result[question_id]}, "
+                        f"eval_status: {meta.get('eval_status', '')}")
                     
                     # Find the output file for this question
                     if '_output_file' in question:

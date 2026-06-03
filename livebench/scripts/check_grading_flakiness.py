@@ -108,7 +108,7 @@ def grade_ground_truth(bench_name: str, question_ids: list[str] | None, question
     
     # Process results and get scores
     max_workers = parallel if parallel else 1
-    result = agentic_coding_process_results(questions, gt_answers, debug=True, max_workers=max_workers)
+    result, _ = agentic_coding_process_results(questions, gt_answers, debug=True, max_workers=max_workers)
     
     print(f"Evaluation complete. Results: {len(result)} question(s)")
     
