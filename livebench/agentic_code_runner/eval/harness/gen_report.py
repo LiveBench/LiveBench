@@ -15,6 +15,7 @@
 import concurrent.futures
 import glob
 import logging
+import re
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Dict, Literal, Optional, Tuple, Union
@@ -33,6 +34,21 @@ from livebench.agentic_code_runner.eval.harness.pull_request import PullRequest
 from livebench.agentic_code_runner.eval.harness.report import FinalReport, Report, ReportTask
 from livebench.agentic_code_runner.eval.utils.args_util import ArgumentParser
 from livebench.agentic_code_runner.eval.utils.logger import setup_logger
+
+
+_RE_TIMING = re.compile(r"\s+\d+(?:\.\d+)?(?:ms|s)$")
+_RE_RETRY_TIMING = re.compile(r"\s+\d+(?:\.\d+)?(?:ms|s)\s+\(retry x\d+\)$")
+_RE_RETRY_ONLY = re.compile(r"\s+\(retry x\d+\)$")
+_RE_JEST_TIMING = re.compile(r"\s+\(\d+(?:\.\d+)?ms\)$")
+_RE_WS = re.compile(r"\s+")
+
+
+def _normalize_test_name(name: str) -> str:
+    name = _RE_RETRY_TIMING.sub("", name)
+    name = _RE_RETRY_ONLY.sub("", name)
+    name = _RE_JEST_TIMING.sub("", name)
+    name = _RE_TIMING.sub("", name)
+    return _RE_WS.sub(" ", name).strip()
 
 
 def get_parser() -> ArgumentParser:
@@ -453,29 +469,42 @@ class CliArgs:
                         )
                         return (report, False)
 
+                    normalized_p2p = {
+                        _normalize_test_name(name) for name in report.p2p_tests
+                    }
+                    normalized_f2p = {
+                        _normalize_test_name(name) for name in report.f2p_tests
+                    }
+                    normalized_s2p = {
+                        _normalize_test_name(name) for name in report.s2p_tests
+                    }
+                    normalized_n2p = {
+                        _normalize_test_name(name) for name in report.n2p_tests
+                    }
+
                     for p2p in dataset.p2p_tests:
-                        if p2p not in report.p2p_tests:
+                        if _normalize_test_name(p2p) not in normalized_p2p:
                             self.logger.error(
                                 f"Invalid p2p_tests for {task.id}: missing {p2p}"
                             )
                             return (report, False)
 
                     for f2p in dataset.f2p_tests:
-                        if f2p not in report.f2p_tests:
+                        if _normalize_test_name(f2p) not in normalized_f2p:
                             self.logger.error(
                                 f"Invalid f2p_tests for {task.id}: missing {f2p}"
                             )
                             return (report, False)
 
                     for s2p in dataset.s2p_tests:
-                        if s2p not in report.s2p_tests:
+                        if _normalize_test_name(s2p) not in normalized_s2p:
                             self.logger.error(
                                 f"Invalid s2p_tests for {task.id}: missing {s2p}"
                             )
                             return (report, False)
 
                     for n2p in dataset.n2p_tests:
-                        if n2p not in report.n2p_tests:
+                        if _normalize_test_name(n2p) not in normalized_n2p:
                             self.logger.error(
                                 f"Invalid n2p_tests for {task.id}: missing {n2p}"
                             )

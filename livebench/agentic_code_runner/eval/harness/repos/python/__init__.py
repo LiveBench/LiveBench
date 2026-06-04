@@ -1,4 +1,5 @@
 from livebench.agentic_code_runner.eval.harness.repos.python.arrow_py import *
+from livebench.agentic_code_runner.eval.harness.repos.python.delgan import *
 from livebench.agentic_code_runner.eval.harness.repos.python.astropy import *
 from livebench.agentic_code_runner.eval.harness.repos.python.python_attrs import *
 from livebench.agentic_code_runner.eval.harness.repos.python.textualize import *
