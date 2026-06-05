@@ -30,7 +30,23 @@ api_keys:
 api_kwargs:
   default:
     temperature: 1
-    max_tokens: 40000
+    max_tokens: 131072
+    stream: true
+cost_per_million:
+  input: 0.30
+  cached_input: 0.06
+  output: 1.20
+preserve_reasoning: true
+---
+display_name: minimax-m3
+api_name:
+  https://api.novita.ai/openai: minimax/minimax-m3
+api_keys:
+  https://api.novita.ai/openai: NOVITA_API_KEY
+api_kwargs:
+  default:
+    temperature: 1
+    max_tokens: 131072
     stream: true
 cost_per_million:
   input: 0.30
