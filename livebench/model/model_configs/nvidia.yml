@@ -11,3 +11,24 @@ api_kwargs:
     extra_body:
       reasoning:
         enabled: true
+---
+display_name: nemotron-3-ultra-550b-a55b
+api_name:
+  https://openrouter.ai/api/v1: nvidia/nemotron-3-ultra-550b-a55b
+  https://api.deepinfra.com/v1/openai: nvidia/NVIDIA-Nemotron-3-Ultra-550B-A55B
+default_provider: https://api.deepinfra.com/v1/openai
+api_keys:
+  https://openrouter.ai/api/v1: OPENROUTER_API_KEY
+  https://api.deepinfra.com/v1/openai: DEEPINFRA_API_KEY
+api_kwargs:
+  default:
+    temperature: 1.0
+    top_p: 0.95
+    max_tokens: 16384
+    extra_body:
+      reasoning:
+        enabled: true
+cost_per_million:
+  input: 0.50
+  cached_input: 0.15
+  output: 2.50
