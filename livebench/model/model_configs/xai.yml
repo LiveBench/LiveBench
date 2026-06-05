@@ -142,8 +142,20 @@ api_name:
   https://api.x.ai/v1: grok-4.3
 api_keys:
   https://api.x.ai/v1: XAI_API_KEY
+---
+display_name: grok-build-0.1
+api_name:
+  https://api.x.ai/v1: grok-build-0.1
+api_keys:
+  https://api.x.ai/v1: XAI_API_KEY
+aliases:
+  - grok-build
 api_kwargs:
   default:
     max_tokens: null
     max_completion_tokens: null
     temperature: 0.7
+cost_per_million:
+  input: 1.00
+  cached_input: 0.20
+  output: 2.00
