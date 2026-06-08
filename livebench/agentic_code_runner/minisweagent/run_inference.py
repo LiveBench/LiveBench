@@ -23,6 +23,18 @@ def update_dict_recursively(d1, d2):
             d1[k] = v
     return d1
 
+
+
+RUN_SUCCESS_EXIT_STATUS = "Submitted"
+
+
+def _eval_status_from_exit_status(exit_status):
+    if not exit_status or exit_status == RUN_SUCCESS_EXIT_STATUS:
+        return None
+    if exit_status == "LimitsExceeded":
+        return "run_limits_exceeded"
+    return "run_error"
+
 def run_agentic_coding_inference(
     questions: list[dict],
     model_api_name: str,
@@ -214,8 +226,15 @@ def run_agentic_coding_inference(
         if not traj_file.exists():
             print(f"Trajectory file {traj_file} does not exist")
             ans['choices'] = [{'turns': [API_ERROR_OUTPUT]}]
+            ans['eval_status'] = "run_no_trajectory"
         else:
             trajectory = json.load(open(traj_file))
+
+            exit_status = trajectory['info'].get('exit_status')
+            eval_status = _eval_status_from_exit_status(exit_status)
+            if eval_status is not None:
+                ans['eval_status'] = eval_status
+                print(f"Run for question {question['question_id']} ended with exit_status={exit_status} -> eval_status={eval_status}")
 
             final_answer = trajectory['info']['submission']
             if final_answer is None:

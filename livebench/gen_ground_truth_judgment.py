@@ -53,6 +53,9 @@ from livebench.common import (
 )
 
 
+FAILURE_EVAL_STATUSES = {"api_error", "token_exhaustion"}
+
+
 def reorg_output_file(output_file):
     """De-duplicate and sort by question id and model"""
     if not os.path.exists(output_file):
@@ -101,13 +104,15 @@ def play_a_match_gt(match: MatchSingle, output_file: str | None = None, debug=Fa
     llm_answer = re.sub(f"<think>.*?<\/think>", "", llm_answer, flags=re.DOTALL)
     score = 0
     category = None
-
-    # todo: find a better solution than a long if statement.
+    eval_status = answer.get("eval_status")
 
     splits = task_or_subtask.split('_')
 
     try:
-        if question.get("category") == "instruction_following":
+        if eval_status in FAILURE_EVAL_STATUSES:
+            score = 0
+            category = question.get("category", task)
+        elif question.get("category") == "instruction_following":
             # IFBench format questions (old format never reaches play_a_match_gt)
             score = ifbench_process_results(question, llm_answer, debug)
             category = "instruction_following"
@@ -218,6 +223,11 @@ def play_a_match_gt(match: MatchSingle, output_file: str | None = None, debug=Fa
         "tstamp": time.time(),
         "category": category,
     }
+    if eval_status:
+        result["eval_status"] = eval_status
+    if answer.get("error"):
+        result["error"] = answer["error"]
+        result["error_msg"] = answer.get("error_msg", "")
     # Add answer_id if available
     if "answer_id" in answer:
         result["answer_id"] = answer["answer_id"]
