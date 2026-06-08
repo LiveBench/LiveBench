@@ -16,6 +16,7 @@ import tqdm
 from livebench.model.api_model_config import APIKwargs
 from livebench.agentic_code_runner.minisweagent.run_inference import run_agentic_coding_inference
 
+from livebench.model.completions import API_ERROR_OUTPUT
 from livebench.common import (
     LIVE_BENCH_RELEASES,
     reorg_answer_file,
@@ -152,6 +153,12 @@ def get_answer(
             **metadata
         }
     }
+
+    if metadata.get("eval_status"):
+        ans["eval_status"] = metadata["eval_status"]
+    if metadata.get("error"):
+        ans["error"] = metadata["error"]
+        ans["error_msg"] = metadata.get("error_msg", "")
 
     # Use answer_file parameter if provided (as override), otherwise use question's answer_file
     output_file = answer_file if answer_file is not None else question.get('answer_file')

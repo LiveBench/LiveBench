@@ -33,9 +33,12 @@ class ModelAPI(Protocol):
         ...
 
 
-def retry_fail(_):
-    print("all retries failed")
-    return API_ERROR_OUTPUT, 0
+def retry_fail(retry_state):
+    exception = retry_state.outcome.exception()
+    error = exception.__class__.__name__ if exception else "Unknown"
+    error_msg = str(exception)[:200] if exception else ""
+    print(f"all retries failed: {error}: {error_msg}")
+    return API_ERROR_OUTPUT, 0, {"eval_status": "api_error", "error": error, "error_msg": error_msg}
 
 
 def retry_log(retry_state):
@@ -166,7 +169,7 @@ def chat_completion_openai(
     except Exception as e:
         if "invalid_prompt" in str(e).lower():
             print("invalid prompt (model refusal), giving up")
-            return API_ERROR_OUTPUT, 0
+            return API_ERROR_OUTPUT, 0, {"eval_status": "api_error", "error": "InvalidPrompt", "error_msg": str(e)[:200]}
         raise e
 
 
@@ -714,7 +717,7 @@ def chat_completion_litellm(
         actual_api_kwargs['stream_options'] = {'include_usage': True}
 
     response = litellm.completion(
-        model=litellm_model, messages=messages, stream=stream, **actual_api_kwargs
+        model=litellm_model, messages=messages, stream=stream, timeout=600, **actual_api_kwargs
     )
 
     if stream:
@@ -730,10 +733,13 @@ def chat_completion_litellm(
                 response.usage.prompt_tokens = last_usage.prompt_tokens
 
     message = response.choices[0].message.content
+    finish_reason = response.choices[0].finish_reason
+    reasoning_content = getattr(response.choices[0].message, 'reasoning_content', None)
 
     num_tokens = None
     input_tokens = None
     cached_tokens = None
+    token_exhaustion = False
     if response.usage is not None:
         num_tokens = response.usage.completion_tokens
         input_tokens = response.usage.prompt_tokens
@@ -742,7 +748,12 @@ def chat_completion_litellm(
             cached_tokens = response.usage.prompt_tokens_details.cached_tokens or 0
 
     if message is None or message == '':
-        raise Exception("No message returned from litellm")
+        if finish_reason == 'length' and reasoning_content:
+            logger.warning(f"Token exhaustion: model used all tokens on reasoning ({num_tokens} tokens), no content produced")
+            message = ""
+            token_exhaustion = True
+        else:
+            raise Exception(f"No message returned from litellm (finish_reason={finish_reason})")
     if num_tokens is None:
         num_tokens = -1
 
@@ -751,6 +762,11 @@ def chat_completion_litellm(
         metadata = {'input_tokens': input_tokens}
         if cached_tokens is not None:
             metadata['cached_tokens'] = cached_tokens
+
+    if token_exhaustion:
+        if metadata is None:
+            metadata = {}
+        metadata['eval_status'] = 'token_exhaustion'
 
     return message, num_tokens, metadata
 
