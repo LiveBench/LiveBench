@@ -89,15 +89,11 @@ def main():
     else:
         print(f"OK (in={in_tok}, out={out_tok})")
 
-    # 4. Cost tracking
+    # 4. Cost tracking (warning only — inline configs may not have cost_per_million)
     print("4. Cost tracking...", end=" ")
     cost = answer.get("cost_usd")
     if cost is None or cost == 0:
-        if content != "$ERROR$":
-            errors.append(f"cost_usd is {cost} for non-error answer")
-            print(f"FAIL (cost={cost})")
-        else:
-            print(f"SKIP (error answer)")
+        print(f"WARN (cost not tracked — add cost_per_million to config)")
     else:
         print(f"OK (${cost:.4f})")
 
