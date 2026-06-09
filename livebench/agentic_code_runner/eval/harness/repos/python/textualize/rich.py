@@ -3,11 +3,6 @@
 The GitHub org is `Textualize` (capital T, no hyphens). The handler
 directory is `textualize/` (lowercase, standard Python package convention).
 Instance.register uses `Textualize` to match the org field in question.jsonl.
-
-Images are tagged python_abacus/textualize_m_rich:pr-N (built by
-python_abacus/scripts/04_validate_prs.py). The handler reads image_prefix
-from the question row — new repos like rich that only exist in python_abacus
-default the fallback to "python_abacus".
 """
 
 from typing import Optional

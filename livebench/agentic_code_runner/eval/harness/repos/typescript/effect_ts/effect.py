@@ -1,7 +1,4 @@
-"""Harness handler for `effect-ts/effect` (typescript_abacus).
-
-Images are tagged typescript_abacus/effect_ts_m_effect:pr-N, built by
-typescript_abacus/scripts/04_validate_prs.py.
+"""Harness handler for `effect-ts/effect`.
 
 Test runner: Vitest (verbose reporter) run from workspace root.
 Root vitest.workspace.ts uses `packages/*/vitest.config.ts` and
@@ -25,8 +22,8 @@ from livebench.agentic_code_runner.eval.harness.pull_request import PullRequest
 from livebench.agentic_code_runner.eval.harness.test_result import mapping_to_testresult
 
 # ── Vitest verbose output parser ──────────────────────────────────────────
-# These regexes MUST stay in sync with parse_vitest_jest() in
-# typescript_abacus/scripts/04_validate_prs.py.
+# These regexes MUST stay in sync with the Vitest/Jest log parser used
+# during PR validation.
 
 _RE_ANSI   = re.compile(r"\x1b\[[0-9;]*[mGKHFABCDJst]")
 _RE_PASS   = re.compile(r"^\s*[✓√] (.+?)(?:\s+\d+(?:\.\d+)?(?:ms|s))?$")

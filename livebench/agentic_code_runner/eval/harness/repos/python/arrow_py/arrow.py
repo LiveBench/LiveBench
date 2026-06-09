@@ -4,11 +4,6 @@ NOTE: The GitHub org name `arrow-py` contains a hyphen, so this directory
 is named `arrow_py` (underscore) to be a valid Python package name.
 Instance.register still uses the real hyphenated org string `arrow-py`
 to match the org field in question.jsonl.
-
-Images are tagged python_abacus/arrow-py_m_arrow:pr-N (built by
-python_abacus/scripts/04_validate_prs.py). The handler reads image_prefix
-from the question row so it works for both python_v4 and python_abacus
-questions without hardcoding.
 """
 
 from typing import Optional

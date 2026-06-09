@@ -3,12 +3,7 @@
 The GitHub org `python-attrs` contains a hyphen, so this directory is named
 `python_attrs` (underscore) to be a valid Python package name. Instance.register
 uses the real hyphenated org string `python-attrs` to match the org field in
-question.jsonl (which 05_build_questions.py writes as-is since it's already
-lowercase).
-
-Images are tagged python_abacus/python-attrs_m_attrs:pr-N (built by
-python_abacus/scripts/04_validate_prs.py). The handler reads image_prefix
-from the question row so it works correctly for python_abacus questions.
+question.jsonl.
 """
 
 from typing import Optional

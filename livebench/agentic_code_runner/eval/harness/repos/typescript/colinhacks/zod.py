@@ -1,7 +1,4 @@
-"""Harness handler for `colinhacks/zod` (typescript_abacus).
-
-Images are tagged typescript_abacus/colinhacks_m_zod:pr-N, built by
-typescript_abacus/scripts/04_validate_prs.py.
+"""Harness handler for `colinhacks/zod`.
 
 Test runner: Vitest (verbose reporter) run from workspace root, scoped to
 the "zod" project inside the pnpm workspace.  Output lines look like:
@@ -23,8 +20,8 @@ from livebench.agentic_code_runner.eval.harness.pull_request import PullRequest
 from livebench.agentic_code_runner.eval.harness.test_result import mapping_to_testresult
 
 # ── Vitest verbose output parser ──────────────────────────────────────────
-# These regexes MUST stay in sync with parse_vitest_jest() in
-# typescript_abacus/scripts/04_validate_prs.py.
+# These regexes MUST stay in sync with the Vitest/Jest log parser used
+# during PR validation.
 
 _RE_ANSI   = re.compile(r"\x1b\[[0-9;]*[mGKHFABCDJst]")
 _RE_PASS   = re.compile(r"^\s*[✓√] (.+?)(?:\s+\d+(?:\.\d+)?(?:ms|s))?$")

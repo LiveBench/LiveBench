@@ -4,10 +4,6 @@ NOTE: The GitHub org name `marshmallow-code` contains a hyphen, so the
 directory is named `marshmallow_code` (underscore) to be a valid Python
 package name. The Instance.register key still uses the real org string
 `marshmallow-code` to match the org field in question.jsonl.
-
-Images are tagged python_v4/marshmallow-code_m_marshmallow:pr-N
-(built by python_v4/scripts/04_validate_prs.py). base_prefix="python_v4"
-is passed explicitly so the harness finds those images.
 """
 
 from typing import Optional

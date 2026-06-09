@@ -2,12 +2,7 @@
 
 The GitHub org is `Delgan` (capital D). The handler directory is `delgan/`
 (lowercase). Instance.register uses `"delgan"` to match the lowercased org
-field written by 05_build_questions.py.
-
-Images are tagged python_abacus/delgan_m_loguru:pr-N (built by
-python_abacus/scripts/04_validate_prs.py). The handler reads image_prefix
-from the question row; loguru only exists in python_abacus so the fallback
-is "python_abacus".
+field in question.jsonl.
 """
 
 from typing import Optional

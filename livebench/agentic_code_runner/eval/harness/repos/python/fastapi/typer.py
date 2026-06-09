@@ -3,11 +3,6 @@
 NOTE: The GitHub repo was originally tiangolo/typer and was transferred to
 the fastapi org. The GitHub API returns org='fastapi' in all PR data, so
 the registry key and CustomBuildImage lookup both use 'fastapi'.
-
-Images are tagged python_v4/fastapi_m_typer:pr-N (built by
-python_v4/scripts/04_validate_prs.py). base_prefix="python_v4" is passed
-explicitly so the harness finds those images — unlike pallets/click which
-stays on the python_v3/ prefix for its existing image set.
 """
 
 from typing import Optional
