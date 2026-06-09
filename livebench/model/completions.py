@@ -510,9 +510,15 @@ def chat_completion_anthropic(model: str, messages: Conversation, temperature: f
     del actual_api_kwargs['temperature']
 
     # Filter out empty text blocks (needed for auto-thinking responses)
+    try:
+        stop_reason = stream.get_final_message().stop_reason or 'unknown'
+    except Exception:
+        stop_reason = 'unknown'
+
     text_messages = [c for c in message if c['type'] == 'text' and c.get('text', '').strip()]
     if len(text_messages) == 0:
-        raise Exception("No response from Anthropic")
+        block_types = [c['type'] for c in message]
+        raise Exception(f"No response from Anthropic (stop_reason={stop_reason}, blocks={block_types})")
 
     # Filter out empty text blocks and empty thinking blocks for token counting
     message_for_counting = [c for c in message if (c['type'] != 'text' or c.get('text', '').strip()) and (c['type'] != 'thinking' or c.get('thinking', '').strip())]
