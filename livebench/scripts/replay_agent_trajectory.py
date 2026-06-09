@@ -32,7 +32,8 @@ from livebench.agentic_code_runner.minisweagent.run_inference import run_agentic
 
 def load_model_answers(model_name: str) -> list[dict]:
     """Load model answers from the specified JSONL file."""
-    model_answer_path_glob = f"data/live_bench/agentic_coding/**/{model_name}.jsonl"
+    # agentic_coding* covers both the original agentic_coding tasks and agentic_coding_v2.
+    model_answer_path_glob = f"data/live_bench/agentic_coding*/**/{model_name}.jsonl"
     file_paths = glob.glob(model_answer_path_glob, recursive=True)
     
     if not file_paths:

@@ -71,6 +71,11 @@ LIVE_BENCH_CATEGORIES = [
     "reasoning",
     "language",
 ]
+# Categories whose questions are evaluated via the agentic-coding pipeline
+# (Docker build -> agent/LLM inference -> apply patch -> run tests -> FAIL_TO_PASS/PASS_TO_PASS).
+# Routing in gen_api_answer.py and gen_ground_truth_judgment.py keys on membership here.
+AGENTIC_CODING_CATEGORIES = {"agentic_coding", "agentic_coding_v2"}
+
 LIVE_BENCH_RELEASES = {"2024-07-26", "2024-06-24", "2024-08-31", "2024-11-25", "2025-04-02", "2025-04-25", "2025-05-30", "2025-11-25", "2025-12-23", "2026-01-08"}
 
 LIVE_BENCH_ROOT_PATH = Path(__file__).parent
