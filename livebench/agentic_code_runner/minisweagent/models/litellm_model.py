@@ -18,6 +18,22 @@ from livebench.agentic_code_runner.minisweagent.models import GLOBAL_MODEL_STATS
 from livebench.agentic_code_runner.minisweagent.utils.log import logger
 
 
+class LengthFinishReasonError(Exception):
+    """Raised when the model returns finish_reason='length' but completion_tokens < max_tokens."""
+
+
+_DEFAULT_MAX_ATTEMPTS = 15
+LENGTH_FINISH_REASON_MAX_ATTEMPTS = 3
+
+
+def _length_aware_stop(retry_state) -> bool:
+    """tenacity stop: cap LengthFinishReasonError retries, retry everything else normally."""
+    exc = retry_state.outcome.exception() if retry_state.outcome else None
+    if isinstance(exc, LengthFinishReasonError):
+        return retry_state.attempt_number >= LENGTH_FINISH_REASON_MAX_ATTEMPTS
+    return retry_state.attempt_number >= _DEFAULT_MAX_ATTEMPTS
+
+
 @dataclass
 class LitellmModelConfig:
     model_name: str
@@ -288,7 +304,7 @@ class LitellmModel:
         return thinking.get('type') in ('auto', 'adaptive')
 
     @retry(
-        stop=stop_after_attempt(15),
+        stop=_length_aware_stop,
         wait=wait_exponential(multiplier=2, min=4, max=120),
         before_sleep=before_sleep_log(logger, logging.WARNING),
         retry=retry_if_not_exception_type(
@@ -343,7 +359,7 @@ class LitellmModel:
             raise e
 
         if res['choices'][0]['finish_reason'] == 'length' and 'max_tokens' in actual_kwargs and res.usage.completion_tokens < actual_kwargs['max_tokens']:
-            raise Exception("Model returned length error but max tokens were not reached")
+            raise LengthFinishReasonError("Model returned length error but max tokens were not reached")
 
         content = res['choices'][0]['message']['content']
 
