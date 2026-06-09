@@ -108,6 +108,7 @@ def play_a_match_gt(match: MatchSingle, output_file: str | None = None, debug=Fa
 
     splits = task_or_subtask.split('_')
 
+    eval_error = None
     try:
         if eval_status in FAILURE_EVAL_STATUSES:
             score = 0
@@ -210,7 +211,11 @@ def play_a_match_gt(match: MatchSingle, output_file: str | None = None, debug=Fa
             raise NotImplementedError(f"This task ({task_or_subtask}) has not been implemented yet.")
     except Exception as e:
         #raise RuntimeError(f"Error occurred evaluating question {question['question_id']}") from e
+        # record scoring-time failures so they're distinguishable from a genuine score of 0
+        eval_error = f"{type(e).__name__}: {e}"
         score = 0
+        if not category:
+            category = question.get("category", task)
 
     if not category:
         raise NotImplementedError(f"A category must be assigned to each task")
@@ -223,7 +228,10 @@ def play_a_match_gt(match: MatchSingle, output_file: str | None = None, debug=Fa
         "tstamp": time.time(),
         "category": category,
     }
-    if eval_status:
+    if eval_error:
+        result["eval_status"] = "eval_error"
+        result["error_msg"] = eval_error
+    elif eval_status:
         result["eval_status"] = eval_status
     if answer.get("error"):
         result["error"] = answer["error"]

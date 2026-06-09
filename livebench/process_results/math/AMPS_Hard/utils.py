@@ -109,7 +109,10 @@ def amps_hard_process_results(ground_truth: str, llm_answer: str, debug=False) -
         except Exception as e:
             warnings.warn(f"Error when comparing ground truth and parsed answer: {e}")
 
-        if not res and os.environ.get('OPENAI_API_KEY'):
+        if not res:
+            # sympy inconclusive; without a key the LLM tiebreaker can't run, so flag as unverified rather than silently scoring 0
+            if not os.environ.get('OPENAI_API_KEY'):
+                raise RuntimeError("OPENAI_API_KEY not set; cannot run LLM validation fallback for AMPS_Hard")
             # Use LLM
             res = is_equiv_llm(ground_truth, parsed_answer)
 
@@ -240,10 +243,11 @@ def is_equiv_llm(x1: str, x2: str) -> bool:
         if response.choices[0].message.content.lower() == 'yes':
             return True
         return False
-    except Exception:
+    except Exception as e:
+        # re-raise so a failed tiebreaker (e.g. bad OPENAI_API_KEY) is recorded as an eval_error, not a silent False
         warnings.warn(f"Failed using LLM to comparing {x1} and {x2}: {e}")
         traceback.print_tb(e.__traceback__)
-    return False
+        raise
 
 
 def normalize_final_answer(final_answer: str) -> str:
