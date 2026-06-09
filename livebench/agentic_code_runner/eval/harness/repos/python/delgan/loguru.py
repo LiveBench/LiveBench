@@ -1,13 +1,27 @@
+"""Harness handler for `Delgan/loguru`.
+
+The GitHub org is `Delgan` (capital D). The handler directory is `delgan/`
+(lowercase). Instance.register uses `"delgan"` to match the lowercased org
+field in question.jsonl.
+"""
+
 from typing import Optional
 
-from livebench.agentic_code_runner.eval.harness.image import Config, Image, SWEImageDefault
+from livebench.agentic_code_runner.eval.harness.image import (
+    Config,
+    CustomBuildImage,
+    Image,
+)
 from livebench.agentic_code_runner.eval.harness.instance import Instance, TestResult
 from livebench.agentic_code_runner.eval.harness.pull_request import PullRequest
-from livebench.agentic_code_runner.eval.harness.test_result import TestStatus, mapping_to_testresult
+from livebench.agentic_code_runner.eval.harness.test_result import (
+    TestStatus,
+    mapping_to_testresult,
+)
 
 
-@Instance.register("pydata", "xarray")
-class Xarray(Instance):
+@Instance.register("delgan", "loguru")
+class Loguru(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -18,12 +32,12 @@ class Xarray(Instance):
         return self._pr
 
     def dependency(self) -> Optional[Image]:
-        return SWEImageDefault(self.pr, self._config)
+        prefix = self._pr.image_prefix or "python_abacus"
+        return CustomBuildImage(self.pr, self._config, base_prefix=prefix)
 
     def fix_patch_run(self, fix_patch_run_cmd: str = "") -> str:
         if fix_patch_run_cmd:
             return fix_patch_run_cmd
-
         return "bash /home/fix-run.sh"
 
     def parse_log(self, log: str) -> TestResult:
@@ -35,19 +49,16 @@ class Xarray(Instance):
             if not line:
                 continue
 
-            # Format B (pytest short summary): "<STATUS> <test_path> [- reason]"
             if any(line.startswith(sv) for sv in status_values):
                 if line.startswith(TestStatus.FAILED.value):
                     line = line.replace(" - ", " ")
-                test_case = line.split()
-                if len(test_case) >= 2:
-                    test_status_map[test_case[1]] = test_case[0]
+                parts = line.split()
+                if len(parts) >= 2:
+                    test_status_map[parts[1]] = parts[0]
 
-            # Format A (pytest verbose): "<test_path> <STATUS> [ pct%]"
-            # pytest 9.0.2+ no longer emits PASSED in the short summary.
             elif "::" in line:
-                test_case = line.split()
-                if len(test_case) >= 2 and test_case[1] in status_values:
-                    test_status_map[test_case[0]] = test_case[1]
+                parts = line.split()
+                if len(parts) >= 2 and parts[1] in status_values:
+                    test_status_map[parts[0]] = parts[1]
 
         return mapping_to_testresult(test_status_map)

@@ -170,7 +170,6 @@ def run_agentic_coding_inference(
                 'environment_class': 'docker',
             }
             if question['task'] != 'python':
-                #instance_obj['cwd'] = '/' + question['repo']
                 instance_obj['cwd'] = '/home/' + question['repo']
             f.write(json.dumps(instance_obj) + '\n')
     

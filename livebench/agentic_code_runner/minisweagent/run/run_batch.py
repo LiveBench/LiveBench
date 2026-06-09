@@ -63,7 +63,20 @@ def get_sb_environment(config: dict, instance: dict) -> Environment:
     env_config["environment_class"] = env_config.get("environment_class", "docker")
     image_name = get_docker_image_name(instance)
     env_config["image"] = image_name
-    env = get_environment(env_config, cwd_override=instance.get("cwd", ""))
+    env = get_environment(env_config)
+
+    instance_cwd = instance.get("cwd", "")
+    if instance_cwd:
+        out = env.execute("git rev-parse --is-inside-work-tree", cwd=instance_cwd)
+        if out["returncode"] == 0 and out["output"].strip() == "true":
+            env.config.cwd = instance_cwd
+        else:
+            logger.warning(
+                "Instance cwd '%s' is not a git repo in container, using configured cwd '%s'",
+                instance_cwd,
+                env.config.cwd,
+            )
+
     if startup_command := config.get("run", {}).get("env_startup_command"):
         startup_command = Template(startup_command, undefined=StrictUndefined).render(**instance)
         out = env.execute(startup_command)

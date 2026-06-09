@@ -49,7 +49,8 @@ from livebench.common import (
     MatchSingle,
     get_categories_tasks,
     LIVE_BENCH_DATA_SUPER_PATH,
-    check_agentic_coding_requirements
+    check_agentic_coding_requirements,
+    AGENTIC_CODING_CATEGORIES
 )
 
 
@@ -382,7 +383,7 @@ def gen_judgments(
         return
 
     # Separate matches by category
-    agentic_coding_matches = [m for m in matches if m.question.get('category') == 'agentic_coding']
+    agentic_coding_matches = [m for m in matches if m.question.get('category') in AGENTIC_CODING_CATEGORIES]
     old_instruction_following_matches = [m for m in matches if m.question.get('category') == 'instruction_following' and m.question.get("livebench_release_date", "") < "2025-11-25"]
     normal_matches = [m for m in matches if m not in agentic_coding_matches and m not in old_instruction_following_matches]
 
@@ -428,7 +429,7 @@ def gen_judgments(
                         "score": eval_result[question_id],
                         "eval_status": meta.get("eval_status", ""),
                         "tstamp": time.time(),
-                        "category": "agentic_coding",
+                        "category": question.get("category", "agentic_coding"),
                     }
                     if "answer_id" in model_answer:
                         result["answer_id"] = model_answer["answer_id"]

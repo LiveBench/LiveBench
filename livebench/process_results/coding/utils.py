@@ -322,7 +322,7 @@ def _run_evaluation_subprocess(
         "max_workers_run_instance": max_workers,
         "log_dir": f"{log_path.as_posix()}",
         "log_level": "DEBUG" if debug else "INFO",
-        "instance_timeout": 480
+        "instance_timeout": 900
     }
     with open(config_path, 'w') as f:
         json.dump(config, f)

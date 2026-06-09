@@ -32,8 +32,9 @@ def _load_questions(model_display_name: str, release_option: str) -> tuple[list[
 
     release_set = {r for r in LIVE_BENCH_RELEASES if r <= release_option}
 
-    base = LIVE_BENCH_ROOT_PATH / "data/live_bench/agentic_coding"
-    question_files = glob.glob(str(base / "**/question.jsonl"), recursive=True)
+    # agentic_coding* covers both the original agentic_coding tasks and agentic_coding_v2.
+    base = LIVE_BENCH_ROOT_PATH / "data/live_bench"
+    question_files = glob.glob(str(base / "agentic_coding*/**/question.jsonl"), recursive=True)
 
     questions: list[dict] = []
     answer_files: set[str] = set()

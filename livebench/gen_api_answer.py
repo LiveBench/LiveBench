@@ -25,7 +25,8 @@ from livebench.common import (
     load_questions_jsonl,
     LIVE_BENCH_DATA_SUPER_PATH,
     filter_questions,
-    check_agentic_coding_requirements
+    check_agentic_coding_requirements,
+    AGENTIC_CODING_CATEGORIES
 )
 
 from livebench.model import ModelConfig, get_model_config, get_api_function
@@ -248,8 +249,8 @@ def run_questions(
     print('Evaluating ', len(questions), ' questions with model ', model_config.display_name)
    
     # Split questions into agentic_coding and non-agentic_coding
-    agentic_coding_questions = [q for q in questions if q.get('category') == 'agentic_coding']
-    normal_questions = [q for q in questions if q.get('category') != 'agentic_coding']
+    agentic_coding_questions = [q for q in questions if q.get('category') in AGENTIC_CODING_CATEGORIES]
+    normal_questions = [q for q in questions if q.get('category') not in AGENTIC_CODING_CATEGORIES]
     
     # Process agentic coding questions if any
     if agentic_coding_questions:

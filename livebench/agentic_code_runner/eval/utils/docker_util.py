@@ -107,6 +107,15 @@ def run(
         return output
     except Exception as e:
         container.stop()
+        # Always write whatever the container produced before it was killed,
+        # so timed-out runs leave a non-empty log instead of a 0-byte file.
+        if output_path:
+            try:
+                partial = container.logs().decode("utf-8")
+                with open(output_path, "w", encoding="utf-8") as f:
+                    f.write(partial)
+            except Exception:
+                pass
         raise TimeoutError(f"Container execution timed out after {timeout} seconds") from e
     finally:
         container.remove()

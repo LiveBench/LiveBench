@@ -1,9 +1,8 @@
-"""Harness handler for `colinhacks/zod`.
+"""Harness handler for `honojs/hono`.
 
-Test runner: Vitest (verbose reporter) run from workspace root, scoped to
-the "zod" project inside the pnpm workspace.  Output lines look like:
-  " ✓  src/__tests__/foo.test.ts > suite > test name  5ms"
-  " ×  src/__tests__/foo.test.ts > suite > test name"
+Test runner: Vitest (verbose reporter).  Output lines look like:
+  " ✓  main  src/utils/url.test.ts > suite > test name  5ms"
+  " ×  main  src/utils/url.test.ts > suite > test name"
 ANSI escape codes are stripped before matching.
 """
 
@@ -36,8 +35,8 @@ def _clean(name: str) -> str:
     return _RE_WS.sub(" ", name).strip()
 
 
-@Instance.register("colinhacks", "zod")
-class Zod(Instance):
+@Instance.register("honojs", "hono")
+class Hono(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
