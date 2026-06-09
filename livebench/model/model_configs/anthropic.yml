@@ -418,13 +418,11 @@ api_kwargs:
       type: adaptive
     max_tokens: 128000
 ---
-display_name: claude-queso-eap-high-effort
+display_name: claude-opus-4-8-high-effort
 api_name:
-  anthropic: claude-queso-eap
+  anthropic: claude-opus-4-8
 aliases:
-  - claude-queso-eap-thinking
-  - claude-queso-eap
-  - claude-opus-4-8-high-effort
+  - claude-opus-4-8-high
 api_kwargs:
   default:
     temperature: 1
@@ -435,12 +433,11 @@ api_kwargs:
       type: adaptive
     max_tokens: 128000
 ---
-display_name: claude-queso-eap-xhigh-effort
+display_name: claude-opus-4-8-xhigh-effort
 api_name:
-  anthropic: claude-queso-eap
+  anthropic: claude-opus-4-8
 aliases:
-  - claude-queso-eap-xhigh
-  - claude-opus-4-8-xhigh-effort
+  - claude-opus-4-8-xhigh
 api_kwargs:
   default:
     temperature: 1
@@ -451,12 +448,12 @@ api_kwargs:
       type: adaptive
     max_tokens: 128000
 ---
-display_name: claude-queso-eap-medium-effort
+display_name: claude-opus-4-8-medium-effort
 api_name:
-  anthropic: claude-queso-eap
+  anthropic: claude-opus-4-8
 aliases:
-  - claude-queso-eap-thinking-medium-effort
-  - claude-opus-4-8-medium-effort
+  - claude-opus-4-8-medium
+  - claude-opus-4-8
 api_kwargs:
   default:
     temperature: 1
@@ -467,12 +464,11 @@ api_kwargs:
       type: adaptive
     max_tokens: 128000
 ---
-display_name: claude-queso-eap-low-effort
+display_name: claude-opus-4-8-low-effort
 api_name:
-  anthropic: claude-queso-eap
+  anthropic: claude-opus-4-8
 aliases:
-  - claude-queso-eap-thinking-low-effort
-  - claude-opus-4-8-low-effort
+  - claude-opus-4-8-low
 api_kwargs:
   default:
     temperature: 1
