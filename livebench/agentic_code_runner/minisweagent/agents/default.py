@@ -189,7 +189,11 @@ class DefaultAgent:
         actions = re.findall(r"```bash\s*\n(.*?)\n```", content, re.DOTALL)
         if len(actions) == 0:
             actions = re.findall(r"```bash\s*\n(.*?)```", content, re.DOTALL)
-        if len(actions) == 1:
+        if len(actions) >= 1:
+            # Tolerate models that bundle several bash blocks (or simulate the whole
+            # loop) in one turn: execute the FIRST block and feed the real observation
+            # back, rather than rejecting the entire turn. The model then continues from
+            # real output instead of its own hallucinated output.
             return {"action": actions[0].strip(), **response}
         raise FormatError(self.render_template(self.config.format_error_template, actions=actions))
 

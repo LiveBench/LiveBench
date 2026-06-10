@@ -12,6 +12,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+import re
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Optional, Tuple, Union
@@ -28,6 +29,34 @@ from livebench.agentic_code_runner.eval.harness.image import Config
 from livebench.agentic_code_runner.eval.harness.instance import Instance
 from livebench.agentic_code_runner.eval.harness.pull_request import Base, PullRequest, PullRequestBase
 from livebench.agentic_code_runner.eval.harness.test_result import Test, TestResult, TestStatus
+
+
+# Test names emitted by some runners (vitest) carry volatile timing/retry suffixes
+# (e.g. " 4518ms (retry x2)"). The stored gold baseline (run/test phases) keeps these
+# suffixes while the freshly-parsed fix phase strips them, so an un-normalized union
+# splits a single test into two half-records and mis-classifies fixed tests as n2p.
+# Normalize here (same rules as gen_report._normalize_test_name) so all three phases align.
+_RE_TIMING = re.compile(r"\s+\d+(?:\.\d+)?(?:ms|s)$")
+_RE_RETRY_TIMING = re.compile(r"\s+\d+(?:\.\d+)?(?:ms|s)\s+\(retry x\d+\)$")
+_RE_RETRY_ONLY = re.compile(r"\s+\(retry x\d+\)$")
+_RE_JEST_TIMING = re.compile(r"\s+\(\d+(?:\.\d+)?ms\)$")
+_RE_WS = re.compile(r"\s+")
+
+
+def _norm_name(name: str) -> str:
+    name = _RE_RETRY_TIMING.sub("", name)
+    name = _RE_RETRY_ONLY.sub("", name)
+    name = _RE_JEST_TIMING.sub("", name)
+    name = _RE_TIMING.sub("", name)
+    return _RE_WS.sub(" ", name).strip()
+
+
+def _norm_status_map(test_result: TestResult) -> dict:
+    """Return the phase's {test_name: status} map with test names normalized."""
+    normalized: dict = {}
+    for name, status in test_result._tests.items():
+        normalized[_norm_name(name)] = status
+    return normalized
 
 
 @dataclass_json
@@ -55,16 +84,16 @@ class Report(PullRequestBase):
         if not self.fix_patch_result:
             raise ValueError("Invalid fix_patch_result: None")
 
-        all_tests = (
-            self.run_result._tests.keys()
-            | self.test_patch_result._tests.keys()
-            | self.fix_patch_result._tests.keys()
-        )
+        run_map = _norm_status_map(self.run_result)
+        test_map = _norm_status_map(self.test_patch_result)
+        fix_map = _norm_status_map(self.fix_patch_result)
+
+        all_tests = run_map.keys() | test_map.keys() | fix_map.keys()
 
         for test_name in all_tests:
-            run = self.run_result._tests.get(test_name, TestStatus.NONE)
-            test = self.test_patch_result._tests.get(test_name, TestStatus.NONE)
-            fix = self.fix_patch_result._tests.get(test_name, TestStatus.NONE)
+            run = run_map.get(test_name, TestStatus.NONE)
+            test = test_map.get(test_name, TestStatus.NONE)
+            fix = fix_map.get(test_name, TestStatus.NONE)
             self._tests[test_name] = Test(run, test, fix)
 
         self.valid, self.error_msg = self.check()
