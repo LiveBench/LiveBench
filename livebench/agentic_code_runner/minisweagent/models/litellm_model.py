@@ -271,7 +271,16 @@ class LitellmModel:
                 sanitized_content.append({"type": "redacted_thinking", "data": data})
         
         if not content:
-            raise Exception("No text response from Anthropic")
+            # The model returned no usable text (e.g. only a thinking block, or a
+            # transient empty completion). Don't crash the whole instance: return
+            # empty content so the agent loop raises a non-terminating FormatError,
+            # nudges the model, and continues (bounded by step_limit). Ensure the
+            # stored assistant turn is non-empty so the *next* API call stays valid
+            # (Anthropic rejects assistant messages with empty content).
+            logger.warning("Empty text response from Anthropic; degrading to empty turn so the agent can retry")
+            content = ""
+            if not sanitized_content:
+                sanitized_content = [{"type": "text", "text": "(no response)"}]
         
         # Create sanitized message for conversation history
         sanitized_message = {
