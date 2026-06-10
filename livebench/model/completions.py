@@ -509,9 +509,13 @@ def chat_completion_anthropic(model: str, messages: Conversation, temperature: f
     del actual_api_kwargs['max_tokens']
     del actual_api_kwargs['temperature']
 
-    # Filter out empty text blocks (needed for auto-thinking responses)
+    # The stream's final message carries exact usage (input from message_start,
+    # output from the final message_delta) — no extra API call needed.
+    final_usage = None
     try:
-        stop_reason = stream.get_final_message().stop_reason or 'unknown'
+        final_message = stream.get_final_message()
+        stop_reason = final_message.stop_reason or 'unknown'
+        final_usage = final_message.usage
     except Exception:
         stop_reason = 'unknown'
 
@@ -520,7 +524,17 @@ def chat_completion_anthropic(model: str, messages: Conversation, temperature: f
         block_types = [c['type'] for c in message]
         raise Exception(f"No response from Anthropic (stop_reason={stop_reason}, blocks={block_types})")
 
-    # Filter out empty text blocks and empty thinking blocks for token counting
+    message_text = text_messages[0]['text']
+
+    if final_usage is not None:
+        tokens = final_usage.output_tokens
+        metadata: dict[str, Any] = {'input_tokens': final_usage.input_tokens}
+        cached_tokens = getattr(final_usage, 'cache_read_input_tokens', None)
+        if cached_tokens is not None:
+            metadata['cached_tokens'] = cached_tokens
+        return message_text, tokens, metadata
+
+    # Fallback when usage is unavailable: approximate output tokens via count_tokens
     message_for_counting = [c for c in message if (c['type'] != 'text' or c.get('text', '').strip()) and (c['type'] != 'thinking' or c.get('thinking', '').strip())]
     try:
         tokens = client.messages.count_tokens(
@@ -535,9 +549,7 @@ def chat_completion_anthropic(model: str, messages: Conversation, temperature: f
         traceback.print_exc()
         tokens = -1
 
-    message_text = text_messages[0]['text']
-
-    return message_text, tokens
+    return message_text, tokens, None
 
 
 @retry(
@@ -683,11 +695,14 @@ def chat_completion_litellm(
     if 'stream' in api_kwargs:
         stream = bool(api_kwargs['stream'])
         del api_kwargs['stream']
+    else:
+        # Stream by default so the timeout bounds chunk gaps, not total generation time
+        stream = True
 
     actual_api_kwargs = {key: value for key, value in api_kwargs.items() if value is not None}
 
-    # LiveBench provider names → LiteLLM provider prefixes
-    litellm_provider_aliases = {'google': 'gemini', 'together': 'together_ai'}
+    # LiveBench provider names → LiteLLM prefixes ('openai/responses' = Responses-API bridge)
+    litellm_provider_aliases = {'google': 'gemini', 'together': 'together_ai', 'openai_responses': 'openai/responses'}
 
     if api_dict is not None and api_dict.get('api_base'):
         litellm_model = f"openai/{model}"
@@ -699,32 +714,57 @@ def chat_completion_litellm(
     else:
         litellm_model = model
 
-    # Provider-specific kwargs munging, mirroring
-    # livebench/agentic_code_runner/.../litellm_model.py:_query_completion
-    if 'deepseek' in litellm_model:
-        messages = [{**m, 'role': 'user'} if m.get('role') == 'system' else m for m in messages]
+    # Provider-native params must be listed in allowed_openai_params for
+    # LiteLLM to forward them to the API untouched.
+    def passthrough(*params: str) -> None:
+        present = [p for p in params if p in actual_api_kwargs]
+        if present:
+            existing = actual_api_kwargs.get('allowed_openai_params') or []
+            actual_api_kwargs['allowed_openai_params'] = list(existing) + present
 
-    reasoning_param_name = 'thinking' if 'anthropic' in litellm_model else 'reasoning_effort'
-    if reasoning_param_name in actual_api_kwargs:
-        existing = actual_api_kwargs.get('allowed_openai_params') or []
-        actual_api_kwargs['allowed_openai_params'] = list(existing) + [reasoning_param_name]
+    if 'deepseek' in litellm_model:
+        # DeepSeek's API rejects the system role
+        messages = [{**m, 'role': 'user'} if m.get('role') == 'system' else m for m in messages]
 
     if 'anthropic' in litellm_model:
         if 'betas' in actual_api_kwargs:
-            actual_api_kwargs['extra_headers'] = {'anthropic-beta': beta for beta in actual_api_kwargs['betas']}
-            del actual_api_kwargs['betas']
+            actual_api_kwargs['extra_headers'] = {'anthropic-beta': ','.join(actual_api_kwargs.pop('betas'))}
         if 'extra_body' in actual_api_kwargs:
-            actual_api_kwargs = actual_api_kwargs | actual_api_kwargs['extra_body']
-            del actual_api_kwargs['extra_body']
+            actual_api_kwargs = actual_api_kwargs | actual_api_kwargs.pop('extra_body')
         if 'thinking' not in actual_api_kwargs:
             actual_api_kwargs['thinking'] = {'type': 'disabled'}
+        elif actual_api_kwargs['thinking'].get('type') == 'auto':
+            # 'auto' is the beta-client spelling; the standard endpoint only accepts 'adaptive'
+            actual_api_kwargs['thinking'] = {**actual_api_kwargs['thinking'], 'type': 'adaptive'}
+        passthrough('thinking', 'output_config')
+    else:
+        passthrough('reasoning_effort')
+        if litellm_model.startswith('gemini/'):
+            passthrough('thinking_config')
+        elif litellm_model.startswith('openai/responses/'):
+            passthrough('reasoning')
 
     if stream and 'stream_options' not in actual_api_kwargs:
         actual_api_kwargs['stream_options'] = {'include_usage': True}
 
-    response = litellm.completion(
-        model=litellm_model, messages=messages, stream=stream, timeout=600, **actual_api_kwargs
-    )
+    timeout = actual_api_kwargs.pop('timeout', 600)
+
+    try:
+        response = litellm.completion(
+            model=litellm_model, messages=messages, stream=stream, timeout=timeout, **actual_api_kwargs
+        )
+    except Exception as e:
+        # Fall back to non-streaming if the provider rejects streaming
+        err = str(e).lower()
+        if stream and 'stream' in err and any(s in err for s in ('support', 'invalid', 'not allowed', 'verified')):
+            logger.warning(f"{litellm_model} rejected streaming, retrying non-streaming: {e}")
+            stream = False
+            actual_api_kwargs.pop('stream_options', None)
+            response = litellm.completion(
+                model=litellm_model, messages=messages, stream=False, timeout=timeout, **actual_api_kwargs
+            )
+        else:
+            raise
 
     if stream:
         chunks = list(response)
