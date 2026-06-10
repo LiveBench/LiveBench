@@ -222,7 +222,7 @@ agent:
 
 environment:
   cwd: "/testbed"
-  timeout: 60
+  timeout: 120
   env:
     PAGER: cat
     MANPAGER: cat
