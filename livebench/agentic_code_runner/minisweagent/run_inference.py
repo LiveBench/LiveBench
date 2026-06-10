@@ -239,6 +239,13 @@ def run_agentic_coding_inference(
             if final_answer is None:
                 final_answer = ""
 
+            if eval_status == 'run_error':
+                # Infra failure (e.g. docker exec timeout) — the submission holds the
+                # error text, not a patch. Write $ERROR$ so --retry-failures re-runs it.
+                ans['error'] = exit_status
+                ans['error_msg'] = final_answer
+                final_answer = API_ERROR_OUTPUT
+
             del trajectory['info']['submission']
 
             stats = trajectory['info'].get('model_stats', {}) or {}
