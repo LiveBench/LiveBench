@@ -689,7 +689,7 @@ def chat_completion_litellm(
         model_api_kwargs = {key: value for key, value in model_api_kwargs.items()}
         api_kwargs.update(model_api_kwargs)
 
-    if 'max_tokens' not in api_kwargs and 'max_completion_tokens' not in api_kwargs:
+    if 'max_tokens' not in api_kwargs and 'max_completion_tokens' not in api_kwargs and 'max_output_tokens' not in api_kwargs:
         api_kwargs['max_tokens'] = max_tokens
 
     if 'stream' in api_kwargs:
