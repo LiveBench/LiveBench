@@ -478,3 +478,64 @@ api_kwargs:
     thinking:
       type: adaptive
     max_tokens: 128000
+---
+display_name: claude-fable-5-xhigh-effort
+api_name:
+  anthropic: claude-fable-5
+aliases:
+  - claude-fable-5-xhigh
+api_kwargs:
+  default:
+    temperature: 1
+    extra_body:
+      output_config:
+        effort: xhigh
+    thinking:
+      type: adaptive
+    max_tokens: 128000
+---
+display_name: claude-fable-5-high-effort
+api_name:
+  anthropic: claude-fable-5
+aliases:
+  - claude-fable-5-high
+api_kwargs:
+  default:
+    temperature: 1
+    extra_body:
+      output_config:
+        effort: high
+    thinking:
+      type: adaptive
+    max_tokens: 128000
+---
+display_name: claude-fable-5-medium-effort
+api_name:
+  anthropic: claude-fable-5
+aliases:
+  - claude-fable-5-medium
+  - claude-fable-5
+api_kwargs:
+  default:
+    temperature: 1
+    extra_body:
+      output_config:
+        effort: medium
+    thinking:
+      type: adaptive
+    max_tokens: 128000
+---
+display_name: claude-fable-5-low-effort
+api_name:
+  anthropic: claude-fable-5
+aliases:
+  - claude-fable-5-low
+api_kwargs:
+  default:
+    temperature: 1
+    extra_body:
+      output_config:
+        effort: low
+    thinking:
+      type: adaptive
+    max_tokens: 128000
