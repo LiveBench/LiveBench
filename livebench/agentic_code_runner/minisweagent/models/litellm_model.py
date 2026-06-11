@@ -352,6 +352,9 @@ class LitellmModel:
                 actual_kwargs['thinking'] = {'type': 'disabled'}
         if actual_kwargs.get('stream', False) and 'stream_options' not in actual_kwargs:
             actual_kwargs['stream_options'] = {'include_usage': True}
+        # Bound the request so a black-holed connection can't hang an agent
+        # indefinitely; on timeout the @retry above reconnects on a fresh socket.
+        actual_kwargs.setdefault('timeout', 600)
         try:
             res = litellm.completion(
                 model=self.config.model_name, messages=messages, **actual_kwargs
@@ -409,8 +412,14 @@ class LitellmModel:
                 system_messages.append(message.get('content', ''))
         system_prompt = system_messages[0] if system_messages else None
 
+        # Bound the request so a black-holed connection can't hang an agent
+        # indefinitely. A Cloudflare 5xx episode once pinned agents for 30+ min
+        # in a blocking ssl.read with no timeout; on timeout the @retry above
+        # reconnects on a fresh socket.
+        responses_kwargs = self.config.model_kwargs | kwargs
+        responses_kwargs.setdefault('timeout', 600)
         res = litellm.responses(
-            model=self.config.model_name, input=messages, instructions=system_prompt, **(self.config.model_kwargs | kwargs),
+            model=self.config.model_name, input=messages, instructions=system_prompt, **responses_kwargs,
         )
 
         output_text = ""
