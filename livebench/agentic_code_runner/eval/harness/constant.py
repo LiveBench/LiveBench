@@ -20,6 +20,9 @@ EVALUATION_WORKDIR = "evals"
 # Report related
 REPORT_FILE = "report.json"
 FINAL_REPORT_FILE = "final_report.json"
+# Written to an instance's eval dir instead of running docker when the filtered
+# fix patch is empty; gen_report routes such instances to empty_patch_ids.
+EMPTY_PATCH_MARKER_FILE = "empty-patch.marker"
 
 # Result related
 RUN_LOG_FILE = "run.log"

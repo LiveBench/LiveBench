@@ -26,6 +26,7 @@ from tqdm import tqdm
 from livebench.agentic_code_runner.eval.harness.constant import (
     BUILD_IMAGE_LOG_FILE,
     BUILD_IMAGE_WORKDIR,
+    EMPTY_PATCH_MARKER_FILE,
     EVALUATION_WORKDIR,
     FIX_PATCH_RUN_LOG_FILE,
     REPORT_FILE,
@@ -739,6 +740,24 @@ class CliArgs:
         valid_fix_patch = self._extract_valid_changes(test_patch, fix_patch)
         with open(fix_patch_path, "w", encoding="utf-8", newline="\n") as f:
             f.write(valid_fix_patch)
+
+        empty_patch_marker = instance_dir / EMPTY_PATCH_MARKER_FILE
+        if not valid_fix_patch.strip():
+            # Running tests without a patch would grade the unpatched repo against
+            # the stored baseline, which can auto-resolve drifted questions.
+            reason = (
+                "fix patch is empty after filtering out test-file changes"
+                if fix_patch.strip()
+                else "submitted fix patch is empty"
+            )
+            self.logger.warning(
+                f"Empty fix patch for {instance.pr.id} ({reason}), "
+                f"skipping evaluation run."
+            )
+            with open(empty_patch_marker, "w", encoding="utf-8", newline="\n") as f:
+                f.write(reason + "\n")
+            return
+        empty_patch_marker.unlink(missing_ok=True)
 
         report_path = instance_dir / REPORT_FILE
         if report_path.exists():

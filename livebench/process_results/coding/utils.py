@@ -385,6 +385,12 @@ def _run_evaluation_subprocess(
             print(f"Skipping {question_id} ({instance_id}) - infrastructure error")
             instance_map[question_id]["eval_status"] = "eval_error"
             continue
+        elif instance_id in report.get('empty_patch_ids', []):
+            # Model/harness failure (no usable patch submitted), not infra: score 0,
+            # don't skip like eval_error.
+            print(f"Empty patch for {question_id} ({instance_id}) - scoring 0")
+            result[question_id] = 0
+            instance_map[question_id]["eval_status"] = "empty_patch"
         elif instance_id in report['resolved_ids']:
             result[question_id] = 1
             instance_map[question_id]["eval_status"] = "resolved"

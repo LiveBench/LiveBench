@@ -95,6 +95,7 @@ class DefaultAgent:
         self.env = env
         self.extra_template_vars = {}
         self.existing_git_diff = ""
+        self.base_commit = ""
 
     def render_template(self, template: str, **kwargs) -> str:
         template_vars = asdict(self.config) | self.env.get_template_vars() | self.model.get_template_vars()
@@ -107,7 +108,13 @@ class DefaultAgent:
 
     def run(self, task: str, **kwargs) -> tuple[str, str]:
         """Run step() until agent is finished. Return exit status & message"""
-        out = self.env.execute("git add -A && git diff --cached")
+        out = self.env.execute("git rev-parse HEAD")
+        if out["returncode"] == 0:
+            self.base_commit = out["output"].strip().splitlines()[-1].strip()
+        else:
+            logger.warning(f"Could not record base commit, falling back to HEAD-relative diffs: {out}")
+            self.base_commit = ""
+        out = self.env.execute(self._diff_command())
         if out["returncode"] != 0:
             raise RuntimeError(f"Error checking for existing changes: {out}")
         self.existing_git_diff = out["output"]
@@ -121,17 +128,22 @@ class DefaultAgent:
             except NonTerminatingException as e:
                 logger.warning(f"Non-terminating exception: {e}")
                 self.add_message("user", str(e))
-            except TerminatingException as e:
-                # For terminating exceptions (Submitted, LimitsExceeded), capture git diff as submission
+            except Submitted as e:
+                # has_finished() already captured the submission diff
                 logger.warning(f"Terminating exception: {type(e).__name__}")
-                diff = self._capture_git_diff()
+                self.add_message("user", str(e))
+                return type(e).__name__, str(e)
+            except TerminatingException as e:
+                # For other terminating exceptions (LimitsExceeded), capture git diff as submission
+                logger.warning(f"Terminating exception: {type(e).__name__}")
+                diff = self._capture_git_diff() or ""
                 self.add_message("user", str(e))
                 return type(e).__name__, diff
             except RuntimeError as e:
                 # Check if this is a global cost/call limit - if so, terminate with git diff
                 if "Global cost/call limit exceeded" in str(e):
                     logger.warning(f"Limit exception (terminating): {type(e).__name__}: {e}")
-                    diff = self._capture_git_diff()
+                    diff = self._capture_git_diff() or ""
                     self.add_message("user", str(e))
                     return type(e).__name__, diff
                 # Other RuntimeErrors should propagate
@@ -140,22 +152,34 @@ class DefaultAgent:
                 # All other exceptions terminate the agent and capture git diff
                 logger.warning(f"Unhandled exception (terminating): {type(e).__name__}: {e}")
                 traceback.print_exc()
-                diff = self._capture_git_diff()
+                diff = self._capture_git_diff() or ""
                 self.add_message("user", str(e))
                 return type(e).__name__, diff
     
-    def _capture_git_diff(self) -> str:
-        """Capture current git diff, removing pre-existing changes."""
+    def _diff_command(self) -> str:
+        # Diff against the base commit recorded at run start, not just the index vs
+        # HEAD: if the agent committed during the trajectory, `git diff --cached`
+        # alone is empty and the work would be lost.
+        if self.base_commit:
+            return f"git add -A && git diff --cached {self.base_commit}"
+        return "git add -A && git diff --cached"
+
+    def _capture_git_diff(self) -> str | None:
+        """Capture current git diff vs the base commit, removing pre-existing changes.
+
+        Returns None if the capture itself failed (as opposed to a genuinely empty diff).
+        """
         try:
-            out = self.env.execute("git add -A && git diff --cached")
+            out = self.env.execute(self._diff_command())
             if out["returncode"] == 0:
                 new_diff = out["output"]
                 if self.existing_git_diff != "":
                     new_diff = extract_new_changes(self.existing_git_diff, new_diff)
                 return new_diff
+            logger.warning(f"Failed to capture git diff: {out}")
         except Exception as e:
             logger.warning(f"Failed to capture git diff: {e}")
-        return ""
+        return None
 
     def step(self) -> dict:
         """Query the LM, execute the action, return the observation."""
@@ -214,9 +238,15 @@ class DefaultAgent:
         """Raises Submitted exception with final output if the agent has finished its task."""
         lines = output.get("output", "").lstrip().splitlines(keepends=True)
         if lines and lines[0].strip() in ["MINI_SWE_AGENT_FINAL_OUTPUT", "COMPLETE_TASK_AND_SUBMIT_FINAL_OUTPUT"]:
-            new_diff = "".join(lines[1:])
-            if self.existing_git_diff != "":
-                # need to remove the changes from the existing diff from the new diff
-                # so that the final diff only includes the changes from the agent
-                new_diff = extract_new_changes(self.existing_git_diff, new_diff)
+            # Recapture the diff from the environment rather than trusting the
+            # model-printed output: the printed `git diff --cached` is empty if the
+            # agent committed during the trajectory, and may be truncated or echoed.
+            new_diff = self._capture_git_diff()
+            if new_diff is None:
+                # capture failed; fall back to the model-printed diff
+                new_diff = "".join(lines[1:])
+                if self.existing_git_diff != "":
+                    # need to remove the changes from the existing diff from the new diff
+                    # so that the final diff only includes the changes from the agent
+                    new_diff = extract_new_changes(self.existing_git_diff, new_diff)
             raise Submitted(new_diff)
