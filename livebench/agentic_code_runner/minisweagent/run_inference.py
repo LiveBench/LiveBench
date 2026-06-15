@@ -252,6 +252,7 @@ def run_agentic_coding_inference(
             in_tok = stats.get('total_input_tokens') or 0
             out_tok = stats.get('total_output_tokens') or 0
             cached_tok = stats.get('total_cached_tokens') or 0
+            cache_creation_tok = stats.get('total_cache_creation_tokens') or 0
             cost_usd = stats.get('instance_cost')
             try:
                 cpm = get_model_config(model_name).cost_per_million
@@ -273,6 +274,7 @@ def run_agentic_coding_inference(
                 'total_output_tokens': out_tok,
                 'total_input_tokens': in_tok,
                 'total_cached_tokens': cached_tok,
+                'total_cache_creation_tokens': cache_creation_tok,
                 'n_model_calls': stats.get('api_calls'),
                 'model_cost': stats.get('instance_cost'),
                 'cost_usd': cost_usd,

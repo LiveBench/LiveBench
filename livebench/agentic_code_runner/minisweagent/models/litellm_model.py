@@ -1,3 +1,4 @@
+import copy
 import json
 import logging
 import os
@@ -34,6 +35,35 @@ def _length_aware_stop(retry_state) -> bool:
     return retry_state.attempt_number >= _DEFAULT_MAX_ATTEMPTS
 
 
+def _cached_tokens(details) -> int:
+    """Cached-token count from a token-details object (0 if absent)."""
+    if details is None:
+        return 0
+    return getattr(details, 'cached_tokens', 0) or 0
+
+
+def _set_cache_breakpoint(message: dict) -> None:
+    """Mark a message's last text block with an ephemeral cache_control breakpoint.
+
+    Mutates in place, so callers must pass a copy, never the agent's own history.
+    """
+    ephemeral = {'type': 'ephemeral'}
+    content = message.get('content')
+    if isinstance(content, str):
+        if content.strip():
+            message['content'] = [{'type': 'text', 'text': content, 'cache_control': ephemeral}]
+    elif isinstance(content, list) and content:
+        target = None
+        for block in reversed(content):
+            if isinstance(block, dict) and block.get('type') == 'text':
+                target = block
+                break
+        if target is None and isinstance(content[-1], dict):
+            target = content[-1]
+        if target is not None:
+            target['cache_control'] = ephemeral
+
+
 @dataclass
 class LitellmModelConfig:
     model_name: str
@@ -54,6 +84,7 @@ class LitellmModel:
         self.input_tokens = 0
         self.output_tokens = 0
         self.cached_tokens = 0
+        self.cache_creation_tokens = 0
         if self.config.litellm_model_registry and Path(self.config.litellm_model_registry).is_file():
             litellm.utils.register_model(json.loads(Path(self.config.litellm_model_registry).read_text()))
 
@@ -230,7 +261,16 @@ class LitellmModel:
         }
         
         if system_content:
-            call_kwargs['system'] = system_content
+            call_kwargs['system'] = [{
+                "type": "text",
+                "text": system_content,
+                "cache_control": {"type": "ephemeral"},
+            }]
+        if actual_messages:
+            # Copy the last message first: the helper mutates in place, and sanitized
+            # blocks can still alias the caller's history.
+            actual_messages[-1] = copy.deepcopy(actual_messages[-1])
+            _set_cache_breakpoint(actual_messages[-1])
         if thinking is not None:
             call_kwargs['thinking'] = thinking
         if temperature is not NOT_GIVEN:
@@ -290,15 +330,23 @@ class LitellmModel:
         
         input_tokens = response.usage.input_tokens if response.usage else 0
         output_tokens = response.usage.output_tokens if response.usage else 0
-        
+        # input_tokens is the uncached remainder (total = input + cache_read + cache_creation).
+        cached_tokens = 0
+        cache_creation_tokens = 0
+        if response.usage:
+            cached_tokens = getattr(response.usage, 'cache_read_input_tokens', None) or 0
+            cache_creation_tokens = getattr(response.usage, 'cache_creation_input_tokens', None) or 0
+
         result: dict[str, Any] = {
             'response': response,
             'content': content,
             'message': sanitized_message,  # Use sanitized message, not full response
             'input_tokens': input_tokens,
             'output_tokens': output_tokens,
+            'cached_tokens': cached_tokens,
+            'cache_creation_input_tokens': cache_creation_tokens,
         }
-        
+
         return result
 
     def _needs_direct_anthropic_call(self) -> bool:
@@ -352,16 +400,28 @@ class LitellmModel:
                 actual_kwargs['thinking'] = {'type': 'disabled'}
         if actual_kwargs.get('stream', False) and 'stream_options' not in actual_kwargs:
             actual_kwargs['stream_options'] = {'include_usage': True}
+
+        messages_for_api = messages
+        if 'anthropic' in self.config.model_name and messages:
+            messages_for_api = copy.deepcopy(messages)
+            last_message = messages_for_api[-1]
+            _set_cache_breakpoint(last_message)
+            for message in messages_for_api:
+                if message.get('role') == 'system':
+                    if message is not last_message:
+                        _set_cache_breakpoint(message)
+                    break
+
         try:
             res = litellm.completion(
-                model=self.config.model_name, messages=messages, **actual_kwargs
+                model=self.config.model_name, messages=messages_for_api, **actual_kwargs
             )
 
             if actual_kwargs.get('stream', False):
                 chunks = []
                 for chunk in res:
                     chunks.append(chunk)
-                res = litellm.stream_chunk_builder(chunks, messages=messages)
+                res = litellm.stream_chunk_builder(chunks, messages=messages_for_api)
         except litellm.exceptions.InternalServerError as e:
             if "This model's maximum context length is" in str(e):
                 raise litellm.exceptions.ContextWindowExceededError(str(e), model=self.config.model_name, llm_provider=self.config.model_name) from e
@@ -381,9 +441,14 @@ class LitellmModel:
             result['content'] = content
             result['input_tokens'] = res.usage.prompt_tokens
             result['output_tokens'] = res.usage.completion_tokens
-            result['cached_tokens'] = 0
-            if hasattr(res.usage, 'prompt_tokens_details') and res.usage.prompt_tokens_details is not None:
-                result['cached_tokens'] = res.usage.prompt_tokens_details.cached_tokens or 0
+            # OpenAI/Anthropic report cache reads under prompt_tokens_details; Gemini-via-litellm
+            # uses a top-level field, read only as a fallback to avoid double-counting.
+            result['cached_tokens'] = (
+                _cached_tokens(getattr(res.usage, 'prompt_tokens_details', None))
+                or getattr(res.usage, 'cache_read_input_tokens', 0) or 0
+            )
+            # Cache writes (Anthropic only)
+            result['cache_creation_input_tokens'] = getattr(res.usage, 'cache_creation_input_tokens', 0) or 0
         return result
 
     @retry(
@@ -434,8 +499,14 @@ class LitellmModel:
             'outputs': outputs,
         }
         if res and res.usage is not None:
-            result['input_tokens'] = res.usage.input_tokens if not isinstance(res.usage, dict) else res.usage.get('input_tokens', 0)
-            result['output_tokens'] = res.usage.output_tokens if not isinstance(res.usage, dict) else res.usage.get('output_tokens', 0)
+            usage = res.usage
+            result['input_tokens'] = getattr(usage, 'input_tokens', 0)
+            result['output_tokens'] = getattr(usage, 'output_tokens', 0)
+            # Responses API reports cache reads under input_tokens_details (not prompt_tokens_details).
+            result['cached_tokens'] = (
+                _cached_tokens(getattr(usage, 'input_tokens_details', None))
+                or _cached_tokens(getattr(usage, 'prompt_tokens_details', None))
+            )
         return result
 
     def query(self, messages: list[dict[str, str]], **kwargs) -> dict:
@@ -487,6 +558,7 @@ class LitellmModel:
         self.input_tokens += input_tokens
         self.output_tokens += output_tokens
         self.cached_tokens += result.get('cached_tokens', 0) or 0
+        self.cache_creation_tokens += result.get('cache_creation_input_tokens', 0) or 0
 
         # Handle message serialization - some methods return Pydantic models, some return dicts
         message_data = None

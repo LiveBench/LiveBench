@@ -52,6 +52,7 @@ def save_traj(
                 "total_input_tokens": 0,
                 "total_output_tokens": 0,
                 "total_cached_tokens": 0,
+                "total_cache_creation_tokens": 0,
             },
             "mini_version": __version__,
         },
@@ -64,6 +65,7 @@ def save_traj(
         data["info"]["model_stats"]["total_input_tokens"] = agent.model.input_tokens
         data["info"]["model_stats"]["total_output_tokens"] = agent.model.output_tokens
         data["info"]["model_stats"]["total_cached_tokens"] = getattr(agent.model, "cached_tokens", 0)
+        data["info"]["model_stats"]["total_cache_creation_tokens"] = getattr(agent.model, "cache_creation_tokens", 0)
         for message in agent.messages:
             if 'extra' in message:
                 del message['extra']
