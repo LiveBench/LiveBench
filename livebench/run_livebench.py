@@ -176,6 +176,9 @@ def setup_tmux_session(session_name: str, benchmarks: list[str], commands: list[
     for i, (pane, benchmark, cmd) in enumerate(zip(panes, benchmarks, commands)):
         print(f"Setting up pane {i+1} for benchmark: {benchmark}")
 
+        # Name the pane after its category so monitors can find it later.
+        pane.cmd("select-pane", "-T", benchmark.split("/")[-1])
+
         # Activate virtualenv if provided
         if venv_path:
             if not os.path.exists(venv_path):
