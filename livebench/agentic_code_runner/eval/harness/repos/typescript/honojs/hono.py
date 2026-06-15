@@ -31,6 +31,7 @@ _RE_RETRY_TIMING = re.compile(r"\s+\d+(?:\.\d+)?(?:ms|s)\s+\(retry x\d+\)$")
 _RE_RETRY_ONLY   = re.compile(r"\s+\(retry x\d+\)$")
 _RE_JEST_TIMING  = re.compile(r"\s+\(\d+(?:\.\d+)?ms\)$")
 _RE_WS     = re.compile(r"\s+")
+_RE_PROJ_PIPE = re.compile(r"^\|([^|]+)\|\s*")
 
 
 def _clean(name: str) -> str:
@@ -38,7 +39,10 @@ def _clean(name: str) -> str:
     name = _RE_RETRY_ONLY.sub("", name)
     name = _RE_JEST_TIMING.sub("", name)
     name = _RE_TIMING.sub("", name)
-    return _RE_WS.sub(" ", name).strip()
+    name = _RE_WS.sub(" ", name).strip()
+    # Normalise old-vitest "|project|" prefix to the badge form "project "
+    # (must stay in sync with parse_vitest_jest in 04_validate_prs.py).
+    return _RE_PROJ_PIPE.sub(r"\1 ", name)
 
 
 @Instance.register("honojs", "hono")

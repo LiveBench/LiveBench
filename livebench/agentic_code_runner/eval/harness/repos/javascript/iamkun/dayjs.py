@@ -1,7 +1,12 @@
 import re
 from typing import Optional, Union
 
-from livebench.agentic_code_runner.eval.harness.image import Config, File, Image
+from livebench.agentic_code_runner.eval.harness.image import (
+    Config,
+    File,
+    Image,
+    TypeScriptCustomBuildImage,
+)
 from livebench.agentic_code_runner.eval.harness.instance import Instance, TestResult
 from livebench.agentic_code_runner.eval.harness.pull_request import PullRequest
 
@@ -213,6 +218,20 @@ class Dayjs(Instance):
         return self._pr
 
     def dependency(self) -> Optional[Image]:
+        # agentic_coding_v2 (javascript) questions carry image_prefix
+        # ("javascript_abacus") and are graded from a pre-built per-PR image
+        # tagged javascript_abacus/<org>_m_<repo>:pr-N, produced by
+        # question_generation/agentic_coding_v2/javascript/scripts/04_validate_prs.py.
+        # TypeScriptCustomBuildImage just generates a Node fix-run.sh that checks
+        # out base.sha, applies the model's fix patch, and runs base.ref — it is
+        # language-agnostic, so it serves JavaScript too.
+        #
+        # Legacy agentic_coding questions have no image_prefix → the original
+        # dynamic clone+build path below, unchanged.
+        if self.pr.image_prefix:
+            return TypeScriptCustomBuildImage(
+                self.pr, self._config, base_prefix=self.pr.image_prefix
+            )
         return ImageDefault(self.pr, self._config)
 
     def run(self, run_cmd: str = "") -> str:

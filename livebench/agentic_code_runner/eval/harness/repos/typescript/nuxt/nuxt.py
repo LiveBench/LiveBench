@@ -1,354 +1,73 @@
-import re
-from typing import Optional, Union
+"""Harness handler for `nuxt/nuxt` (agentic_coding_v2 typescript_abacus images).
 
-from livebench.agentic_code_runner.eval.harness.image import Config, File, Image
+Replaces the legacy mswebench handler (node:20 + fresh clone + suite-level
+parser). Our questions run in prebuilt `typescript_abacus/nuxt_m_nuxt:pr-N`
+images via the TypeScriptCustomBuildImage pattern; the production fix-run.sh
+re-runs `pnpm dev:prepare` and vitest inside the container.
+
+Test runner: Vitest (verbose reporter).  Output lines look like:
+  " ✓  nuxt  test/nuxt/composables.test.ts > suite > test name  5ms"
+  " ×  unit  packages/nuxt/test/pages.test.ts > suite > test name"
+Older vitest versions render the project prefix as "|nuxt|" instead of the
+badge form — _clean() normalises it.  ANSI escape codes are stripped before
+matching.
+"""
+
+import fnmatch
+import re
+from typing import Optional
+
+from livebench.agentic_code_runner.eval.harness.image import (
+    Config,
+    Image,
+    TypeScriptCustomBuildImage,
+)
 from livebench.agentic_code_runner.eval.harness.instance import Instance, TestResult
 from livebench.agentic_code_runner.eval.harness.pull_request import PullRequest
-
-
-class ImageBase(Image):
-    def __init__(self, pr: PullRequest, config: Config):
-        self._pr = pr
-        self._config = config
-
-    @property
-    def pr(self) -> PullRequest:
-        return self._pr
-
-    @property
-    def config(self) -> Config:
-        return self._config
-
-    def dependency(self) -> Union[str, "Image"]:
-        return "node:20"
-
-    def image_tag(self) -> str:
-        return "base"
-
-    def workdir(self) -> str:
-        return "base"
-
-    def files(self) -> list[File]:
-        return []
-
-    def dockerfile(self) -> str:
-        image_name = self.dependency()
-        if isinstance(image_name, Image):
-            image_name = image_name.image_full_name()
-
-        if self.config.need_clone:
-            code = f"RUN git clone https://github.com/{self.pr.org}/{self.pr.repo}.git /home/{self.pr.repo}"
-        else:
-            code = f"COPY {self.pr.repo} /home/{self.pr.repo}"
-
-        return f"""FROM {image_name}
-
-{self.global_env}
-
-WORKDIR /home/
-RUN apt update && apt install -y git 
-RUN npm install -g pnpm
-RUN apt install -y jq
-
-{code}
-
-{self.clear_env}
-
-"""
-
-
-class ImageDefault(Image):
-    def __init__(self, pr: PullRequest, config: Config):
-        self._pr = pr
-        self._config = config
-
-    @property
-    def pr(self) -> PullRequest:
-        return self._pr
-
-    @property
-    def config(self) -> Config:
-        return self._config
-
-    def dependency(self) -> Image | None:
-        return ImageBase(self.pr, self.config)
-
-    def image_tag(self) -> str:
-        return f"pr-{self.pr.number}"
-
-    def workdir(self) -> str:
-        return f"pr-{self.pr.number}"
-
-    def files(self) -> list[File]:
-        return [
-            File(
-                ".",
-                "fix.patch",
-                f"{self.pr.fix_patch}",
-            ),
-            File(
-                ".",
-                "test.patch",
-                f"{self.pr.test_patch}",
-            ),
-            File(
-                ".",
-                "check_git_changes.sh",
-                """#!/bin/bash
-set -e
-
-if ! git rev-parse --is-inside-work-tree > /dev/null 2>&1; then
-  echo "check_git_changes: Not inside a git repository"
-  exit 1
-fi
-
-if [[ -n $(git status --porcelain) ]]; then
-  echo "check_git_changes: Uncommitted changes"
-  exit 1
-fi
-
-echo "check_git_changes: No uncommitted changes"
-exit 0
-
-""".format(
-                    pr=self.pr
-                ),
-            ),
-            File(
-                ".",
-                "prepare.sh",
-                """#!/bin/bash
-set -e
-
-cd /home/{pr.repo}
-git reset --hard
-bash /home/check_git_changes.sh
-git checkout {pr.base.sha}
-bash /home/check_git_changes.sh
-pnpm install || true
-
-""".format(
-                    pr=self.pr
-                ),
-            ),
-            File(
-                ".",
-                "run.sh",
-                """#!/bin/bash
-set -e
-
-cd /home/{pr.repo}
-pnpm dev:prepare
-pnpm test:unit -- --verbose
-pnpm test:runtime  --no-watch
-
-""".format(
-                    pr=self.pr
-                ),
-            ),
-            File(
-                ".",
-                "test-run.sh",
-                """#!/bin/bash
-set -e
-
-cd /home/{pr.repo}
-git apply /home/test.patch
-pnpm dev:prepare 
-pnpm test:unit -- --verbose
-pnpm test:runtime  --no-watch
-
-""".format(
-                    pr=self.pr
-                ),
-            ),
-            File(
-                ".",
-                "fix-run.sh",
-                """#!/bin/bash
-set -e
-
-cd /home/{pr.repo}
-git apply /home/test.patch /home/fix.patch
-pnpm dev:prepare
-pnpm test:unit -- --verbose
-pnpm test:runtime  --no-watch
-
-""".format(
-                    pr=self.pr
-                ),
-            ),
-        ]
-
-    def dockerfile(self) -> str:
-        image = self.dependency()
-        name = image.image_name()
-        tag = image.image_tag()
-
-        copy_commands = ""
-        for file in self.files():
-            copy_commands += f"COPY {file.name} /home/\n"
-
-        prepare_commands = "RUN bash /home/prepare.sh"
-
-        return f"""FROM {name}:{tag}
-
-{self.global_env}
-
-{copy_commands}
-
-{prepare_commands}
-
-{self.clear_env}
-
-"""
-
-
-class ImageDefault24709(Image):
-    def __init__(self, pr: PullRequest, config: Config):
-        self._pr = pr
-        self._config = config
-
-    @property
-    def pr(self) -> PullRequest:
-        return self._pr
-
-    @property
-    def config(self) -> Config:
-        return self._config
-
-    def dependency(self) -> Image | None:
-        return ImageBase(self.pr, self.config)
-
-    def image_tag(self) -> str:
-        return f"pr-{self.pr.number}"
-
-    def workdir(self) -> str:
-        return f"pr-{self.pr.number}"
-
-    def files(self) -> list[File]:
-        return [
-            File(
-                ".",
-                "fix.patch",
-                f"{self.pr.fix_patch}",
-            ),
-            File(
-                ".",
-                "test.patch",
-                f"{self.pr.test_patch}",
-            ),
-            File(
-                ".",
-                "check_git_changes.sh",
-                """#!/bin/bash
-set -e
-
-if ! git rev-parse --is-inside-work-tree > /dev/null 2>&1; then
-  echo "check_git_changes: Not inside a git repository"
-  exit 1
-fi
-
-if [[ -n $(git status --porcelain) ]]; then
-  echo "check_git_changes: Uncommitted changes"
-  exit 1
-fi
-
-echo "check_git_changes: No uncommitted changes"
-exit 0
-
-""".format(
-                    pr=self.pr
-                ),
-            ),
-            File(
-                ".",
-                "prepare.sh",
-                """#!/bin/bash
-set -e
-
-cd /home/{pr.repo}
-git reset --hard
-bash /home/check_git_changes.sh
-git checkout {pr.base.sha}
-bash /home/check_git_changes.sh
-pnpm install || true
-
-""".format(
-                    pr=self.pr
-                ),
-            ),
-            File(
-                ".",
-                "run.sh",
-                """#!/bin/bash
-set -e
-
-cd /home/{pr.repo}
-pnpm build:stub
-pnpm test:unit -- --verbose
-pnpm test:runtime  --no-watch
-
-""".format(
-                    pr=self.pr
-                ),
-            ),
-            File(
-                ".",
-                "test-run.sh",
-                """#!/bin/bash
-set -e
-
-cd /home/{pr.repo}
-git apply /home/test.patch
-pnpm build:stub
-pnpm test:unit -- --verbose
-pnpm test:runtime  --no-watch
-
-""".format(
-                    pr=self.pr
-                ),
-            ),
-            File(
-                ".",
-                "fix-run.sh",
-                """#!/bin/bash
-set -e
-
-cd /home/{pr.repo}
-git apply /home/test.patch /home/fix.patch
-pnpm build:stub
-pnpm test:unit -- --verbose
-pnpm test:runtime  --no-watch
-
-""".format(
-                    pr=self.pr
-                ),
-            ),
-        ]
-
-    def dockerfile(self) -> str:
-        image = self.dependency()
-        name = image.image_name()
-        tag = image.image_tag()
-
-        copy_commands = ""
-        for file in self.files():
-            copy_commands += f"COPY {file.name} /home/\n"
-
-        prepare_commands = "RUN bash /home/prepare.sh"
-
-        return f"""FROM {name}:{tag}
-
-{self.global_env}
-
-{copy_commands}
-
-{prepare_commands}
-
-{self.clear_env}
-
-"""
+from livebench.agentic_code_runner.eval.harness.test_result import mapping_to_testresult
+
+# ── Vitest verbose output parser ──────────────────────────────────────────
+# These regexes MUST stay in sync with the Vitest/Jest log parser used
+# during PR validation (04_validate_prs.py parse_vitest_jest).
+
+_RE_ANSI   = re.compile(r"\x1b\[[0-9;]*[mGKHFABCDJst]")
+_RE_PASS   = re.compile(r"^\s*[✓√] (.+?)(?:\s+\d+(?:\.\d+)?(?:ms|s))?$")
+_RE_FAIL   = re.compile(r"^\s*[×✕✗] (.+?)(?:\s+\d+(?:\.\d+)?(?:ms|s))?$")
+_RE_SKIP   = re.compile(r"^\s*↓ (.+?)(?:\s+\[skipped\])?$")
+_RE_TIMING = re.compile(r"\s+\d+(?:\.\d+)?(?:ms|s)$")
+_RE_RETRY_TIMING = re.compile(r"\s+\d+(?:\.\d+)?(?:ms|s)\s+\(retry x\d+\)$")
+_RE_RETRY_ONLY   = re.compile(r"\s+\(retry x\d+\)$")
+_RE_JEST_TIMING  = re.compile(r"\s+\(\d+(?:\.\d+)?ms\)$")
+_RE_WS     = re.compile(r"\s+")
+_RE_PROJ_PIPE = re.compile(r"^\|([^|]+)\|\s*")
+
+
+# Known-flaky test families (timing-dependent), excluded from parse output
+# entirely. MUST stay in sync with flaky_tests in the question-generation
+# repos/nuxt/config.yaml. These are already absent from every question's
+# FAIL_TO_PASS/PASS_TO_PASS; filtering here keeps a random flip from
+# tripping gen_report's run/test/fix consistency checks, which would
+# otherwise invalidate the report and zero a correct model patch
+# (observed: pr-34320, scrollBehavior flake PASS->FAIL in fix phase).
+_FLAKY_GLOBS = (
+    "* test/nuxt/router.options.test.ts > scrollBehavior of router options with global transition > *",
+    "unit packages/nuxt/test/builder.test.ts > builder:watch > *",
+)
+
+
+def _is_flaky(name: str) -> bool:
+    return any(fnmatch.fnmatchcase(name, g) for g in _FLAKY_GLOBS)
+
+
+def _clean(name: str) -> str:
+    name = _RE_RETRY_TIMING.sub("", name)
+    name = _RE_RETRY_ONLY.sub("", name)
+    name = _RE_JEST_TIMING.sub("", name)
+    name = _RE_TIMING.sub("", name)
+    name = _RE_WS.sub(" ", name).strip()
+    # Normalise old-vitest "|project|" prefix to the badge form "project "
+    # (must stay in sync with parse_vitest_jest in 04_validate_prs.py).
+    return _RE_PROJ_PIPE.sub(r"\1 ", name)
 
 
 @Instance.register("nuxt", "nuxt")
@@ -363,60 +82,28 @@ class Nuxt(Instance):
         return self._pr
 
     def dependency(self) -> Optional[Image]:
-        if self.pr.number <= 24709:
-            return ImageDefault24709(self.pr, self._config)
-
-        return ImageDefault(self.pr, self._config)
-
-    def run(self, run_cmd: str = "") -> str:
-        if run_cmd:
-            return run_cmd
-
-        return "bash /home/run.sh"
-
-    def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
-        if test_patch_run_cmd:
-            return test_patch_run_cmd
-
-        return "bash /home/test-run.sh"
+        return TypeScriptCustomBuildImage(self.pr, self._config, base_prefix="typescript_abacus")
 
     def fix_patch_run(self, fix_patch_run_cmd: str = "") -> str:
         if fix_patch_run_cmd:
             return fix_patch_run_cmd
-
         return "bash /home/fix-run.sh"
 
-    def parse_log(self, test_log: str) -> TestResult:
-        passed_tests = set()
-        failed_tests = set()
-        skipped_tests = set()
-
-        current_suite = None
-
-        re_pass_suite = re.compile(r"^✓\s+(.+?)\s")
-
-        re_fail_suite = re.compile(r"^❯\s+(.+?)\s")
-
-        for line in test_log.splitlines():
-            line = line.strip()
-            if not line:
+    def parse_log(self, log: str) -> TestResult:
+        test_status_map: dict[str, str] = {}
+        for raw_line in log.splitlines():
+            line = _RE_ANSI.sub("", raw_line)
+            m = _RE_PASS.match(line)
+            if m:
+                test_status_map[_clean(m.group(1))] = "PASSED"
                 continue
-
-            pass_match = re_pass_suite.match(line)
-            if pass_match:
-                current_suite = pass_match.group(1)
-                passed_tests.add(current_suite)
-
-            fail_match = re_fail_suite.match(line)
-            if fail_match:
-                current_suite = fail_match.group(1)
-                failed_tests.add(current_suite)
-
-        return TestResult(
-            passed_count=len(passed_tests),
-            failed_count=len(failed_tests),
-            skipped_count=len(skipped_tests),
-            passed_tests=passed_tests,
-            failed_tests=failed_tests,
-            skipped_tests=skipped_tests,
-        )
+            m = _RE_FAIL.match(line)
+            if m:
+                test_status_map[_clean(m.group(1))] = "FAILED"
+                continue
+            m = _RE_SKIP.match(line)
+            if m:
+                test_status_map[_clean(m.group(1))] = "SKIPPED"
+        for name in [n for n in test_status_map if _is_flaky(n)]:
+            del test_status_map[name]
+        return mapping_to_testresult(test_status_map)
