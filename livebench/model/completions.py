@@ -736,6 +736,16 @@ def chat_completion_litellm(
         elif actual_api_kwargs['thinking'].get('type') == 'auto':
             # 'auto' is the beta-client spelling; the standard endpoint only accepts 'adaptive'
             actual_api_kwargs['thinking'] = {**actual_api_kwargs['thinking'], 'type': 'adaptive'}
+        # litellm gates output_config.effort against a per-model capability map, so EAP/codename
+        # models it doesn't know (e.g. claude-snickerdoodle-eap) get xhigh/max rejected client-side
+        # even when the API accepts them. Register the requested effort as supported for this model.
+        effort = (actual_api_kwargs.get('output_config') or {}).get('effort')
+        if effort:
+            litellm.register_model({model: {
+                'litellm_provider': 'anthropic',
+                'supports_reasoning': True,
+                f'supports_{effort}_reasoning_effort': True,
+            }})
         passthrough('thinking', 'output_config')
     else:
         passthrough('reasoning_effort')
