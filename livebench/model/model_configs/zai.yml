@@ -124,3 +124,27 @@ api_kwargs:
       thinking:
         type: enabled
 preserve_reasoning: true
+---
+display_name: glm-5.2
+api_name:
+  https://api.z.ai/api/paas/v4: glm-5.2
+  https://open.bigmodel.cn/api/paas/v4: glm-5.2
+  https://openrouter.ai/api/v1: z-ai/glm-5.2
+default_provider: https://open.bigmodel.cn/api/paas/v4
+api_keys:
+  https://api.z.ai/api/paas/v4: ZAI_API_KEY
+  https://open.bigmodel.cn/api/paas/v4: ZAI_API_KEY_v2
+  https://openrouter.ai/api/v1: OPENROUTER_API_KEY
+api_kwargs:
+  default:
+    temperature: 1.0
+    top_p: 0.95
+    max_tokens: 131072
+    stream: true
+    reasoning_effort: max
+    extra_body:
+      thinking:
+        type: enabled
+  https://openrouter.ai/api/v1:
+    reasoning_effort: xhigh
+preserve_reasoning: true
