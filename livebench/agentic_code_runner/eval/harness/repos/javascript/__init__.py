@@ -1,3 +1,4 @@
+from livebench.agentic_code_runner.eval.harness.repos.javascript.ajv_validator import *
 from livebench.agentic_code_runner.eval.harness.repos.javascript.anuraghazra import *
 from livebench.agentic_code_runner.eval.harness.repos.javascript.Automattic import *
 from livebench.agentic_code_runner.eval.harness.repos.javascript.axios import *
@@ -6,7 +7,10 @@ from livebench.agentic_code_runner.eval.harness.repos.javascript.expressjs impor
 from livebench.agentic_code_runner.eval.harness.repos.javascript.fastify import *
 from livebench.agentic_code_runner.eval.harness.repos.javascript.google import *
 from livebench.agentic_code_runner.eval.harness.repos.javascript.iamkun import *
+from livebench.agentic_code_runner.eval.harness.repos.javascript.josdejong import *
 from livebench.agentic_code_runner.eval.harness.repos.javascript.Kong import *
+from livebench.agentic_code_runner.eval.harness.repos.javascript.moment import *
 from livebench.agentic_code_runner.eval.harness.repos.javascript.sveltejs import *
 from livebench.agentic_code_runner.eval.harness.repos.javascript.tj import *
 from livebench.agentic_code_runner.eval.harness.repos.javascript.vuejs import *
+from livebench.agentic_code_runner.eval.harness.repos.javascript.validatorjs import *

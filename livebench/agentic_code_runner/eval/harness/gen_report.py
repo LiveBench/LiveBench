@@ -24,6 +24,7 @@ from dataclasses_json import dataclass_json
 from tqdm import tqdm
 
 from livebench.agentic_code_runner.eval.harness.constant import (
+    EMPTY_PATCH_MARKER_FILE,
     EVALUATION_WORKDIR,
     FINAL_REPORT_FILE,
     GENERATE_REPORT_LOG_FILE,
@@ -565,8 +566,25 @@ class CliArgs:
 
     def run_evaluation(self):
         tasks = self.collect_report_tasks(EVALUATION_WORKDIR)
+        # Instances whose filtered fix patch was empty never ran (run_evaluation.py
+        # writes a marker instead); a marker takes precedence over any stale report.
+        empty_patch_tasks = [
+            task
+            for task in tasks
+            if task.id in self.dataset
+            and (task.instance_dir / EMPTY_PATCH_MARKER_FILE).exists()
+        ]
+        if empty_patch_tasks:
+            self.logger.warning(
+                f"{len(empty_patch_tasks)} instances had empty fix patches and were "
+                f"not evaluated: {[task.id for task in empty_patch_tasks]}"
+            )
+        empty_patch_task_ids = {task.id for task in empty_patch_tasks}
+        tasks = [task for task in tasks if task.id not in empty_patch_task_ids]
         reports, invalid_reports, failed_tasks = self.gen_eval_reports(tasks)
-        final_report = FinalReport.from_reports(reports, invalid_reports, failed_tasks)
+        final_report = FinalReport.from_reports(
+            reports, invalid_reports, failed_tasks, empty_patch_tasks
+        )
         with open(self.output_dir / FINAL_REPORT_FILE, "w", encoding="utf-8") as f:
             f.write(final_report.to_json(indent=4, ensure_ascii=False))
 

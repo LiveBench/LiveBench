@@ -1,7 +1,12 @@
 import re
 from typing import Optional, Union
 
-from livebench.agentic_code_runner.eval.harness.image import Config, File, Image
+from livebench.agentic_code_runner.eval.harness.image import (
+    Config,
+    File,
+    Image,
+    TypeScriptCustomBuildImage,
+)
 from livebench.agentic_code_runner.eval.harness.instance import Instance, TestResult
 from livebench.agentic_code_runner.eval.harness.pull_request import PullRequest
 
@@ -213,6 +218,20 @@ class Dayjs(Instance):
         return self._pr
 
     def dependency(self) -> Optional[Image]:
+        # agentic_coding_v2 (javascript) questions carry image_prefix
+        # ("javascript_abacus") and are graded from a pre-built per-PR image
+        # tagged javascript_abacus/<org>_m_<repo>:pr-N, produced by
+        # question_generation/agentic_coding_v2/javascript/scripts/04_validate_prs.py.
+        # TypeScriptCustomBuildImage just generates a Node fix-run.sh that checks
+        # out base.sha, applies the model's fix patch, and runs base.ref — it is
+        # language-agnostic, so it serves JavaScript too.
+        #
+        # Legacy agentic_coding questions have no image_prefix → the original
+        # dynamic clone+build path below, unchanged.
+        if self.pr.image_prefix:
+            return TypeScriptCustomBuildImage(
+                self.pr, self._config, base_prefix=self.pr.image_prefix
+            )
         return ImageDefault(self.pr, self._config)
 
     def run(self, run_cmd: str = "") -> str:
@@ -240,6 +259,17 @@ class Dayjs(Instance):
 
         current_suite = None
 
+        # agentic_coding_v2 (javascript) questions: normalise captured names by
+        # stripping surrounding whitespace. Jest emits the per-test "(N ms)"
+        # timing inconsistently and some dayjs test titles end in a space, so an
+        # un-normalised capture yields two different names for the same test
+        # across runs (e.g. "foo " vs "foo") — which silently contaminates
+        # FAIL_TO_PASS. Legacy agentic_coding questions (no image_prefix) keep
+        # the EXACT original capture so their stored F2P/P2P names still match.
+        # This must stay in sync with parse_jest_suite() in
+        # question_generation/agentic_coding_v2/javascript/scripts/04_validate_prs.py.
+        norm = (lambda s: s.strip()) if self.pr.image_prefix else (lambda s: s)
+
         re_pass_suite = re.compile(r"^PASS (.+?)(?:\s\(\d*\.?\d+\s*\w+\))?$")
         re_pass_test = re.compile(r"^✓ (.+?)(?:\s\(\d*\.?\d+\s*\w+\))?$")
 
@@ -253,12 +283,12 @@ class Dayjs(Instance):
 
             pass_match = re_pass_suite.match(line)
             if pass_match:
-                current_suite = pass_match.group(1)
+                current_suite = norm(pass_match.group(1))
                 passed_tests.add(current_suite)
 
             fail_match = re_fail_suite.match(line)
             if fail_match:
-                current_suite = fail_match.group(1)
+                current_suite = norm(fail_match.group(1))
                 failed_tests.add(current_suite)
 
             pass_test_match = re_pass_test.match(line)
@@ -266,7 +296,7 @@ class Dayjs(Instance):
                 if current_suite is None:
                     raise ValueError(f"Test passed without suite: {line}")
 
-                test = f"{current_suite}:{pass_test_match.group(1)}"
+                test = f"{current_suite}:{norm(pass_test_match.group(1))}"
                 passed_tests.add(test)
 
             fail_test_match = re_fail_test.match(line)
@@ -274,7 +304,7 @@ class Dayjs(Instance):
                 if current_suite is None:
                     raise ValueError(f"Test failed without suite: {line}")
 
-                test = f"{current_suite}:{fail_test_match.group(1)}"
+                test = f"{current_suite}:{norm(fail_test_match.group(1))}"
                 failed_tests.add(test)
 
         return TestResult(

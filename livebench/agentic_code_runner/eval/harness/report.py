@@ -334,11 +334,13 @@ class FinalReport:
         reports: list[Report],
         invalid_reports: list[Report],
         failed_tasks: list[ReportTask] = [],
+        empty_patch_tasks: list[ReportTask] = [],
     ) -> "FinalReport":
         submitted_ids = (
             [report.id for report in reports]
             + [report.id for report in invalid_reports]
             + [task.id for task in failed_tasks]
+            + [task.id for task in empty_patch_tasks]
         )
         completed_ids = [report.id for report in reports] + [
             report.id for report in invalid_reports
@@ -346,11 +348,14 @@ class FinalReport:
         incomplete_ids = [task.id for task in failed_tasks]
         resolved_ids = [report.id for report in reports]
         unresolved_ids = [report.id for report in invalid_reports]
-        empty_patch_ids = []
+        empty_patch_ids = [task.id for task in empty_patch_tasks]
         error_ids = [task.id for task in failed_tasks]
 
         final_report = FinalReport(
-            total_instances=len(reports) + len(invalid_reports) + len(failed_tasks),
+            total_instances=len(reports)
+            + len(invalid_reports)
+            + len(failed_tasks)
+            + len(empty_patch_tasks),
             submitted_instances=len(submitted_ids),
             completed_instances=len(completed_ids),
             incomplete_instances=len(incomplete_ids),

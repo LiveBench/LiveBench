@@ -5,11 +5,13 @@ from livebench.agentic_code_runner.eval.harness.repos.python.python_attrs import
 from livebench.agentic_code_runner.eval.harness.repos.python.textualize import *
 from livebench.agentic_code_runner.eval.harness.repos.python.django import *
 from livebench.agentic_code_runner.eval.harness.repos.python.fastapi import *
+from livebench.agentic_code_runner.eval.harness.repos.python.hgrecco import *
 from livebench.agentic_code_runner.eval.harness.repos.python.marshmallow_code import *
 from livebench.agentic_code_runner.eval.harness.repos.python.matplotlib import *
 from livebench.agentic_code_runner.eval.harness.repos.python.mwaskom import *
 from livebench.agentic_code_runner.eval.harness.repos.python.pallets import *
 from livebench.agentic_code_runner.eval.harness.repos.python.psf import *
+from livebench.agentic_code_runner.eval.harness.repos.python.pydantic import *
 from livebench.agentic_code_runner.eval.harness.repos.python.pydata import *
 from livebench.agentic_code_runner.eval.harness.repos.python.pylint_dev import *
 from livebench.agentic_code_runner.eval.harness.repos.python.pytest_dev import *

@@ -230,6 +230,14 @@ environment:
     PIP_PROGRESS_BAR: 'off'
     TQDM_DISABLE: '1'
   environment_class: docker
+  # ANSWER-LEAK / NETWORK ISOLATION: run the agent container with no network.
+  # The per-PR images are git-scrubbed (origin/* + future commits removed) so the
+  # gold fix is unreachable offline; but with network the agent can re-fetch the
+  # answer from GitHub/PyPI (observed: `curl .../pull/<n>.diff`, `git clone`,
+  # `git fetch https://github.com/<repo>`, reading hidden FAIL_TO_PASS tests).
+  # `--network none` closes that vector. Overrides the ["--rm"] default in
+  # environments/docker.py. Applies to all 3 dimensions (python/ts/js share this config).
+  run_args: ["--rm", "--network", "none"]
 
 model:
   model_kwargs:
