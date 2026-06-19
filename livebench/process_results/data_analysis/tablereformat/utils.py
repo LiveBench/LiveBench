@@ -12,19 +12,19 @@ def read_df_func(df_type, df_str):
     if df_type == "json":
         try:
             return pd.read_json(StringIO(df_str), orient="index", encoding="utf-8")
-        except:
+        except Exception:
             pass
         try:
             return pd.read_json(StringIO(df_str), orient="records", lines=False, encoding="utf-8")
-        except:
+        except Exception:
             pass
         try:
             return pd.read_json(StringIO(df_str), orient="records", lines=True, encoding="utf-8")
-        except:
+        except Exception:
             pass
         try:
             return pd.read_json(StringIO(df_str), orient="table", encoding="utf-8")
-        except:
+        except Exception:
             pass
         return pd.read_json(StringIO(df_str), orient="values", encoding="utf-8")
     elif df_type == "jsonl":
@@ -43,13 +43,13 @@ def read_df_func_v2(df_type, df_str):
         try:
             # Try table orientation first as it preserves dtypes
             return pd.read_json(StringIO(df_str), orient="table", encoding="utf-8")
-        except:
+        except Exception:
             try:
                 return pd.read_json(StringIO(df_str), orient="index", lines=False, encoding="utf-8")
-            except:
+            except Exception:
                 try:
                     return pd.read_json(StringIO(df_str), orient="records", lines=False, encoding="utf-8")
-                except:
+                except Exception:
                     print("Could not read JSON")
                     return None
     elif df_type == "jsonl":
@@ -112,7 +112,7 @@ def read_sep_table_from_text(text, header, sep=','):
      while parsed_table is None:
          try:
              parsed_table = pd.read_csv(StringIO('\n'.join(table)), sep=sep)
-         except:
+         except Exception:
              # in case there's extra text after the table
              table = table[:-1]
      return parsed_table
@@ -127,7 +127,7 @@ def read_jsonl_table_from_text(text, header):
             continue
         try:
             table.append(json.loads(line))
-        except:
+        except Exception:
             continue
     if len(table) == 0:
         return None
@@ -162,7 +162,7 @@ def table_process_results(input_command: str, ground_truth: str, llm_answer: str
     llm_df = None
     try:
         llm_df = df_read_func(output_format, llm_clean)
-    except:
+    except Exception:
         if output_format == 'csv' or output_format == 'tsv':
             header = (',', '\t')[output_format == 'tsv'].join(gt_df.columns)
             llm_df = read_sep_table_from_text(llm_clean, header, sep=',' if output_format == 'csv' else '\t')
@@ -218,7 +218,7 @@ def check_table_reformat(output_format, llm_df, gt_df, debug=False):
                     try:
                         llm_val = float(llm_val)
                         gt_val = float(gt_val)
-                    except:
+                    except Exception:
                         assert str(llm_val).strip() == str(gt_val).strip(), f"Mismatched types of values {llm_val} (LLM) vs {gt_val} (Ground Truth) for key {key} in row {i}"
                         continue
                     if math.isnan(llm_val) and math.isnan(gt_val):
