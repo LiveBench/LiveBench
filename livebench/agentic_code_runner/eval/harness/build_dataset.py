@@ -473,6 +473,8 @@ class CliArgs:
             if not git_util.exists(repo_dir):
                 self.logger.warning(f"Repository not found: {repo_dir}")
                 git_util.clone_repository(self.repo_dir / repo.org, repo.org, repo.repo)
+            else:
+                git_util.fetch_repository(repo_dir)
 
             is_clean, error_msg = git_util.is_clean(repo_dir)
             if not is_clean:

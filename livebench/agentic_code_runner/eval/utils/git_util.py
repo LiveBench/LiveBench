@@ -54,6 +54,13 @@ def clone_repository(destination: Path, org: str, repo: str):
     )
 
 
+def fetch_repository(repo_path: Path):
+    subprocess.run(
+        ["git", "-C", str(repo_path), "fetch", "origin"],
+        check=True,
+    )
+
+
 def get_all_commit_hashes(repo_path: Path, logger: logging.Logger) -> set[str]:
     try:
         repo = Repo(repo_path)
