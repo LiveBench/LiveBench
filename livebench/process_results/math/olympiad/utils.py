@@ -1,4 +1,4 @@
-from livebench.process_results.util import last_boxed_only_string, remove_boxed
+from livebench.process_results.util import last_boxed_only_string, remove_boxed, levenshtein_distance
 
 def match_expression_completions_to_ground_truth(completions, ground_truth):
     num_matches = 0
@@ -107,9 +107,15 @@ def proof_rearrangement_process_results(ground_truth: str, llm_answer: str, edit
     completions = extract_expression_completions_from_generation(llm_answer, debug)
 
     if edit_distance:
-        from Levenshtein import distance
-        match = distance(completions, ground_truth)
-        frac_matches = 1-(match/max(len(completions), len(ground_truth)))
+        # `completions` and `ground_truth` are lists of ints (with possible
+        # 'NO ANSWER' sentinels). Use the pure-Python edit distance rather than the
+        # `Levenshtein` package: modern `Levenshtein` (>=0.21) raises
+        # "TypeError: distance expected two Strings or two Unicodes" on int lists,
+        # which previously turned every imo/usamo question into an eval_error (score 0).
+        match = levenshtein_distance(completions, ground_truth)
+        # Fraction of the longer sequence that is already correct; guard the empty case.
+        denom = max(len(completions), len(ground_truth))
+        frac_matches = 1 - (match / denom) if denom else 0
     else:
         match = [(completions[i] == ground_truth[i]) if i < len(ground_truth) else 0 for i in range(len(completions))]
         frac_matches = sum(match)/len(match) if len(match) > 0 else 0
