@@ -164,9 +164,18 @@ def parse(x: str) -> list[sympy.Expr]:
             # this almost only happened for amazon.nova-pro-v1:0 where it outputs e.g. \\frac or \\sqrt all the time
             parsed_xs = parse_latex(x.replace('\\\\', '\\'), backend='lark')
         except:
+            # lark's grammar chokes on implicit multiplication (e.g. "} x ("), powers on
+            # grouped expressions ("(x-1)^2"), and f^2(x) forms like \sec^2(x)/\log^2(x).
+            # latex2sympy2 is far more tolerant of this model-output LaTeX, so use it as
+            # the real fallback. (sympy's own antlr backend is unusable here: latex2sympy2
+            # pins antlr4-python3-runtime==4.7.2 while sympy requires 4.11.)
             try:
-                # if all else fails, try to parse using default backend
-                parsed_xs = parse_latex(x)
+                from latex2sympy2 import latex2sympy
+                try:
+                    return [latex2sympy(x)]
+                except:
+                    # some models emit doubled backslashes (\\frac, \\cos, \\left ...)
+                    return [latex2sympy(x.replace('\\\\', '\\'))]
             except:
                 warnings.warn(f"couldn't parse {x}")
                 return []
@@ -234,15 +243,16 @@ def is_equiv_llm(x1: str, x2: str) -> bool:
     try:
         import openai
         client = openai.Client()
-        response = client.chat.completions.create(model='o3', messages=[
+        response = client.chat.completions.create(model='gpt-5-mini', messages=[
             {
                 'role': 'user',
                 'content': f'Are these latex expressions equivalent or negatives of each other. Reply yes or no: \n "{x1}" and "{x2}"'
             }
         ])
-        if response.choices[0].message.content.lower() == 'yes':
-            return True
-        return False
+        content = (response.choices[0].message.content or '').strip().lower()
+        # robust match: the model may answer "Yes.", "yes, they are equivalent", etc.,
+        # so don't require the reply to be exactly "yes".
+        return content.startswith('yes')
     except Exception as e:
         # re-raise so a failed tiebreaker (e.g. bad OPENAI_API_KEY) is recorded as an eval_error, not a silent False
         warnings.warn(f"Failed using LLM to comparing {x1} and {x2}: {e}")
