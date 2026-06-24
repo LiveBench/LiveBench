@@ -57,7 +57,13 @@ _FLAKY_GLOBS: tuple = (
     "*Suspense > nested suspense (child resolves first)",
     "*Suspense > branch switch to 3rd branch before resolve",
     "*Suspense > nested suspense (w/ suspensible) switch several times before parent suspense resolve",
+    "*Suspense > branch switch timeout + fallback",
+    "*Suspense > mount the fallback content is in the correct position",
     "*SFC style preprocessors > scss @import",
+    # compileTemplate pug preprocessor (invokes the pug compiler; flips under
+    # thread contention exactly like the scss @import preprocessor above).
+    # Covers both "preprocess pug" and "preprocess pug with indents and blank lines".
+    "*compileTemplate.spec.ts > preprocess pug*",
 )
 
 
