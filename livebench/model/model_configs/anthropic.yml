@@ -540,6 +540,21 @@ api_kwargs:
       type: adaptive
     max_tokens: 128000
 ---
+display_name: claude-sonnet-5-max-effort
+api_name:
+  anthropic: claude-sonnet-5
+aliases:
+  - claude-sonnet-5-max
+api_kwargs:
+  default:
+    temperature: 1
+    extra_body:
+      output_config:
+        effort: max
+    thinking:
+      type: adaptive
+    max_tokens: 128000
+---
 display_name: claude-sonnet-5-xhigh-effort
 api_name:
   anthropic: claude-sonnet-5
