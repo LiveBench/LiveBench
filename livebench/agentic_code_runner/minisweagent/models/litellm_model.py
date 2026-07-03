@@ -91,6 +91,13 @@ class LitellmModel:
         # turns where a resample turned an initial empty into usable text.
         self.empty_responses = 0
         self.empty_resamples_recovered = 0
+        # Consecutive-degrade early-abort: number of turns in a row that degraded to
+        # empty despite resampling. Once it reaches MSWEA_EMPTY_DEGRADE_ABORT, the
+        # instance is treated as being in a sustained-collapse state and resampling is
+        # skipped (fail fast) until the model produces usable text again. This model
+        # object is created per-instance (run_batch.get_model in a thread pool), so the
+        # counter is naturally per-instance -- no sharing or reset needed.
+        self.consecutive_empty_degrades = 0
         if self.config.litellm_model_registry and Path(self.config.litellm_model_registry).is_file():
             litellm.utils.register_model(json.loads(Path(self.config.litellm_model_registry).read_text()))
 
@@ -301,6 +308,15 @@ class LitellmModel:
         # so a misconfig can't loop away. On exhaustion we fall through to the same
         # degrade-to-empty path as before, so the worst case is unchanged.
         max_empty_retries = min(int(os.getenv("MSWEA_EMPTY_RESPONSE_RETRIES", "5")), 8)
+        # Early-abort on sustained collapse: if the last N turns all degraded to empty
+        # even after full resampling, resampling won't fix it -- stop paying the tax
+        # (up to 6 API calls + ~23s backoff) on every doomed step and take a single
+        # attempt instead. Gated by MSWEA_EMPTY_DEGRADE_ABORT (default 3; set 0 to
+        # disable = always resample, i.e. previous behavior). The counter resets the
+        # moment the model returns usable text, so full resampling resumes on recovery.
+        degrade_abort = int(os.getenv("MSWEA_EMPTY_DEGRADE_ABORT", "3"))
+        if degrade_abort > 0 and self.consecutive_empty_degrades >= degrade_abort:
+            max_empty_retries = 0
         content = ""
         sanitized_content = []
         response = None
@@ -341,6 +357,8 @@ class LitellmModel:
                     logger.warning(
                         f"Recovered from empty response after {_empty_attempt} resample(s)"
                     )
+                # Usable text this turn -> not (or no longer) in sustained collapse.
+                self.consecutive_empty_degrades = 0
                 break
 
             # No usable text on this attempt. Count it (observable in the trajectory
@@ -361,7 +379,11 @@ class LitellmModel:
             # nudges the model, and continues (bounded by step_limit). Ensure the
             # stored assistant turn is non-empty so the *next* API call stays valid
             # (Anthropic rejects assistant messages with empty content).
-            logger.warning("Empty text response from Anthropic; degrading to empty turn so the agent can retry")
+            self.consecutive_empty_degrades += 1
+            logger.warning(
+                "Empty text response from Anthropic; degrading to empty turn so the agent can retry "
+                f"(consecutive degrades: {self.consecutive_empty_degrades})"
+            )
             content = ""
             if not sanitized_content:
                 sanitized_content = [{"type": "text", "text": "(no response)"}]
