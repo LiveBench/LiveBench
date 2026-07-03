@@ -487,12 +487,20 @@ aliases:
 api_kwargs:
   default:
     temperature: 1
+    betas:
+      - server-side-fallback-2026-06-01
     extra_body:
       output_config:
         effort: xhigh
+      fallbacks:
+        - model: claude-opus-4-8
     thinking:
       type: adaptive
     max_tokens: 128000
+cost_per_million:
+  input: 10.0
+  cached_input: 1.0
+  output: 50.0
 ---
 display_name: claude-fable-5-high-effort
 api_name:

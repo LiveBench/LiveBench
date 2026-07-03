@@ -1,5 +1,6 @@
 """Basic agent class. See https://mini-swe-agent.com/latest/advanced/control_flow/ for visual explanation."""
 
+import os
 import re
 import subprocess
 from collections.abc import Callable
@@ -26,7 +27,25 @@ class AgentConfig:
         "Please try another command and make sure to avoid those requiring interactive input."
     )
     format_error_template: str = "Please always provide EXACTLY ONE action in triple backticks."
+    noop_action_template: str = (
+        "Your command was a no-op (`true`, `:`, or empty) and did nothing — no progress was made. "
+        "If your fix is already complete, submit now by making the FIRST line of a command's output "
+        "'COMPLETE_TASK_AND_SUBMIT_FINAL_OUTPUT' (e.g. `echo COMPLETE_TASK_AND_SUBMIT_FINAL_OUTPUT && git diff`). "
+        "Otherwise, run a real command that makes progress on the task."
+    )
     action_observation_template: str = "Observation: {{output}}"
+    empty_submission_template: str = (
+        "Your submission produces an EMPTY diff against the base commit: you have NOT actually "
+        "modified any source files, so the task is not solved.\n"
+        "Do NOT assume the environment is unreliable, stale, lagged, or intermittent — command "
+        "output is reliable. Do NOT claim a fix is already staged or that tests passed unless you "
+        "have just seen that exact output.\n"
+        "Recover step by step, one shell command per turn:\n"
+        "1. Run `git diff` to confirm there are currently no changes.\n"
+        "2. Open the relevant source file(s) and make the actual code edit that fixes the issue.\n"
+        "3. Run the failing test(s) and read the output to verify the fix works.\n"
+        "4. Only then resubmit with COMPLETE_TASK_AND_SUBMIT_FINAL_OUTPUT."
+    )
     step_limit: int = 0
     cost_limit: float = 0
 
@@ -37,6 +56,23 @@ class NonTerminatingException(Exception):
 
 class FormatError(NonTerminatingException):
     """Raised when the LM's output is not in the expected format."""
+
+
+class NoOpActionError(NonTerminatingException):
+    """Raised when the LM emits a do-nothing command (`true`, `:`, or empty).
+
+    Handled like other NonTerminatingExceptions: the message is appended as a user
+    turn nudging the model to do real work or submit. Because it is raised after
+    model.query() (n_calls already incremented), each nudge counts as a step, so the
+    loop stays bounded by step_limit exactly like a format error."""
+
+
+class EmptySubmissionError(NonTerminatingException):
+    """Raised when the LM tries to submit but its diff vs the base commit is empty.
+
+    Handled like other NonTerminatingExceptions: the message is appended as a user
+    turn nudging the model to make a real change, and the loop continues (bounded by
+    MSWEA_EMPTY_SUBMISSION_RETRIES and the step limit)."""
 
 
 class ExecutionTimeoutError(NonTerminatingException):
@@ -96,6 +132,13 @@ class DefaultAgent:
         self.extra_template_vars = {}
         self.existing_git_diff = ""
         self.base_commit = ""
+        # Empty-submission guard (see has_finished). Tuned by MSWEA_EMPTY_SUBMISSION_RETRIES
+        # (default 3 -> guard ON so empty submissions never silently slip through a run;
+        # set to 0 to disable). Hard-capped at 3 so a misconfig can't loop the step budget away.
+        self.max_empty_submission_retries = min(int(os.getenv("MSWEA_EMPTY_SUBMISSION_RETRIES", "3")), 3)
+        self.empty_submissions = 0  # confirmed-empty submissions that were nudged this run
+        self.empty_submissions_recovered = 0  # runs where a nudge later yielded a real diff
+        self._empty_submission_nudges = 0  # per-run counter, reset in run()
 
     def render_template(self, template: str, **kwargs) -> str:
         template_vars = asdict(self.config) | self.env.get_template_vars() | self.model.get_template_vars()
@@ -120,6 +163,7 @@ class DefaultAgent:
         self.existing_git_diff = out["output"]
         self.extra_template_vars |= {"task": task, **kwargs}
         self.messages = []
+        self._empty_submission_nudges = 0
         self.add_message("system", self.render_template(self.config.system_template))
         self.add_message("user", self.render_template(self.config.instance_template))
         while True:
@@ -218,7 +262,17 @@ class DefaultAgent:
             # loop) in one turn: execute the FIRST block and feed the real observation
             # back, rather than rejecting the entire turn. The model then continues from
             # real output instead of its own hallucinated output.
-            return {"action": actions[0].strip(), **response}
+            action = actions[0].strip()
+            # No-op guard (always on): a bare `true`/`:`/empty command accomplishes nothing
+            # and is the hallmark of the idle loop where a model believes it already
+            # submitted and spins to the step limit. Don't execute it; feed back an explicit
+            # nudge instead. Exact-match only, so real commands (e.g. `x || true`) are
+            # untouched, and none of these can contain the submit sentinel. This is raised
+            # after model.query() ran, so it counts as a step -> bounded by step_limit and
+            # can never make a run worse (same terminal state, more useful feedback).
+            if action in ("true", ":", ""):
+                raise NoOpActionError(self.render_template(self.config.noop_action_template))
+            return {"action": action, **response}
         raise FormatError(self.render_template(self.config.format_error_template, actions=actions))
 
     def execute_action(self, action: dict) -> dict:
@@ -241,12 +295,36 @@ class DefaultAgent:
             # Recapture the diff from the environment rather than trusting the
             # model-printed output: the printed `git diff --cached` is empty if the
             # agent committed during the trajectory, and may be truncated or echoed.
-            new_diff = self._capture_git_diff()
-            if new_diff is None:
-                # capture failed; fall back to the model-printed diff
+            captured = self._capture_git_diff()
+            if captured is None:
+                # capture failed; fall back to the model-printed diff. We can't prove
+                # the tree is empty on this path, so the empty-submission guard below
+                # is intentionally skipped.
                 new_diff = "".join(lines[1:])
                 if self.existing_git_diff != "":
                     # need to remove the changes from the existing diff from the new diff
                     # so that the final diff only includes the changes from the agent
                     new_diff = extract_new_changes(self.existing_git_diff, new_diff)
+                raise Submitted(new_diff)
+
+            new_diff = captured
+            # Empty-submission guard: a confirmed-empty diff means the agent is
+            # submitting without having changed any source file, often after
+            # hallucinating that a fix was already staged or that the environment was
+            # returning stale/lagged output. Rather than accept the empty submission,
+            # nudge the model to make + verify a real edit and continue the loop.
+            # Bounded by max_empty_submission_retries; on exhaustion we accept the
+            # empty diff so the worst case is unchanged.
+            if new_diff.strip() == "":
+                if self._empty_submission_nudges < self.max_empty_submission_retries:
+                    self.empty_submissions += 1
+                    self._empty_submission_nudges += 1
+                    logger.warning(
+                        "Empty submission (no diff vs base commit); nudging the model to make a real "
+                        f"change (attempt {self._empty_submission_nudges}/{self.max_empty_submission_retries})"
+                    )
+                    raise EmptySubmissionError(self.render_template(self.config.empty_submission_template))
+            elif self._empty_submission_nudges > 0:
+                # An earlier submission this run was empty; the nudge yielded a real diff.
+                self.empty_submissions_recovered += 1
             raise Submitted(new_diff)

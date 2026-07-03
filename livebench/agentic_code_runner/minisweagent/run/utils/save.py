@@ -66,6 +66,9 @@ def save_traj(
         data["info"]["model_stats"]["total_output_tokens"] = agent.model.output_tokens
         data["info"]["model_stats"]["total_cached_tokens"] = getattr(agent.model, "cached_tokens", 0)
         data["info"]["model_stats"]["total_cache_creation_tokens"] = getattr(agent.model, "cache_creation_tokens", 0)
+        # Empty-response resampling observability (getattr-guarded for model classes that lack it)
+        data["info"]["model_stats"]["empty_responses"] = getattr(agent.model, "empty_responses", 0)
+        data["info"]["model_stats"]["empty_resamples_recovered"] = getattr(agent.model, "empty_resamples_recovered", 0)
         for message in agent.messages:
             if 'extra' in message:
                 del message['extra']

@@ -2,6 +2,7 @@ import copy
 import json
 import logging
 import os
+import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Literal, cast
@@ -85,6 +86,18 @@ class LitellmModel:
         self.output_tokens = 0
         self.cached_tokens = 0
         self.cache_creation_tokens = 0
+        # Observability for the empty-response resampling (see _query_completion_anthropic_direct):
+        # empty_responses = total empty completions seen; empty_resamples_recovered =
+        # turns where a resample turned an initial empty into usable text.
+        self.empty_responses = 0
+        self.empty_resamples_recovered = 0
+        # Consecutive-degrade early-abort: number of turns in a row that degraded to
+        # empty despite resampling. Once it reaches MSWEA_EMPTY_DEGRADE_ABORT, the
+        # instance is treated as being in a sustained-collapse state and resampling is
+        # skipped (fail fast) until the model produces usable text again. This model
+        # object is created per-instance (run_batch.get_model in a thread pool), so the
+        # counter is naturally per-instance -- no sharing or reset needed.
+        self.consecutive_empty_degrades = 0
         if self.config.litellm_model_registry and Path(self.config.litellm_model_registry).is_file():
             litellm.utils.register_model(json.loads(Path(self.config.litellm_model_registry).read_text()))
 
@@ -281,35 +294,84 @@ class LitellmModel:
             call_kwargs['output_config'] = output_config
         
         # Always use beta client for this method (it handles thinking.type=auto)
-        with client.beta.messages.stream(**call_kwargs) as stream:
-            response = stream.get_final_message()
-        
-        # Extract non-empty text and build sanitized content for history
+        #
+        # Bounded resample on empty completions: fable-5 (and adaptive-thinking
+        # models generally) intermittently return a turn with NO usable text. Left
+        # unhandled, the first empty gets stored as an empty assistant turn + a
+        # format-error nudge, which the model then mirrors, collapsing into a
+        # self-reinforcing empty loop that burns the whole step budget.
+        # Because temperature=1, each retry is an INDEPENDENT sample, so resampling
+        # the SAME (still-clean) context recovers most transient empties before any
+        # poisoning starts. Tuned by MSWEA_EMPTY_RESPONSE_RETRIES (default 5 -> ON so
+        # fable-style empty-completion loops don't silently burn the step budget; set
+        # to 0 to disable, i.e. the loop runs exactly once = old behavior). Capped at 8
+        # so a misconfig can't loop away. On exhaustion we fall through to the same
+        # degrade-to-empty path as before, so the worst case is unchanged.
+        max_empty_retries = min(int(os.getenv("MSWEA_EMPTY_RESPONSE_RETRIES", "5")), 8)
+        # Early-abort on sustained collapse: if the last N turns all degraded to empty
+        # even after full resampling, resampling won't fix it -- stop paying the tax
+        # (up to 6 API calls + ~23s backoff) on every doomed step and take a single
+        # attempt instead. Gated by MSWEA_EMPTY_DEGRADE_ABORT (default 3; set 0 to
+        # disable = always resample, i.e. previous behavior). The counter resets the
+        # moment the model returns usable text, so full resampling resumes on recovery.
+        degrade_abort = int(os.getenv("MSWEA_EMPTY_DEGRADE_ABORT", "3"))
+        if degrade_abort > 0 and self.consecutive_empty_degrades >= degrade_abort:
+            max_empty_retries = 0
         content = ""
         sanitized_content = []
-        for block in response.content:
-            block_type = getattr(block, 'type', 'unknown')
-            
-            if block_type == "text":
-                text = getattr(block, 'text', '')
-                # Only include non-empty text blocks in sanitized content
-                if text.strip():
-                    sanitized_content.append({"type": "text", "text": text})
-                    if not content:  # Use first non-empty text as the content
-                        content = text.strip()
-            elif block_type == "thinking":
-                thinking_text = getattr(block, 'thinking', '')
-                signature = getattr(block, 'signature', None)
-                # Include thinking blocks in sanitized content (needed for multi-turn)
-                thinking_block = {"type": "thinking", "thinking": thinking_text}
-                if signature is not None:
-                    thinking_block["signature"] = signature
-                sanitized_content.append(thinking_block)
-            elif block_type == "redacted_thinking":
-                # Include redacted thinking blocks
-                data = getattr(block, 'data', '')
-                sanitized_content.append({"type": "redacted_thinking", "data": data})
-        
+        response = None
+        for _empty_attempt in range(max_empty_retries + 1):
+            with client.beta.messages.stream(**call_kwargs) as stream:
+                response = stream.get_final_message()
+
+            # Extract non-empty text and build sanitized content for history
+            content = ""
+            sanitized_content = []
+            for block in response.content:
+                block_type = getattr(block, 'type', 'unknown')
+
+                if block_type == "text":
+                    text = getattr(block, 'text', '')
+                    # Only include non-empty text blocks in sanitized content
+                    if text.strip():
+                        sanitized_content.append({"type": "text", "text": text})
+                        if not content:  # Use first non-empty text as the content
+                            content = text.strip()
+                elif block_type == "thinking":
+                    thinking_text = getattr(block, 'thinking', '')
+                    signature = getattr(block, 'signature', None)
+                    # Include thinking blocks in sanitized content (needed for multi-turn)
+                    thinking_block = {"type": "thinking", "thinking": thinking_text}
+                    if signature is not None:
+                        thinking_block["signature"] = signature
+                    sanitized_content.append(thinking_block)
+                elif block_type == "redacted_thinking":
+                    # Include redacted thinking blocks
+                    data = getattr(block, 'data', '')
+                    sanitized_content.append({"type": "redacted_thinking", "data": data})
+
+            if content:
+                if _empty_attempt > 0:
+                    # An earlier attempt this turn was empty; this resample recovered.
+                    self.empty_resamples_recovered += 1
+                    logger.warning(
+                        f"Recovered from empty response after {_empty_attempt} resample(s)"
+                    )
+                # Usable text this turn -> not (or no longer) in sustained collapse.
+                self.consecutive_empty_degrades = 0
+                break
+
+            # No usable text on this attempt. Count it (observable in the trajectory
+            # via model_stats) and resample if we still have attempts left.
+            self.empty_responses += 1
+            if _empty_attempt < max_empty_retries:
+                backoff = min(2 ** _empty_attempt, 8)
+                logger.warning(
+                    "Empty text response from Anthropic; resampling "
+                    f"(attempt {_empty_attempt + 1}/{max_empty_retries + 1}, sleeping {backoff}s)"
+                )
+                time.sleep(backoff)
+
         if not content:
             # The model returned no usable text (e.g. only a thinking block, or a
             # transient empty completion). Don't crash the whole instance: return
@@ -317,7 +379,11 @@ class LitellmModel:
             # nudges the model, and continues (bounded by step_limit). Ensure the
             # stored assistant turn is non-empty so the *next* API call stays valid
             # (Anthropic rejects assistant messages with empty content).
-            logger.warning("Empty text response from Anthropic; degrading to empty turn so the agent can retry")
+            self.consecutive_empty_degrades += 1
+            logger.warning(
+                "Empty text response from Anthropic; degrading to empty turn so the agent can retry "
+                f"(consecutive degrades: {self.consecutive_empty_degrades})"
+            )
             content = ""
             if not sanitized_content:
                 sanitized_content = [{"type": "text", "text": "(no response)"}]
