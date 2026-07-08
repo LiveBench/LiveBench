@@ -846,6 +846,20 @@ class EmojiSentenceChecker(Instruction):
 		"""Returns the args keys of `build_description`."""
 		return []
 
+	@staticmethod
+	def _ends_with_emoji(text):
+		# emoji.emoji_list matches full emoji sequences (ZWJ sequences, variation
+		# selectors, flags, skin tones), unlike is_emoji on a single codepoint.
+		matches = emoji.emoji_list(text)
+		# tolerate one trailing stray character, matching the old
+		# last_char/second_last_char behavior ("blank spaces are treated oddly")
+		return bool(matches) and matches[-1]['match_end'] >= len(text) - 1
+
+	@staticmethod
+	def _starts_with_emoji(text):
+		matches = emoji.emoji_list(text)
+		return bool(matches) and matches[0]['match_start'] == 0
+
 	def check_following(self, value):
 		"""Checks if the response includes an emoji at the end of every sentence."""
 
@@ -855,17 +869,13 @@ class EmojiSentenceChecker(Instruction):
 			#check for empty string
 			if not stripped:
 				return False
-			last_char = stripped[-1]
-			# because blank spaces are treated oddly
-			second_last_char = stripped[-2] if len(stripped) > 1 else stripped[-1]
-			if not emoji.is_emoji(last_char) and not emoji.is_emoji(second_last_char):
+			if not self._ends_with_emoji(stripped):
 				if i < len(sentences) - 1:
 					stripped = sentences[i + 1].translate(str.maketrans('', '', string.punctuation)).strip()
 					# fixed empty string
 					if not stripped:
 						return False
-					first_char = stripped[0]
-					if not emoji.is_emoji(first_char):
+					if not self._starts_with_emoji(stripped):
 						return False
 				else:
 					return False
@@ -1190,7 +1200,12 @@ class ParagraphLastFirstWordMatchChecker(Instruction):
 			paragraph = paragraph.strip().lower()
 			if not paragraph:
 				continue
-			words = paragraph.strip(''.join(string.punctuation) + ' ').split()
+			# strip punctuation per token (not just at paragraph edges) so
+			# "Basically, ... Basically." matches; drop tokens that are pure
+			# punctuation (e.g. bullet markers "*" / "-"), which the old
+			# paragraph-edge strip removed implicitly
+			words = [w.strip(string.punctuation + '‘’“”–—…«»') for w in paragraph.split()]
+			words = [w for w in words if w]
 			if not words:
 				continue
 			if words[0] != words[-1]:
