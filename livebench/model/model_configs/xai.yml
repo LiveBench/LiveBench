@@ -159,3 +159,13 @@ cost_per_million:
   input: 1.00
   cached_input: 0.20
   output: 2.00
+---
+display_name: grok-4.5
+api_name:
+  https://api.x.ai/v1: grok-4.5
+api_keys:
+  https://api.x.ai/v1: XAI_API_KEY
+cost_per_million:
+  input: 2.00
+  cached_input: 0.50
+  output: 6.00
