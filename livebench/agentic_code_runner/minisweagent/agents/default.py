@@ -27,6 +27,13 @@ class AgentConfig:
         "Please try another command and make sure to avoid those requiring interactive input."
     )
     format_error_template: str = "Please always provide EXACTLY ONE action in triple backticks."
+    multiple_actions_template: str = (
+        "WARNING: Your response contained {{n_actions}} bash code blocks, but exactly ONE is allowed. "
+        "Only the FIRST block was executed; the other {{n_actions - 1}} block(s) were DISCARDED and did "
+        "NOT run — any output you anticipated from them does not exist. The observation below is the "
+        "real output of the first block only. Re-issue the remaining commands ONE bash block per turn, "
+        "waiting for each observation before writing the next command."
+    )
     noop_action_template: str = (
         "Your command was a no-op (`true`, `:`, or empty) and did nothing — no progress was made. "
         "If your fix is already complete, submit now by making the FIRST line of a command's output "
@@ -133,9 +140,9 @@ class DefaultAgent:
         self.existing_git_diff = ""
         self.base_commit = ""
         # Empty-submission guard (see has_finished). Tuned by MSWEA_EMPTY_SUBMISSION_RETRIES
-        # (default 3 -> guard ON so empty submissions never silently slip through a run;
-        # set to 0 to disable). Hard-capped at 3 so a misconfig can't loop the step budget away.
-        self.max_empty_submission_retries = min(int(os.getenv("MSWEA_EMPTY_SUBMISSION_RETRIES", "3")), 3)
+        # (default 5 -> guard ON so empty submissions never silently slip through a run;
+        # set to 0 to disable). Hard-capped at 5 so a misconfig can't loop the step budget away.
+        self.max_empty_submission_retries = min(int(os.getenv("MSWEA_EMPTY_SUBMISSION_RETRIES", "5")), 5)
         self.empty_submissions = 0  # confirmed-empty submissions that were nudged this run
         self.empty_submissions_recovered = 0  # runs where a nudge later yielded a real diff
         self._empty_submission_nudges = 0  # per-run counter, reset in run()
@@ -244,8 +251,15 @@ class DefaultAgent:
 
     def get_observation(self, response: dict) -> dict:
         """Execute the action and return the observation."""
-        output = self.execute_action(self.parse_action(response))
+        action = self.parse_action(response)
+        output = self.execute_action(action)
         observation = self.render_template(self.config.action_observation_template, output=output)
+        if action.get("n_actions", 1) > 1:
+            # The turn bundled several bash blocks and only the first one ran (see
+            # parse_action). Say so explicitly, otherwise the model assumes the rest
+            # executed and reasons from outputs that never happened.
+            notice = self.render_template(self.config.multiple_actions_template, n_actions=action["n_actions"])
+            observation = f"{notice}\n\n{observation}"
         self.add_message("user", observation)
         return output
 
@@ -272,7 +286,7 @@ class DefaultAgent:
             # can never make a run worse (same terminal state, more useful feedback).
             if action in ("true", ":", ""):
                 raise NoOpActionError(self.render_template(self.config.noop_action_template))
-            return {"action": action, **response}
+            return {"action": action, "n_actions": len(actions), **response}
         raise FormatError(self.render_template(self.config.format_error_template, actions=actions))
 
     def execute_action(self, action: dict) -> dict:
