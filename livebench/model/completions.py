@@ -455,6 +455,9 @@ def chat_completion_anthropic(model: str, messages: Conversation, temperature: f
         api_kwargs.update(model_api_kwargs)
 
     actual_api_kwargs = {key: (value if value is not None else NOT_GIVEN) for key, value in api_kwargs.items()}
+    # client.messages.stream() streams implicitly; drop litellm-only stream kwargs.
+    actual_api_kwargs.pop('stream', None)
+    actual_api_kwargs.pop('stream_options', None)
 
     system = [message for message in messages if message['role'] == 'system']
     if len(system) > 0:
@@ -467,7 +470,11 @@ def chat_completion_anthropic(model: str, messages: Conversation, temperature: f
     message = []
 
     client = c
-    if actual_api_kwargs.get('betas', []):
+    _thinking_cfg = actual_api_kwargs.get('thinking') or {}
+    _needs_beta = bool(actual_api_kwargs.get('betas', [])) or (
+        isinstance(_thinking_cfg, dict) and _thinking_cfg.get('type') in ('auto', 'adaptive')
+    )
+    if _needs_beta:
         client = c.beta
 
     with client.messages.stream(
@@ -522,6 +529,20 @@ def chat_completion_anthropic(model: str, messages: Conversation, temperature: f
     text_messages = [c for c in message if c['type'] == 'text' and c.get('text', '').strip()]
     if len(text_messages) == 0:
         block_types = [c['type'] for c in message]
+        if stop_reason == 'max_tokens':
+            # token exhaustion: budget spent on thinking, no answer -> empty + eval_status (graded 0)
+            _md: dict[str, Any] = {'eval_status': 'token_exhaustion'}
+            _out = -1
+            if final_usage is not None:
+                _out = final_usage.output_tokens
+                _md['input_tokens'] = final_usage.input_tokens
+                _cr = getattr(final_usage, 'cache_read_input_tokens', None)
+                if _cr is not None:
+                    _md['cached_tokens'] = _cr
+                _cc = getattr(final_usage, 'cache_creation_input_tokens', None)
+                if _cc is not None:
+                    _md['cache_creation'] = _cc
+            return "", _out, _md
         raise Exception(f"No response from Anthropic (stop_reason={stop_reason}, blocks={block_types})")
 
     message_text = text_messages[0]['text']
@@ -532,6 +553,9 @@ def chat_completion_anthropic(model: str, messages: Conversation, temperature: f
         cached_tokens = getattr(final_usage, 'cache_read_input_tokens', None)
         if cached_tokens is not None:
             metadata['cached_tokens'] = cached_tokens
+        cache_creation = getattr(final_usage, 'cache_creation_input_tokens', None)
+        if cache_creation is not None:
+            metadata['cache_creation'] = cache_creation
         return message_text, tokens, metadata
 
     # Fallback when usage is unavailable: approximate output tokens via count_tokens
@@ -680,6 +704,17 @@ def chat_completion_litellm(
 ) -> tuple[str, int, dict[str, Any] | None]:
     """Provider-agnostic path via LiteLLM, selected by the --use-litellm flag."""
     import litellm
+    # litellm's sync httpx client has no TCP keep-alive, so long streams get dropped by
+    # idle NAT/LB timeouts ("peer closed connection"). Give it the keep-alive the official
+    # SDKs set, via litellm's sync_transport hook (applies to every provider).
+    if getattr(litellm, "sync_transport", None) is None:
+        import httpx, socket
+        _sockopts = [(socket.SOL_SOCKET, socket.SO_KEEPALIVE, True)]
+        for _name, _val in (("TCP_KEEPIDLE", 60), ("TCP_KEEPINTVL", 60), ("TCP_KEEPCNT", 5)):
+            _n = getattr(socket, _name, None)
+            if _n is not None:
+                _sockopts.append((socket.IPPROTO_TCP, _n, _val))
+        litellm.sync_transport = httpx.HTTPTransport(socket_options=_sockopts)
 
     api_kwargs: API_Kwargs = {
         'temperature': temperature
@@ -759,34 +794,50 @@ def chat_completion_litellm(
 
     timeout = actual_api_kwargs.pop('timeout', 600)
 
-    try:
-        response = litellm.completion(
-            model=litellm_model, messages=messages, stream=stream, timeout=timeout, **actual_api_kwargs
-        )
-    except Exception as e:
-        # Fall back to non-streaming if the provider rejects streaming
-        err = str(e).lower()
-        if stream and 'stream' in err and any(s in err for s in ('support', 'invalid', 'not allowed', 'verified')):
-            logger.warning(f"{litellm_model} rejected streaming, retrying non-streaming: {e}")
-            stream = False
-            actual_api_kwargs.pop('stream_options', None)
-            response = litellm.completion(
-                model=litellm_model, messages=messages, stream=False, timeout=timeout, **actual_api_kwargs
-            )
-        else:
-            raise
+    _TRANSIENT_STREAM_ERRS = (
+        'peer closed connection', 'incomplete chunked read', 'apiconnectionerror',
+        'midstreamfallback', 'connection error', 'connection reset', 'connection aborted',
+        'server disconnected', 'timed out', 'timeout',
+    )
+    _MAX_ATTEMPTS = 3
 
-    if stream:
-        chunks = list(response)
-        last_usage = None
-        for chunk in reversed(chunks):
-            if hasattr(chunk, 'usage') and chunk.usage is not None:
-                last_usage = chunk.usage
-                break
-        response = litellm.stream_chunk_builder(chunks, messages=messages)
-        if response.usage is not None and last_usage is not None:
-            if not response.usage.prompt_tokens and getattr(last_usage, 'prompt_tokens', None):
-                response.usage.prompt_tokens = last_usage.prompt_tokens
+    def _do_litellm_call(use_stream):
+        resp = litellm.completion(
+            model=litellm_model, messages=messages, stream=use_stream, timeout=timeout,
+            num_retries=3, **actual_api_kwargs
+        )
+        if use_stream:
+            # consume the stream here so a mid-stream drop is caught and retryable
+            chunks = list(resp)
+            last_usage = None
+            for chunk in reversed(chunks):
+                if hasattr(chunk, 'usage') and chunk.usage is not None:
+                    last_usage = chunk.usage
+                    break
+            resp = litellm.stream_chunk_builder(chunks, messages=messages)
+            if resp.usage is not None and last_usage is not None:
+                if not resp.usage.prompt_tokens and getattr(last_usage, 'prompt_tokens', None):
+                    resp.usage.prompt_tokens = last_usage.prompt_tokens
+        return resp
+
+    response = None
+    for _attempt in range(1, _MAX_ATTEMPTS + 1):
+        try:
+            response = _do_litellm_call(stream)
+            break
+        except Exception as e:
+            err = str(e).lower()
+            # provider doesn't support streaming -> fall back to non-streaming
+            if stream and 'stream' in err and any(s in err for s in ('support', 'invalid', 'not allowed', 'verified')):
+                logger.warning(f"{litellm_model} rejected streaming, retrying non-streaming: {e}")
+                stream = False
+                actual_api_kwargs.pop('stream_options', None)
+                continue
+            # transient mid-stream drop -> retry the whole call
+            if _attempt < _MAX_ATTEMPTS and any(s in err for s in _TRANSIENT_STREAM_ERRS):
+                logger.warning(f"{litellm_model} transient stream error (attempt {_attempt}/{_MAX_ATTEMPTS}), retrying: {e}")
+                continue
+            raise
 
     message = response.choices[0].message.content
     finish_reason = response.choices[0].finish_reason
@@ -804,8 +855,9 @@ def chat_completion_litellm(
             cached_tokens = response.usage.prompt_tokens_details.cached_tokens or 0
 
     if message is None or message == '':
-        if finish_reason == 'length' and reasoning_content:
-            logger.warning(f"Token exhaustion: model used all tokens on reasoning ({num_tokens} tokens), no content produced")
+        if finish_reason == 'length':
+            # token exhaustion (finish_reason=length + empty; reasoning_content not always surfaced)
+            logger.warning(f"Token exhaustion: model used all tokens ({num_tokens}), no content produced")
             message = ""
             token_exhaustion = True
         else:
