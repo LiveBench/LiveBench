@@ -86,6 +86,10 @@ class LitellmModel:
         self.output_tokens = 0
         self.cached_tokens = 0
         self.cache_creation_tokens = 0
+        # Stateful Responses-API chaining: only send the new turn each time
+        # (previous_response_id + store) instead of replaying the whole convo.
+        self.previous_response_id = None
+        self._responses_sent_upto = 0
         # Observability for the empty-response resampling (see _query_completion_anthropic_direct):
         # empty_responses = total empty completions seen; empty_resamples_recovered =
         # turns where a resample turned an initial empty into usable text.
@@ -540,9 +544,24 @@ class LitellmModel:
                 system_messages.append(message.get('content', ''))
         system_prompt = system_messages[0] if system_messages else None
 
+        # Stateful chaining: after the first turn send ONLY the new user/tool
+        # messages + previous_response_id (server retains prior turns incl.
+        # reasoning). Keeps each request tiny and avoids reasoning-item placement
+        # 400s from full replay. store=True retains each response for the next turn.
+        call_kwargs = dict(self.config.model_kwargs | kwargs)
+        call_kwargs['store'] = True
+        if self.previous_response_id is not None:
+            src = messages[self._responses_sent_upto:]
+            call_kwargs['previous_response_id'] = self.previous_response_id
+        else:
+            src = messages
+        input_to_send = [{'role': m['role'], 'content': m.get('content', '')}
+                         for m in src if m.get('role') in ('user', 'tool')]
         res = litellm.responses(
-            model=self.config.model_name, input=messages, instructions=system_prompt, **(self.config.model_kwargs | kwargs),
+            model=self.config.model_name, input=input_to_send, instructions=system_prompt, **call_kwargs,
         )
+        self._responses_sent_upto = len(messages)
+        self.previous_response_id = getattr(res, 'id', None)
 
         output_text = ""
 
@@ -601,7 +620,7 @@ class LitellmModel:
         elif self.config.api_type == "completion":
             result = self._query_completion(actual_messages, **kwargs)
         elif self.config.api_type == "responses":
-            result = self._query_responses(actual_messages, **kwargs)
+            result = self._query_responses(messages, **kwargs)  # raw messages: stateful chaining tracks the delta
         else:
             raise ValueError(f"Invalid API type: {self.config.api_type}")
 
