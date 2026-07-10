@@ -195,6 +195,13 @@ def setup_model(model_config: ModelConfig, api_dict: dict[str, str] | None = Non
                 api_dict['api_key'] = os.environ.get(model_config.api_keys[provider])
     
 
+    # Explicit api_base for a non-URL provider (e.g. openai_responses pointing at a
+    # non-OpenAI Responses endpoint such as Meta's api.meta.ai/v1).
+    if api_dict is None and getattr(model_config, 'api_base', None):
+        api_dict = {'api_base': model_config.api_base}
+        if model_config.api_keys and provider in model_config.api_keys and os.environ.get(model_config.api_keys[provider]):
+            api_dict['api_key'] = os.environ.get(model_config.api_keys[provider])
+
     api_kwargs = None
     if model_config.api_kwargs:
         api_kwargs = {}

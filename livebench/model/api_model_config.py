@@ -16,6 +16,7 @@ class ModelConfig:
     prompt_prefix: str | None = None # prefix to add to the prompt
     preserve_reasoning: bool | None = None # whether to preserve reasoning in multi-turn tasks
     cost_per_million: dict[str, float] | None = None # USD per 1M tokens; keys: input, cached_input, output
+    api_base: str | None = None # explicit base URL for the provider (e.g. non-OpenAI Responses API endpoints like Meta)
 
 @cache
 def load_model_configs(file_path: str) -> dict[str, ModelConfig]:

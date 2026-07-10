@@ -30,3 +30,40 @@ api_keys:
   https://api.fireworks.ai/inference/v1: FIREWORKS_API_KEY
 aliases:
   - llama4-maverick
+---
+# Meta muse-spark via the OpenAI Responses API (api.meta.ai/v1)
+display_name: muse-spark-1.1-high
+api_name:
+  openai_responses: muse-spark-1.1
+default_provider: openai_responses
+api_base: https://api.meta.ai/v1
+api_keys:
+  openai_responses: META_API_KEY
+api_kwargs:
+  default:
+    temperature: null
+  openai_responses:
+    max_output_tokens: null
+    timeout: 550
+    reasoning:
+      effort: high
+      summary: auto
+preserve_reasoning: true
+---
+display_name: muse-spark-1.1-xhigh
+api_name:
+  openai_responses: muse-spark-1.1
+default_provider: openai_responses
+api_base: https://api.meta.ai/v1
+api_keys:
+  openai_responses: META_API_KEY
+api_kwargs:
+  default:
+    temperature: null
+  openai_responses:
+    max_output_tokens: null
+    timeout: 550
+    reasoning:
+      effort: xhigh
+      summary: auto
+preserve_reasoning: true
