@@ -20,7 +20,7 @@ from datetime import datetime
 
 CATEGORIES = [
     "coding", "data_analysis", "instruction_following",
-    "language", "math", "reasoning", "agentic_coding",
+    "language", "math", "reasoning", "agentic_coding", "agentic_coding_v2",
 ]
 
 ANSWER_ERROR = "$ERROR$"
