@@ -9,7 +9,7 @@ from livebench.common import LIVE_BENCH_ROOT_PATH
 
 from livebench.process_results.coding.utils import agentic_coding_process_results
 from livebench.model.completions import API_ERROR_OUTPUT
-from livebench.model.api_model_config import get_model_config
+from livebench.model.api_model_config import get_model_config, RESPONSES_API_PROVIDERS
 
 
 def update_dict_recursively(d1, d2):
@@ -88,9 +88,9 @@ def run_agentic_coding_inference(
     config_path = LIVE_BENCH_ROOT_PATH / f"agentic_code_runner/minisweagent/config/livebench.yaml"
     config = yaml.safe_load(open(config_path))
 
-    if provider == 'openai_responses':
+    if provider in RESPONSES_API_PROVIDERS:
         config['model']['api_type'] = 'responses'
-        provider = 'openai'
+        provider = RESPONSES_API_PROVIDERS[provider]
     elif provider == 'google':
         provider = 'gemini'
     elif provider == 'together':

@@ -1517,6 +1517,18 @@ api_kwargs:
       effort: none
       summary: auto
 ---
+display_name: gpt-oss-120b-or-responses
+cost_per_million:
+  input: 0.18
+  output: 0.8
+api_name:
+  openrouter_responses: openai/gpt-oss-120b
+api_keys:
+  openrouter_responses: OPENROUTER_API_KEY
+api_kwargs:
+  default:
+    reasoning_effort: high
+---
 # gpt-5.6 alpha configs recovered from answer-file api_info (lost in a working-tree reset)
 display_name: gpt-5.6-sol-xhigh
 cost_per_million:

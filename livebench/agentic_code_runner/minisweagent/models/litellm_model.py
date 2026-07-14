@@ -72,6 +72,9 @@ class LitellmModelConfig:
     model_kwargs: dict[str, Any] = field(default_factory=dict)
     litellm_model_registry: Path | str | None = os.getenv("LITELLM_MODEL_REGISTRY_PATH")
     preserve_reasoning: bool | None = None
+    # gemini-3 uses the genai SDK by default; False routes it through litellm (the
+    # replay keeps provider_specific_fields nested so thought signatures survive)
+    native_gemini: bool = True
 
 class LitellmModel:
     def __init__(self, **kwargs):
@@ -88,8 +91,10 @@ class LitellmModel:
         self.cache_creation_tokens = 0
         # Stateful Responses-API chaining: only send the new turn each time
         # (previous_response_id + store) instead of replaying the whole convo.
+        # None = untried, False = provider can't chain (stateless API / ZDR org).
         self.previous_response_id = None
         self._responses_sent_upto = 0
+        self._responses_chaining: bool | None = None
         # Observability for the empty-response resampling (see _query_completion_anthropic_direct):
         # empty_responses = total empty completions seen; empty_resamples_recovered =
         # turns where a resample turned an initial empty into usable text.
@@ -266,6 +271,10 @@ class LitellmModel:
         # doesn't need it, so we flatten it here.)
         extra_body = actual_api_kwargs.pop('extra_body', {}) or {}
         output_config = actual_api_kwargs.pop('output_config', None) or extra_body.get('output_config', None)
+        # Server-side refusal fallback (opt-in). SDK 0.105.2 has no typed `fallbacks`
+        # param, so it must ride in the request body via extra_body; pair with the
+        # server-side-fallback-2026-06-01 beta (set in the model config's `betas`).
+        fallbacks = actual_api_kwargs.pop('fallbacks', None) or extra_body.get('fallbacks', None)
         thinking = actual_api_kwargs.pop('thinking', None)
         max_tokens = actual_api_kwargs.pop('max_tokens', 8192)
         temperature = actual_api_kwargs.pop('temperature', NOT_GIVEN)
@@ -296,7 +305,9 @@ class LitellmModel:
             call_kwargs['betas'] = betas
         if output_config is not None:
             call_kwargs['output_config'] = output_config
-        
+        if fallbacks:
+            call_kwargs['extra_body'] = {'fallbacks': fallbacks}
+
         # Always use beta client for this method (it handles thinking.type=auto)
         #
         # Bounded resample on empty completions: fable-5 (and adaptive-thinking
@@ -328,6 +339,14 @@ class LitellmModel:
             with client.beta.messages.stream(**call_kwargs) as stream:
                 response = stream.get_final_message()
 
+            # Server-side refusal fallback detection: if a fallback fired, this turn was
+            # served by a DIFFERENT model (e.g. claude-opus-4-8). Its thinking blocks carry
+            # that model's signature; replaying them to the requested model next turn can be
+            # rejected as cross-model/modified thinking. So on a fallback turn keep only the
+            # text (drop thinking/redacted_thinking) -- the agent only needs the action text.
+            served_model = getattr(response, 'model', None) or actual_model_name
+            is_fallback = bool(served_model) and (actual_model_name not in str(served_model))
+
             # Extract non-empty text and build sanitized content for history
             content = ""
             sanitized_content = []
@@ -342,6 +361,8 @@ class LitellmModel:
                         if not content:  # Use first non-empty text as the content
                             content = text.strip()
                 elif block_type == "thinking":
+                    if is_fallback:
+                        continue  # drop cross-model thinking to avoid replay rejection
                     thinking_text = getattr(block, 'thinking', '')
                     signature = getattr(block, 'signature', None)
                     # Include thinking blocks in sanitized content (needed for multi-turn)
@@ -350,9 +371,12 @@ class LitellmModel:
                         thinking_block["signature"] = signature
                     sanitized_content.append(thinking_block)
                 elif block_type == "redacted_thinking":
+                    if is_fallback:
+                        continue
                     # Include redacted thinking blocks
                     data = getattr(block, 'data', '')
                     sanitized_content.append({"type": "redacted_thinking", "data": data})
+                # a 'fallback' marker block (present on fallback turns) is intentionally skipped
 
             if content:
                 if _empty_attempt > 0:
@@ -415,6 +439,7 @@ class LitellmModel:
             'output_tokens': output_tokens,
             'cached_tokens': cached_tokens,
             'cache_creation_input_tokens': cache_creation_tokens,
+            'fallback_used': served_model if is_fallback else None,
         }
 
         return result
@@ -537,29 +562,89 @@ class LitellmModel:
         ),
         reraise=True,
     )
-    def _query_responses(self, messages: list[dict[str, str]], **kwargs):
+    def _responses_provider(self) -> str:
+        try:
+            return litellm.get_llm_provider(self.config.model_name)[1] or ''
+        except Exception:
+            return ''
+
+    def _responses_supports_instructions(self) -> bool:
+        """Whether the provider's Responses API accepts `instructions` (xAI rejects it)."""
+        try:
+            from litellm.utils import ProviderConfigManager
+            model = self.config.model_name.split('/', 1)[-1]
+            provider_config = ProviderConfigManager.get_provider_responses_api_config(self._responses_provider(), model)
+            return provider_config is None or 'instructions' in provider_config.get_supported_openai_params(model)
+        except Exception:
+            return True
+
+    def _query_responses(self, messages: list[dict[str, str]], replay_messages: list[dict[str, str]] | None = None, **kwargs):
         system_messages: list[str] = []
         for message in messages:
             if message.get('role') == 'system':
                 system_messages.append(message.get('content', ''))
         system_prompt = system_messages[0] if system_messages else None
 
-        # Stateful chaining: after the first turn send ONLY the new user/tool
-        # messages + previous_response_id (server retains prior turns incl.
-        # reasoning). Keeps each request tiny and avoids reasoning-item placement
-        # 400s from full replay. store=True retains each response for the next turn.
-        call_kwargs = dict(self.config.model_kwargs | kwargs)
-        call_kwargs['store'] = True
-        if self.previous_response_id is not None:
-            src = messages[self._responses_sent_upto:]
-            call_kwargs['previous_response_id'] = self.previous_response_id
+        # Stateful chaining sends only previous_response_id + the new turn; not universal:
+        # OpenRouter's Responses API is stateless and ZDR OpenAI orgs reject
+        # previous_response_id, so those use full-history replay instead.
+        if self._responses_chaining is None and self._responses_provider() == 'openrouter':
+            self._responses_chaining = False
+
+        def _build_call(use_chaining: bool):
+            call_kwargs = dict(self.config.model_kwargs | kwargs)
+            use_instructions = system_prompt is not None and self._responses_supports_instructions()
+            if use_chaining:
+                call_kwargs['store'] = True
+                if self.previous_response_id is not None:
+                    src = messages[self._responses_sent_upto:]
+                    call_kwargs['previous_response_id'] = self.previous_response_id
+                else:
+                    src = messages
+                # without `instructions` support the system prompt must ride inside input
+                roles = ('user', 'tool') if use_instructions else ('user', 'tool', 'system')
+                input_to_send = [{'role': m['role'], 'content': m.get('content', '')}
+                                 for m in src if m.get('role') in roles]
+            else:
+                input_to_send = replay_messages if replay_messages is not None else messages
+                if use_instructions:
+                    # system rides in `instructions`; keeping it in input double-counts it
+                    input_to_send = [m for m in input_to_send
+                                     if not (isinstance(m, dict) and m.get('role') == 'system')]
+                if self._responses_provider() == 'openai':
+                    # ZDR-canonical stateless replay: encrypted reasoning keeps replayed
+                    # reasoning items valid instead of silently ignored
+                    call_kwargs['store'] = False
+                    existing_include = call_kwargs.get('include') or []
+                    if 'reasoning.encrypted_content' not in existing_include:
+                        call_kwargs['include'] = list(existing_include) + ['reasoning.encrypted_content']
+            if use_instructions:
+                call_kwargs['instructions'] = system_prompt
+            return input_to_send, call_kwargs
+
+        use_chaining = self._responses_chaining is not False
+        input_to_send, call_kwargs = _build_call(use_chaining)
+        try:
+            res = litellm.responses(
+                model=self.config.model_name, input=input_to_send, **call_kwargs,
+            )
+        except litellm.exceptions.BadRequestError as e:
+            err = str(e)
+            if use_chaining and ('previous_response_id' in err or 'Zero Data Retention' in err or "'store'" in err):
+                logger.warning(
+                    f"{self.config.model_name}: previous_response_id/store rejected "
+                    f"({err[:120]}); disabling chaining, falling back to full replay"
+                )
+                self._responses_chaining = False
+                input_to_send, call_kwargs = _build_call(False)
+                res = litellm.responses(
+                    model=self.config.model_name, input=input_to_send, **call_kwargs,
+                )
+            else:
+                raise
         else:
-            src = messages
-        input_to_send = [{'role': m['role'], 'content': m.get('content', '')}
-                         for m in src if m.get('role') in ('user', 'tool')]
-        res = litellm.responses(
-            model=self.config.model_name, input=input_to_send, instructions=system_prompt, **call_kwargs,
-        )
+            if use_chaining:
+                self._responses_chaining = True
         self._responses_sent_upto = len(messages)
         self.previous_response_id = getattr(res, 'id', None)
 
@@ -601,9 +686,12 @@ class LitellmModel:
             message_copy = message.copy()
             if 'extra' in message_copy:
                 if message_copy['extra'].get('message') is not None:
-                    if 'provider_specific_fields' in message_copy['extra']['message'] and message_copy['extra']['message']['provider_specific_fields'] is not None:
-                        message_copy['extra']['message'] = message_copy['extra']['message'] | message_copy['extra']['message']['provider_specific_fields']
-                        del message_copy['extra']['message']['provider_specific_fields']
+                    provider_fields = message_copy['extra']['message'].get('provider_specific_fields')
+                    if provider_fields:
+                        # flatten for reasoning_content/thinking_blocks consumers, but keep
+                        # the nested dict too: litellm's gemini path reads thought_signatures
+                        # from provider_specific_fields only
+                        message_copy['extra']['message'] = message_copy['extra']['message'] | provider_fields
                     actual_messages.append(message_copy['extra']['message'])
                 elif message_copy['extra'].get('outputs') is not None:
                     actual_messages.extend(message_copy['extra']['outputs'])
@@ -613,14 +701,15 @@ class LitellmModel:
             else:
                 actual_messages.append(message_copy)
 
-        if 'gemini-3' in self.config.model_name:
+        if self.config.native_gemini and 'gemini-3' in self.config.model_name:
             result = self._query_completion_generativeai(actual_messages, **kwargs)
         elif self._needs_direct_anthropic_call():
             result = self._query_completion_anthropic_direct(actual_messages, **kwargs)
         elif self.config.api_type == "completion":
             result = self._query_completion(actual_messages, **kwargs)
         elif self.config.api_type == "responses":
-            result = self._query_responses(messages, **kwargs)  # raw messages: stateful chaining tracks the delta
+            # raw messages for chaining deltas; unpacked actual_messages for replay fallback
+            result = self._query_responses(messages, replay_messages=actual_messages, **kwargs)
         else:
             raise ValueError(f"Invalid API type: {self.config.api_type}")
 
@@ -659,9 +748,14 @@ class LitellmModel:
         res = {
             "content": content or "",
             "extra": {
-                "response": response.model_dump() if hasattr(response, 'model_dump') else response,
+                # warnings=False: the server-side-fallback `usage.iterations` types aren't
+                # fully modeled in anthropic SDK 0.105.2 and otherwise emit a noisy
+                # PydanticSerializationUnexpectedValue warning on every fallback turn.
+                "response": response.model_dump(warnings=False) if hasattr(response, 'model_dump') else response,
                 "message": message_data,
-                "outputs": result['outputs'] if 'outputs' in result else None
+                "outputs": result['outputs'] if 'outputs' in result else None,
+                # record which turns were rescued by the server-side refusal fallback
+                "fallback_used": result.get('fallback_used'),
             },
         }
 

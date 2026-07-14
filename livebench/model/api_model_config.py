@@ -5,6 +5,14 @@ from functools import cache
 
 APIKwargs = dict[str, dict[str, str | int | float | bool | dict[str, str] | None]]
 
+# Responses-API provider keys -> litellm provider; routes /responses in both harnesses.
+# Endpoints without a native litellm config (DashScope, Meta) use openai_responses + api_base.
+RESPONSES_API_PROVIDERS = {
+    'openai_responses': 'openai',
+    'xai_responses': 'xai',
+    'openrouter_responses': 'openrouter',
+}
+
 @dataclass
 class ModelConfig:
     display_name: str # Name of the model as it will be displayed in the leaderboard; used for file naming

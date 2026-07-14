@@ -11,6 +11,8 @@ from openai.types.chat import ChatCompletion, ChatCompletionChunk
 from tenacity import (retry, retry_if_exception_type, stop_after_attempt,
                       wait_fixed, wait_incrementing)
 
+from livebench.model.api_model_config import RESPONSES_API_PROVIDERS
+
 logging.basicConfig(stream=sys.stdout, level=logging.WARNING)
 
 
@@ -731,8 +733,9 @@ def chat_completion_litellm(
 
     actual_api_kwargs = {key: value for key, value in api_kwargs.items() if value is not None}
 
-    # LiveBench provider names → LiteLLM prefixes ('openai/responses' = Responses-API bridge)
-    litellm_provider_aliases = {'google': 'gemini', 'together': 'together_ai', 'openai_responses': 'openai/responses'}
+    # LiveBench provider names → LiteLLM prefixes ('<provider>/responses' = Responses-API bridge)
+    litellm_provider_aliases = {'google': 'gemini', 'together': 'together_ai'}
+    litellm_provider_aliases.update({name: f'{litellm_name}/responses' for name, litellm_name in RESPONSES_API_PROVIDERS.items()})
 
     if api_dict is not None and api_dict.get('api_base'):
         # honor the responses-API bridge for non-openai endpoints (provider=openai_responses)
@@ -782,7 +785,7 @@ def chat_completion_litellm(
         passthrough('reasoning_effort')
         if litellm_model.startswith('gemini/'):
             passthrough('thinking_config')
-        elif litellm_model.startswith('openai/responses/'):
+        elif '/responses/' in litellm_model:
             passthrough('reasoning')
 
     if stream and 'stream_options' not in actual_api_kwargs:
