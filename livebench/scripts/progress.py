@@ -26,14 +26,6 @@ CATEGORIES = [
 ANSWER_ERROR = "$ERROR$"
 
 
-def count_lines(path):
-    try:
-        with open(path) as f:
-            return sum(1 for _ in f)
-    except OSError:
-        return 0
-
-
 def read_jsonl(path):
     try:
         with open(path) as f:
@@ -50,14 +42,34 @@ def answer_turn(answer):
     return turns[0] if isinstance(turns, list) else turns
 
 
+def active_questions(task_dir):
+    """Question ids currently live for a task: in question.jsonl with no removal date."""
+    return {q.get("question_id")
+            for q in read_jsonl(os.path.join(task_dir, "question.jsonl"))
+            if not q.get("livebench_removal_date")}
+
+
+def latest_answers(path, active):
+    """Latest answer record per active question — files accumulate reruns."""
+    latest = {}
+    for r in read_jsonl(path):
+        qid = r.get("question_id")
+        if qid in active:
+            prev = latest.get(qid)
+            if prev is None or r.get("tstamp", 0) >= prev.get("tstamp", 0):
+                latest[qid] = r
+    return latest.values()
+
+
 def category_progress(data_root, model, category):
     p = {"total": 0, "answers": 0, "submitted": 0, "empty": 0,
          "errors": 0, "judged": 0, "error_types": Counter()}
     for task in sorted(glob.glob(os.path.join(data_root, category, "*"))):
         if not os.path.isdir(task):
             continue
-        p["total"] += count_lines(os.path.join(task, "question.jsonl"))
-        for answer in read_jsonl(os.path.join(task, "model_answer", f"{model}.jsonl")):
+        active = active_questions(task)
+        p["total"] += len(active)
+        for answer in latest_answers(os.path.join(task, "model_answer", f"{model}.jsonl"), active):
             p["answers"] += 1
             turn = answer_turn(answer)
             if turn == ANSWER_ERROR:
@@ -67,9 +79,10 @@ def category_progress(data_root, model, category):
                 p["submitted"] += 1
             else:
                 p["empty"] += 1
-        for judgment in read_jsonl(os.path.join(task, "model_judgment", "ground_truth_judgment.jsonl")):
-            if judgment.get("model") == model:
-                p["judged"] += 1
+        judged = {j.get("question_id")
+                  for j in read_jsonl(os.path.join(task, "model_judgment", "ground_truth_judgment.jsonl"))
+                  if j.get("model") == model}
+        p["judged"] += len(judged & active)
     return p
 
 
