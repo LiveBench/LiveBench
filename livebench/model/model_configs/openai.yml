@@ -1,78 +1,134 @@
 # OpenAI Models
 ---
 display_name: gpt-4o-2024-11-20
+cost_per_million:
+  input: 2.5
+  cached_input: 1.25
+  output: 10
 api_name:
   openai: gpt-4o-2024-11-20
 aliases:
   - gpt-4o
 ---
 display_name: chatgpt-4o-latest-2025-03-27
+cost_per_million:
+  input: 5
+  output: 15
 api_name:
   openai: chatgpt-4o-latest
 aliases:
   - chatgpt-4o-latest
 ---
 display_name: gpt-3.5-turbo
+cost_per_million:
+  input: 0.5
+  output: 1.5
 api_name:
   openai: gpt-3.5-turbo
 ---
 display_name: gpt-3.5-turbo-1106
+cost_per_million:
+  input: 1
+  output: 2
 api_name:
   openai: gpt-3.5-turbo-1106
 ---
 display_name: gpt-3.5-turbo-0125
+cost_per_million:
+  input: 0.5
+  output: 1.5
 api_name:
   openai: gpt-3.5-turbo-0125
 ---
 display_name: gpt-4
+cost_per_million:
+  input: 30
+  output: 60
 api_name:
   openai: gpt-4
 ---
 display_name: gpt-4-0314
+cost_per_million:
+  input: 30
+  output: 60
 api_name:
   openai: gpt-4-0314
 ---
 display_name: gpt-4-0613
+cost_per_million:
+  input: 30
+  output: 60
 api_name:
   openai: gpt-4-0613
 ---
 display_name: gpt-4-turbo
+cost_per_million:
+  input: 10
+  output: 30
 api_name:
   openai: gpt-4-turbo
 ---
 display_name: gpt-4-turbo-2024-04-09
+cost_per_million:
+  input: 10
+  output: 30
 api_name:
   openai: gpt-4-turbo-2024-04-09
 ---
 display_name: gpt-4-1106-preview
+cost_per_million:
+  input: 10
+  output: 30
 api_name:
   openai: gpt-4-1106-preview
 ---
 display_name: gpt-4-0125-preview
+cost_per_million:
+  input: 10
+  output: 30
 api_name:
   openai: gpt-4-0125-preview
 ---
 display_name: gpt-4o-2024-05-13
+cost_per_million:
+  input: 5
+  output: 15
 api_name:
   openai: gpt-4o-2024-05-13
 ---
 display_name: gpt-4o-mini-2024-07-18
+cost_per_million:
+  input: 0.15
+  cached_input: 0.075
+  output: 0.6
 api_name:
   openai: gpt-4o-mini-2024-07-18
 aliases:
   - gpt-4o-mini
 ---
 display_name: gpt-4o-2024-08-06
+cost_per_million:
+  input: 2.5
+  cached_input: 1.25
+  output: 10
 api_name:
   openai: gpt-4o-2024-08-06
 ---
 display_name: gpt-4.5-preview-2025-02-27
+cost_per_million:
+  input: 75
+  cached_input: 37.5
+  output: 150
 api_name:
   openai: gpt-4.5-preview-2025-02-27
 aliases:
   - gpt-4.5-preview
 ---
 display_name: gpt-5-minimal
+cost_per_million:
+  input: 1.25
+  cached_input: 0.125
+  output: 10
 api_name:
   openai: gpt-5
   openai_responses: gpt-5
@@ -92,6 +148,10 @@ api_kwargs:
       summary: auto
 ---
 display_name: gpt-5-low
+cost_per_million:
+  input: 1.25
+  cached_input: 0.125
+  output: 10
 api_name:
   openai: gpt-5
   openai_responses: gpt-5
@@ -111,6 +171,10 @@ api_kwargs:
       summary: auto
 ---
 display_name: gpt-5
+cost_per_million:
+  input: 1.25
+  cached_input: 0.125
+  output: 10
 api_name:
   openai: gpt-5
   openai_responses: gpt-5
@@ -123,6 +187,10 @@ api_kwargs:
     max_completion_tokens: null
 ---
 display_name: gpt-5-high
+cost_per_million:
+  input: 1.25
+  cached_input: 0.125
+  output: 10
 api_name:
   openai: gpt-5
   openai_responses: gpt-5
@@ -142,6 +210,10 @@ api_kwargs:
       summary: auto
 ---
 display_name: gpt-5-mini-low
+cost_per_million:
+  input: 0.25
+  cached_input: 0.025
+  output: 2
 api_name:
   openai: gpt-5-mini
   openai_responses: gpt-5-mini
@@ -161,6 +233,10 @@ api_kwargs:
       summary: auto
 ---
 display_name: gpt-5-mini-minimal
+cost_per_million:
+  input: 0.25
+  cached_input: 0.025
+  output: 2
 api_name:
   openai: gpt-5-mini
   openai_responses: gpt-5-mini
@@ -180,6 +256,10 @@ api_kwargs:
       summary: auto
 ---
 display_name: gpt-5-chat
+cost_per_million:
+  input: 1.25
+  cached_input: 0.125
+  output: 10
 api_name:
   openai: gpt-5-chat-latest
   openai_responses: gpt-5-chat-latest
@@ -195,6 +275,10 @@ api_kwargs:
     max_output_tokens: null
 ---
 display_name: gpt-5-mini
+cost_per_million:
+  input: 0.25
+  cached_input: 0.025
+  output: 2
 api_name:
   openai: gpt-5-mini
   openai_responses: gpt-5-mini
@@ -207,6 +291,10 @@ api_kwargs:
     max_completion_tokens: null
 ---
 display_name: gpt-5-mini-high
+cost_per_million:
+  input: 0.25
+  cached_input: 0.025
+  output: 2
 api_name:
   openai: gpt-5-mini
   openai_responses: gpt-5-mini
@@ -226,6 +314,10 @@ api_kwargs:
       summary: auto
 ---
 display_name: gpt-5-nano-minimal
+cost_per_million:
+  input: 0.05
+  cached_input: 0.005
+  output: 0.4
 api_name:
   openai: gpt-5-nano
   openai_responses: gpt-5-nano
@@ -245,6 +337,10 @@ api_kwargs:
       summary: auto
 ---
 display_name: gpt-5-nano-low
+cost_per_million:
+  input: 0.05
+  cached_input: 0.005
+  output: 0.4
 api_name:
   openai: gpt-5-nano
   openai_responses: gpt-5-nano
@@ -264,6 +360,10 @@ api_kwargs:
       summary: auto
 ---
 display_name: gpt-5-nano
+cost_per_million:
+  input: 0.05
+  cached_input: 0.005
+  output: 0.4
 api_name:
   openai: gpt-5-nano
   openai_responses: gpt-5-nano
@@ -276,6 +376,10 @@ api_kwargs:
     max_completion_tokens: null
 ---
 display_name: gpt-5-nano-high
+cost_per_million:
+  input: 0.05
+  cached_input: 0.005
+  output: 0.4
 api_name:
   openai: gpt-5-nano
   openai_responses: gpt-5-nano
@@ -295,6 +399,10 @@ api_kwargs:
       summary: auto
 ---
 display_name: o1-mini-2024-09-12
+cost_per_million:
+  input: 1.1
+  cached_input: 0.55
+  output: 4.4
 api_name:
   openai: o1-mini-2024-09-12
 aliases:
@@ -305,6 +413,10 @@ api_kwargs:
     max_completion_tokens: null
 ---
 display_name: o1-preview-2024-09-12
+cost_per_million:
+  input: 15
+  cached_input: 7.5
+  output: 60
 api_name:
   openai: o1-preview-2024-09-12
 aliases:
@@ -315,6 +427,10 @@ api_kwargs:
     max_completion_tokens: null
 ---
 display_name: o1-2024-12-17-high
+cost_per_million:
+  input: 15
+  cached_input: 7.5
+  output: 60
 api_name:
   openai: o1-2024-12-17
 aliases:
@@ -329,6 +445,10 @@ api_kwargs:
 prompt_prefix: "Formatting reenabled"
 ---
 display_name: o1-2024-12-17-low
+cost_per_million:
+  input: 15
+  cached_input: 7.5
+  output: 60
 api_name:
   openai: o1-2024-12-17
 aliases:
@@ -341,6 +461,10 @@ api_kwargs:
 prompt_prefix: "Formatting reenabled"
 ---
 display_name: o1-2024-12-17-medium
+cost_per_million:
+  input: 15
+  cached_input: 7.5
+  output: 60
 api_name:
   openai: o1-2024-12-17
 aliases:
@@ -353,6 +477,10 @@ api_kwargs:
 prompt_prefix: "Formatting reenabled"
 ---
 display_name: o3-mini-2025-01-31-high
+cost_per_million:
+  input: 1.1
+  cached_input: 0.55
+  output: 4.4
 api_name:
   openai: o3-mini-2025-01-31
   openai_responses: o3-mini-2025-01-31
@@ -375,6 +503,10 @@ api_kwargs:
 prompt_prefix: "Formatting reenabled"
 ---
 display_name: o3-mini-2025-01-31-low
+cost_per_million:
+  input: 1.1
+  cached_input: 0.55
+  output: 4.4
 api_name:
   openai: o3-mini-2025-01-31
   openai_responses: o3-mini-2025-01-31
@@ -395,6 +527,10 @@ api_kwargs:
 prompt_prefix: "Formatting reenabled"
 ---
 display_name: o3-mini-2025-01-31-medium
+cost_per_million:
+  input: 1.1
+  cached_input: 0.55
+  output: 4.4
 api_name:
   openai: o3-mini-2025-01-31
   openai_responses: o3-mini-2025-01-31
@@ -415,6 +551,9 @@ api_kwargs:
 prompt_prefix: "Formatting reenabled"
 ---
 display_name: o1-pro-2025-03-19
+cost_per_million:
+  input: 150
+  output: 600
 api_name:
   openai_responses: o1-pro-2025-03-19
 aliases:
@@ -427,24 +566,40 @@ api_kwargs:
 prompt_prefix: "Formatting reenabled"
 ---
 display_name: gpt-4.1-2025-04-14
+cost_per_million:
+  input: 2
+  cached_input: 0.5
+  output: 8
 api_name:
   openai: gpt-4.1-2025-04-14
 aliases:
   - gpt-4.1
 ---
 display_name: gpt-4.1-mini-2025-04-14
+cost_per_million:
+  input: 0.4
+  cached_input: 0.1
+  output: 1.6
 api_name:
   openai: gpt-4.1-mini-2025-04-14
 aliases:
   - gpt-4.1-mini
 ---
 display_name: gpt-4.1-nano-2025-04-14
+cost_per_million:
+  input: 0.1
+  cached_input: 0.025
+  output: 0.4
 api_name:
   openai: gpt-4.1-nano-2025-04-14
 aliases:
   - gpt-4.1-nano
 ---
 display_name: o3-2025-04-16-high
+cost_per_million:
+  input: 2
+  cached_input: 0.5
+  output: 8
 api_name:
   openai: o3-2025-04-16
   openai_responses: o3-2025-04-16
@@ -466,6 +621,10 @@ api_kwargs:
 prompt_prefix: "Formatting reenabled"
 ---
 display_name: o3-2025-04-16-medium
+cost_per_million:
+  input: 2
+  cached_input: 0.5
+  output: 8
 api_name:
   openai: o3-2025-04-16
   openai_responses: o3-2025-04-16
@@ -487,6 +646,10 @@ api_kwargs:
 prompt_prefix: "Formatting reenabled"
 ---
 display_name: o4-mini-2025-04-16-high
+cost_per_million:
+  input: 1.1
+  cached_input: 0.275
+  output: 4.4
 api_name:
   openai: o4-mini-2025-04-16
   openai_responses: o4-mini-2025-04-16
@@ -507,6 +670,10 @@ api_kwargs:
 prompt_prefix: "Formatting reenabled"
 ---
 display_name: o4-mini-2025-04-16-medium
+cost_per_million:
+  input: 1.1
+  cached_input: 0.275
+  output: 4.4
 api_name:
   openai: o4-mini-2025-04-16
   openai_responses: o4-mini-2025-04-16
@@ -527,6 +694,9 @@ api_kwargs:
 prompt_prefix: "Formatting reenabled"
 ---
 display_name: o3-pro-2025-06-10-medium
+cost_per_million:
+  input: 20
+  output: 80
 api_name:
   openai_responses: o3-pro-2025-06-10
 default_provider: openai_responses
@@ -542,6 +712,9 @@ api_kwargs:
 prompt_prefix: "Formatting reenabled"
 ---
 display_name: o3-pro-2025-06-10-high
+cost_per_million:
+  input: 20
+  output: 80
 api_name:
   openai_responses: o3-pro-2025-06-10
 default_provider: openai_responses
@@ -557,6 +730,10 @@ api_kwargs:
 prompt_prefix: "Formatting reenabled"
 ---
 display_name: gpt-oss-120b
+cost_per_million:
+  input: 0.15
+  cached_input: 0.015
+  output: 0.6
 api_name:
   https://api.fireworks.ai/inference/v1: accounts/fireworks/models/gpt-oss-120b
 api_keys:
@@ -567,6 +744,10 @@ api_kwargs:
     temperature: null
 ---
 display_name: gpt-5-codex
+cost_per_million:
+  input: 1.25
+  cached_input: 0.125
+  output: 10
 api_name:
   openai_responses: gpt-5-codex
 aliases:
@@ -577,6 +758,9 @@ api_kwargs:
     max_completion_tokens: null
 ---
 display_name: gpt-5-pro-2025-10-06
+cost_per_million:
+  input: 15
+  output: 120
 api_name:
   openai_responses: gpt-5-pro-2025-10-06
 default_provider: openai_responses
@@ -588,6 +772,10 @@ api_kwargs:
     max_completion_tokens: null
 ---
 display_name: gpt-5.1-2025-11-13-high
+cost_per_million:
+  input: 1.25
+  cached_input: 0.125
+  output: 10
 api_name:
   openai: gpt-5.1-2025-11-13
   openai_responses: gpt-5.1-2025-11-13
@@ -607,6 +795,10 @@ api_kwargs:
       summary: auto
 ---
 display_name: gpt-5.1-chat
+cost_per_million:
+  input: 1.25
+  cached_input: 0.125
+  output: 10
 api_name:
   openai: gpt-5.1-chat-latest
   openai_responses: gpt-5.1-chat-latest
@@ -622,6 +814,10 @@ api_kwargs:
     max_output_tokens: null
 ---
 display_name: gpt-5.1-2025-11-13-nothinking
+cost_per_million:
+  input: 1.25
+  cached_input: 0.125
+  output: 10
 api_name:
   openai: gpt-5.1-2025-11-13
   openai_responses: gpt-5.1-2025-11-13
@@ -641,6 +837,10 @@ api_kwargs:
       summary: auto
 ---
 display_name: gpt-5.1-codex
+cost_per_million:
+  input: 1.25
+  cached_input: 0.125
+  output: 10
 api_name:
   openai_responses: gpt-5.1-codex
 aliases:
@@ -651,6 +851,10 @@ api_kwargs:
     max_completion_tokens: null
 ---
 display_name: gpt-5.1-codex-mini
+cost_per_million:
+  input: 0.25
+  cached_input: 0.025
+  output: 2
 api_name:
   openai_responses: gpt-5.1-codex-mini
 aliases:
@@ -661,6 +865,10 @@ api_kwargs:
     max_completion_tokens: null
 ---
 display_name: gpt-5.1-codex-max
+cost_per_million:
+  input: 1.25
+  cached_input: 0.125
+  output: 10
 api_name:
   openai_responses: gpt-5.1-codex-max
 aliases:
@@ -671,6 +879,10 @@ api_kwargs:
     max_completion_tokens: null
 ---
 display_name: gpt-5.2-codex
+cost_per_million:
+  input: 1.75
+  cached_input: 0.175
+  output: 14
 api_name:
   openai_responses: gpt-5.2-codex
 aliases:
@@ -681,6 +893,10 @@ api_kwargs:
     max_completion_tokens: null
 ---
 display_name: gpt-5.2-codex-high
+cost_per_million:
+  input: 1.75
+  cached_input: 0.175
+  output: 14
 api_name:
   openai_responses: gpt-5.2-codex
 aliases:
@@ -694,6 +910,10 @@ api_kwargs:
       summary: auto
 ---
 display_name: gpt-5.1-2025-11-13-medium
+cost_per_million:
+  input: 1.25
+  cached_input: 0.125
+  output: 10
 api_name:
   openai: gpt-5.1-2025-11-13
   openai_responses: gpt-5.1-2025-11-13
@@ -713,6 +933,10 @@ api_kwargs:
       summary: auto
 ---
 display_name: gpt-5.1-2025-11-13-low
+cost_per_million:
+  input: 1.25
+  cached_input: 0.125
+  output: 10
 api_name:
   openai: gpt-5.1-2025-11-13
   openai_responses: gpt-5.1-2025-11-13
@@ -732,6 +956,10 @@ api_kwargs:
       summary: auto
 ---
 display_name: gpt-5.1-codex-max-xhigh
+cost_per_million:
+  input: 1.25
+  cached_input: 0.125
+  output: 10
 api_name:
   openai_responses: gpt-5.1-codex-max
 aliases:
@@ -745,6 +973,10 @@ api_kwargs:
       summary: auto
 ---
 display_name: gpt-5.1-codex-max-high
+cost_per_million:
+  input: 1.25
+  cached_input: 0.125
+  output: 10
 api_name:
   openai_responses: gpt-5.1-codex-max
 aliases:
@@ -758,6 +990,10 @@ api_kwargs:
       summary: auto
 ---
 display_name: gpt-5.2-2025-12-11-medium
+cost_per_million:
+  input: 1.75
+  cached_input: 0.175
+  output: 14
 api_name:
   openai_responses: gpt-5.2-2025-12-11
 aliases:
@@ -771,6 +1007,10 @@ api_kwargs:
       summary: auto
 ---
 display_name: gpt-5.2-2025-12-11-low
+cost_per_million:
+  input: 1.75
+  cached_input: 0.175
+  output: 14
 api_name:
   openai_responses: gpt-5.2-2025-12-11
 aliases:
@@ -784,6 +1024,10 @@ api_kwargs:
       summary: auto
 ---
 display_name: gpt-5.2-2025-12-11-high
+cost_per_million:
+  input: 1.75
+  cached_input: 0.175
+  output: 14
 api_name:
   openai_responses: gpt-5.2-2025-12-11
 aliases:
@@ -797,6 +1041,10 @@ api_kwargs:
       summary: auto
 ---
 display_name: gpt-5.2-2025-12-11-nothinking
+cost_per_million:
+  input: 1.75
+  cached_input: 0.175
+  output: 14
 api_name:
   openai_responses: gpt-5.2-2025-12-11
 aliases:
@@ -810,6 +1058,10 @@ api_kwargs:
       summary: auto
 ---
 display_name: gpt-5.2-2025-12-11-xhigh
+cost_per_million:
+  input: 1.75
+  cached_input: 0.175
+  output: 14
 api_name:
   openai_responses: gpt-5.2-2025-12-11
 aliases:
@@ -823,6 +1075,9 @@ api_kwargs:
       summary: auto
 ---
 display_name: gpt-5.2-pro-2025-12-11-medium
+cost_per_million:
+  input: 21
+  output: 168
 api_name:
   openai_responses: gpt-5.2-pro-2025-12-11
 default_provider: openai_responses
@@ -837,6 +1092,9 @@ api_kwargs:
       summary: auto
 ---
 display_name: gpt-5.2-pro-2025-12-11-high
+cost_per_million:
+  input: 21
+  output: 168
 api_name:
   openai_responses: gpt-5.2-pro-2025-12-11
 default_provider: openai_responses
@@ -851,6 +1109,9 @@ api_kwargs:
       summary: auto
 ---
 display_name: gpt-5.2-pro-2025-12-11-xhigh
+cost_per_million:
+  input: 21
+  output: 168
 api_name:
   openai_responses: gpt-5.2-pro-2025-12-11
 default_provider: openai_responses
@@ -865,6 +1126,10 @@ api_kwargs:
       summary: auto
 ---
 display_name: gpt-5.3-codex-high
+cost_per_million:
+  input: 1.75
+  cached_input: 0.175
+  output: 14
 api_name:
   openai_responses: gpt-5.3-codex
 aliases:
@@ -878,6 +1143,10 @@ api_kwargs:
       summary: auto
 ---
 display_name: gpt-5.3-codex-xhigh
+cost_per_million:
+  input: 1.75
+  cached_input: 0.175
+  output: 14
 api_name:
   openai_responses: gpt-5.3-codex
 aliases:
@@ -891,6 +1160,10 @@ api_kwargs:
       summary: auto
 ---
 display_name: gpt-5.3-instant
+cost_per_million:
+  input: 1.75
+  cached_input: 0.175
+  output: 14
 api_name:
   openai: gpt-5.3-chat-latest
   openai_responses: gpt-5.3-chat-latest
@@ -906,6 +1179,10 @@ api_kwargs:
     max_output_tokens: null
 ---
 display_name: gpt-5.4-xhigh
+cost_per_million:
+  input: 2.5
+  cached_input: 0.25
+  output: 15
 api_name:
   openai_responses: gpt-5.4
 aliases:
@@ -919,6 +1196,10 @@ api_kwargs:
       summary: auto
 ---
 display_name: gpt-5.4-high
+cost_per_million:
+  input: 2.5
+  cached_input: 0.25
+  output: 15
 api_name:
   openai_responses: gpt-5.4
 aliases:
@@ -932,6 +1213,10 @@ api_kwargs:
       summary: auto
 ---
 display_name: gpt-5.4-medium
+cost_per_million:
+  input: 2.5
+  cached_input: 0.25
+  output: 15
 api_name:
   openai_responses: gpt-5.4
 aliases:
@@ -945,6 +1230,10 @@ api_kwargs:
       summary: auto
 ---
 display_name: gpt-5.4-low
+cost_per_million:
+  input: 2.5
+  cached_input: 0.25
+  output: 15
 api_name:
   openai_responses: gpt-5.4
 aliases:
@@ -958,6 +1247,10 @@ api_kwargs:
       summary: auto
 ---
 display_name: gpt-5.4
+cost_per_million:
+  input: 2.5
+  cached_input: 0.25
+  output: 15
 api_name:
   openai_responses: gpt-5.4
 aliases:
@@ -971,6 +1264,10 @@ api_kwargs:
       summary: auto
 ---
 display_name: gpt-5.4-mini-xhigh
+cost_per_million:
+  input: 0.75
+  cached_input: 0.075
+  output: 4.5
 api_name:
   openai_responses: gpt-5.4-mini
 aliases:
@@ -984,6 +1281,10 @@ api_kwargs:
       summary: auto
 ---
 display_name: gpt-5.4-mini-high
+cost_per_million:
+  input: 0.75
+  cached_input: 0.075
+  output: 4.5
 api_name:
   openai_responses: gpt-5.4-mini
 aliases:
@@ -997,6 +1298,10 @@ api_kwargs:
       summary: auto
 ---
 display_name: gpt-5.4-mini-medium
+cost_per_million:
+  input: 0.75
+  cached_input: 0.075
+  output: 4.5
 api_name:
   openai_responses: gpt-5.4-mini
 aliases:
@@ -1010,6 +1315,10 @@ api_kwargs:
       summary: auto
 ---
 display_name: gpt-5.4-mini-low
+cost_per_million:
+  input: 0.75
+  cached_input: 0.075
+  output: 4.5
 api_name:
   openai_responses: gpt-5.4-mini
 aliases:
@@ -1023,6 +1332,10 @@ api_kwargs:
       summary: auto
 ---
 display_name: gpt-5.4-mini
+cost_per_million:
+  input: 0.75
+  cached_input: 0.075
+  output: 4.5
 api_name:
   openai_responses: gpt-5.4-mini
 aliases:
@@ -1036,6 +1349,10 @@ api_kwargs:
       summary: auto
 ---
 display_name: gpt-5.4-nano-xhigh
+cost_per_million:
+  input: 0.2
+  cached_input: 0.02
+  output: 1.25
 api_name:
   openai_responses: gpt-5.4-nano
 aliases:
@@ -1049,6 +1366,10 @@ api_kwargs:
       summary: auto
 ---
 display_name: gpt-5.4-nano-high
+cost_per_million:
+  input: 0.2
+  cached_input: 0.02
+  output: 1.25
 api_name:
   openai_responses: gpt-5.4-nano
 aliases:
@@ -1062,6 +1383,10 @@ api_kwargs:
       summary: auto
 ---
 display_name: gpt-5.4-nano-medium
+cost_per_million:
+  input: 0.2
+  cached_input: 0.02
+  output: 1.25
 api_name:
   openai_responses: gpt-5.4-nano
 aliases:
@@ -1075,6 +1400,10 @@ api_kwargs:
       summary: auto
 ---
 display_name: gpt-5.4-nano-low
+cost_per_million:
+  input: 0.2
+  cached_input: 0.02
+  output: 1.25
 api_name:
   openai_responses: gpt-5.4-nano
 aliases:
@@ -1088,6 +1417,10 @@ api_kwargs:
       summary: auto
 ---
 display_name: gpt-5.4-nano
+cost_per_million:
+  input: 0.2
+  cached_input: 0.02
+  output: 1.25
 api_name:
   openai_responses: gpt-5.4-nano
 aliases:
@@ -1101,19 +1434,10 @@ api_kwargs:
       summary: auto
 ---
 display_name: gpt-5.5-xhigh
-api_name:
-  openai_responses: gpt-5.5
-aliases:
-  - gpt-5.5-xhigh
-api_kwargs:
-  default:
-    temperature: null
-    max_completion_tokens: null
-    reasoning:
-      effort: xhigh
-      summary: auto
----
-display_name: gpt-5.5-xhigh
+cost_per_million:
+  input: 5
+  cached_input: 0.5
+  output: 30
 api_name:
   openai_responses: gpt-5.5
 aliases:
@@ -1127,6 +1451,10 @@ api_kwargs:
       summary: auto
 ---
 display_name: gpt-5.5-high
+cost_per_million:
+  input: 5
+  cached_input: 0.5
+  output: 30
 api_name:
   openai_responses: gpt-5.5
 aliases:
@@ -1140,6 +1468,10 @@ api_kwargs:
       summary: auto
 ---
 display_name: gpt-5.5
+cost_per_million:
+  input: 5
+  cached_input: 0.5
+  output: 30
 api_name:
   openai_responses: gpt-5.5
 aliases:
@@ -1152,6 +1484,10 @@ api_kwargs:
       summary: auto
 ---
 display_name: gpt-5.5-low
+cost_per_million:
+  input: 5
+  cached_input: 0.5
+  output: 30
 api_name:
   openai_responses: gpt-5.5
 aliases:
@@ -1165,6 +1501,10 @@ api_kwargs:
       summary: auto
 ---
 display_name: gpt-5.5-no-thinking
+cost_per_million:
+  input: 5
+  cached_input: 0.5
+  output: 30
 api_name:
   openai_responses: gpt-5.5
 aliases:
@@ -1175,4 +1515,96 @@ api_kwargs:
     max_completion_tokens: null
     reasoning:
       effort: none
+      summary: auto
+---
+# gpt-5.6 alpha configs recovered from answer-file api_info (lost in a working-tree reset)
+display_name: gpt-5.6-sol-xhigh
+cost_per_million:
+  input: 5
+  cached_input: 0.5
+  output: 30
+api_name:
+  openai_responses: gpt-5.6-sol
+api_kwargs:
+  default:
+    temperature: null
+    max_completion_tokens: null
+    reasoning:
+      effort: xhigh
+      summary: auto
+---
+display_name: gpt-5.6-sol-max
+cost_per_million:
+  input: 5
+  cached_input: 0.5
+  output: 30
+api_name:
+  openai_responses: gpt-5.6-sol
+api_kwargs:
+  default:
+    temperature: null
+    max_completion_tokens: null
+    timeout: 1800
+    reasoning:
+      effort: max
+      summary: auto
+---
+display_name: gpt-5.6-terra-xhigh
+cost_per_million:
+  input: 2.5
+  cached_input: 0.25
+  output: 15
+api_name:
+  openai_responses: gpt-5.6-terra
+api_kwargs:
+  default:
+    temperature: null
+    max_completion_tokens: null
+    reasoning:
+      effort: xhigh
+      summary: auto
+---
+display_name: gpt-5.6-luna-xhigh
+cost_per_million:
+  input: 1
+  cached_input: 0.1
+  output: 6
+api_name:
+  openai_responses: gpt-5.6-luna
+api_kwargs:
+  default:
+    temperature: null
+    max_output_tokens: null
+    reasoning:
+      effort: xhigh
+      summary: auto
+---
+display_name: gpt-5.6-terra-max
+cost_per_million:
+  input: 2.5
+  cached_input: 0.25
+  output: 15
+api_name:
+  openai_responses: gpt-5.6-terra
+api_kwargs:
+  default:
+    temperature: null
+    max_completion_tokens: null
+    reasoning:
+      effort: max
+      summary: auto
+---
+display_name: gpt-5.6-luna-max
+cost_per_million:
+  input: 1
+  cached_input: 0.1
+  output: 6
+api_name:
+  openai_responses: gpt-5.6-luna
+api_kwargs:
+  default:
+    temperature: null
+    max_output_tokens: null
+    reasoning:
+      effort: max
       summary: auto

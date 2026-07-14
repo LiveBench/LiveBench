@@ -307,6 +307,10 @@ api_kwargs:
     top_p: 0.95
 ---
 display_name: gemini-3.1-pro-preview-high
+cost_per_million:
+  input: 2
+  cached_input: 0.2
+  output: 12
 api_name:
   google: gemini-3.1-pro-preview
 aliases:
@@ -346,6 +350,10 @@ api_kwargs:
     top_p: 0.95
 ---
 display_name: gemini-3.5-flash-high
+cost_per_million:
+  input: 1.5
+  cached_input: 0.15
+  output: 9
 api_name:
   google: gemini-3.5-flash
 aliases:

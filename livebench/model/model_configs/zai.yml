@@ -126,6 +126,9 @@ api_kwargs:
 preserve_reasoning: true
 ---
 display_name: glm-5.2
+cost_per_million:
+  input: 1.4
+  output: 4.4
 api_name:
   https://api.z.ai/api/paas/v4: glm-5.2
   https://open.bigmodel.cn/api/paas/v4: glm-5.2

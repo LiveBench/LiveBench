@@ -220,6 +220,11 @@ api_kwargs:
     max_tokens: 64000
     betas:
       - effort-2025-11-24
+cost_per_million:
+  input: 5.0
+  cached_input: 0.5
+  cache_creation: 6.25
+  output: 25.0
 ---
 display_name: claude-opus-4-5-20251101-medium-effort
 api_name:
@@ -302,6 +307,11 @@ api_kwargs:
     betas:
       - auto-thinking-2026-01-12
       - effort-2025-11-24
+cost_per_million:
+  input: 5.0
+  cached_input: 0.5
+  cache_creation: 6.25
+  output: 25.0
 ---
 display_name: claude-sonnet-4-6-thinking-auto-high-effort
 api_name:
@@ -338,6 +348,11 @@ api_kwargs:
     betas:
       - auto-thinking-2026-01-12
       - effort-2025-11-24
+cost_per_million:
+  input: 3.0
+  cached_input: 0.3
+  cache_creation: 3.75
+  output: 15.0
 ---
 display_name: claude-sonnet-4-6-thinking-auto-low-effort
 api_name:
@@ -387,6 +402,11 @@ api_kwargs:
     thinking:
       type: adaptive
     max_tokens: 128000
+cost_per_million:
+  input: 5.0
+  cached_input: 0.5
+  cache_creation: 6.25
+  output: 25.0
 ---
 display_name: claude-opus-4-7-medium-effort
 api_name:
@@ -447,6 +467,11 @@ api_kwargs:
     thinking:
       type: adaptive
     max_tokens: 128000
+cost_per_million:
+  input: 5.0
+  cached_input: 0.5
+  cache_creation: 6.25
+  output: 25.0
 ---
 display_name: claude-opus-4-8-medium-effort
 api_name:
@@ -500,6 +525,31 @@ api_kwargs:
 cost_per_million:
   input: 10.0
   cached_input: 1.0
+  cache_creation: 12.5
+  output: 50.0
+---
+display_name: claude-fable-5-xhigh-effort-rerun
+api_name:
+  anthropic: claude-fable-5
+aliases:
+  - claude-fable-5-xhigh-rerun
+api_kwargs:
+  default:
+    temperature: 1
+    betas:
+      - server-side-fallback-2026-06-01
+    extra_body:
+      output_config:
+        effort: xhigh
+      fallbacks:
+        - model: claude-opus-4-8
+    thinking:
+      type: adaptive
+    max_tokens: 128000
+cost_per_million:
+  input: 10.0
+  cached_input: 1.0
+  cache_creation: 12.5
   output: 50.0
 ---
 display_name: claude-fable-5-high-effort
@@ -510,12 +560,20 @@ aliases:
 api_kwargs:
   default:
     temperature: 1
+    betas:
+      - server-side-fallback-2026-06-01
     extra_body:
       output_config:
         effort: high
+      fallbacks:
+        - model: claude-opus-4-8
     thinking:
       type: adaptive
     max_tokens: 128000
+cost_per_million:
+  input: 10.0
+  cached_input: 1.0
+  output: 50.0
 ---
 display_name: claude-fable-5-medium-effort
 api_name:
@@ -526,12 +584,20 @@ aliases:
 api_kwargs:
   default:
     temperature: 1
+    betas:
+      - server-side-fallback-2026-06-01
     extra_body:
       output_config:
         effort: medium
+      fallbacks:
+        - model: claude-opus-4-8
     thinking:
       type: adaptive
     max_tokens: 128000
+cost_per_million:
+  input: 10.0
+  cached_input: 1.0
+  output: 50.0
 ---
 display_name: claude-fable-5-low-effort
 api_name:
@@ -541,12 +607,20 @@ aliases:
 api_kwargs:
   default:
     temperature: 1
+    betas:
+      - server-side-fallback-2026-06-01
     extra_body:
       output_config:
         effort: low
+      fallbacks:
+        - model: claude-opus-4-8
     thinking:
       type: adaptive
     max_tokens: 128000
+cost_per_million:
+  input: 10.0
+  cached_input: 1.0
+  output: 50.0
 ---
 display_name: claude-sonnet-5-max-effort
 api_name:
@@ -577,6 +651,11 @@ api_kwargs:
     thinking:
       type: adaptive
     max_tokens: 128000
+cost_per_million:
+  input: 3.0
+  cached_input: 0.3
+  cache_creation: 3.75
+  output: 15.0
 ---
 display_name: claude-sonnet-5-high-effort
 api_name:
@@ -623,3 +702,27 @@ api_kwargs:
     thinking:
       type: adaptive
     max_tokens: 128000
+---
+display_name: claude-fable-5-max-effort
+api_name:
+  anthropic: claude-fable-5
+aliases:
+  - claude-fable-5-max
+api_kwargs:
+  default:
+    temperature: 1
+    betas:
+      - server-side-fallback-2026-06-01
+    extra_body:
+      output_config:
+        effort: max
+      fallbacks:
+        - model: claude-opus-4-8
+    thinking:
+      type: adaptive
+    max_tokens: 128000
+cost_per_million:
+  input: 10.0
+  cached_input: 1.0
+  cache_creation: 12.5
+  output: 50.0
