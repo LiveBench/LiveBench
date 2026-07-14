@@ -199,6 +199,9 @@ api_kwargs:
       enable_thinking: true
 ---
 display_name: qwen3.6-plus
+cost_per_million:
+  input: 0.5
+  output: 3.0
 api_name:
   https://dashscope-intl.aliyuncs.com/compatible-mode/v1: qwen3.6-plus
 api_keys:
@@ -227,6 +230,9 @@ api_kwargs:
       enable_thinking: true
 ---
 display_name: qwen3.6-27b
+cost_per_million:
+  input: 0.6
+  output: 3.6
 api_name:
   https://dashscope-intl.aliyuncs.com/compatible-mode/v1: qwen3.6-27b
 api_keys:
@@ -241,6 +247,9 @@ api_kwargs:
       enable_thinking: true
 ---
 display_name: qwen3.7-max
+cost_per_million:
+  input: 2.5
+  output: 7.5
 api_name:
   https://dashscope-intl.aliyuncs.com/compatible-mode/v1: qwen3.7-max
 api_keys:
