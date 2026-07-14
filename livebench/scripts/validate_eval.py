@@ -80,23 +80,54 @@ def is_terminal_error(record):
     return any(p in text for p in TERMINAL_ERROR_PATTERNS)
 
 
+def load_active_questions(task_dir):
+    """Question ids that are currently live for a task, or None if unknown.
+
+    Answer/judgment files keep records for questions that have since been
+    removed from the benchmark; those are never re-run, so their errors must
+    not count toward retry decisions (or the denominator).
+    """
+    qfile = os.path.join(task_dir, "question.jsonl")
+    if not os.path.exists(qfile):
+        return None
+    active = set()
+    for line in open(qfile):
+        q = json.loads(line)
+        if not q.get("livebench_removal_date"):
+            active.add(q.get("question_id"))
+    return active
+
+
 def collect_answer_errors(data_root, model, categories):
-    """Count $ERROR$ answers per task, split transient vs terminal."""
+    """Count $ERROR$ answers per task, split transient vs terminal.
+
+    Answer files can accumulate records across reruns; only the latest
+    record (by tstamp) per question is counted, so totals reflect the
+    number of questions answered, not the number of attempts.
+    """
     results = {}
     for cat in categories:
         pattern = os.path.join(data_root, cat, "*", "model_answer", f"{model}.jsonl")
         for f in sorted(glob.glob(pattern)):
             task = f.split(os.sep)[-3]
             key = f"{cat}/{task}"
-            total = 0
+            active = load_active_questions(os.path.dirname(os.path.dirname(f)))
+            latest = {}
+            for line in open(f):
+                d = json.loads(line)
+                qid = d.get("question_id")
+                if active is not None and qid not in active:
+                    continue
+                prev = latest.get(qid)
+                if prev is None or d.get("tstamp", 0) >= prev.get("tstamp", 0):
+                    latest[qid] = d
+            total = len(latest)
             errors = 0
             terminal = 0
             answer_details = {}
-            for line in open(f):
-                d = json.loads(line)
-                total += 1
+            for d in latest.values():
                 if d["choices"][0]["turns"][0] == ANSWER_ERROR:
-                    err_msg = str(d.get("error_msg", d.get("error", "unknown")))[:DETAIL_KEY_MAX]
+                    err_msg = str(d.get("error_msg") or d.get("error") or "unknown")[:DETAIL_KEY_MAX]
                     if is_terminal_error(d):
                         terminal += 1
                         err_msg = f"terminal: {err_msg}"
@@ -113,19 +144,34 @@ def collect_answer_errors(data_root, model, categories):
 
 
 def collect_eval_errors(data_root, model, categories):
-    """Count eval failures from judgment files."""
+    """Count eval failures from judgment files.
+
+    Judgment files accumulate records across reruns, so a question can have
+    several entries for the same model. Only the latest record (by tstamp)
+    per question reflects reality — a stale eval_timeout that was later
+    re-judged cleanly must not count as an error.
+    """
     results = {}
     for cat in categories:
         pattern = os.path.join(data_root, cat, "*", "model_judgment", "ground_truth_judgment.jsonl")
         for f in sorted(glob.glob(pattern)):
             task = f.split(os.sep)[-3]
             key = f"{cat}/{task}"
-            eval_errors = 0
-            eval_details = {}
+            active = load_active_questions(os.path.dirname(os.path.dirname(f)))
+            latest = {}
             for line in open(f):
                 d = json.loads(line)
                 if d.get("model") != model:
                     continue
+                qid = d.get("question_id")
+                if active is not None and qid not in active:
+                    continue
+                prev = latest.get(qid)
+                if prev is None or d.get("tstamp", 0) >= prev.get("tstamp", 0):
+                    latest[qid] = d
+            eval_errors = 0
+            eval_details = {}
+            for d in latest.values():
                 status = d.get("eval_status", "")
                 if status in EVAL_FAILURE_STATUSES:
                     eval_errors += 1
