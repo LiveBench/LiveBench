@@ -173,3 +173,22 @@ cost_per_million:
   input: 2.00
   cached_input: 0.50
   output: 6.00
+---
+display_name: grok-4-fast-reasoning-responses
+api_name:
+  xai_responses: grok-4-fast-reasoning
+api_keys:
+  xai_responses: XAI_API_KEY
+api_kwargs:
+  default:
+    temperature: 0.7
+---
+display_name: grok-4.5-responses
+cost_per_million:
+  input: 2.00
+  cached_input: 0.50
+  output: 6.00
+api_name:
+  xai_responses: grok-4.5
+api_keys:
+  xai_responses: XAI_API_KEY
