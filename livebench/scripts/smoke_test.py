@@ -38,6 +38,17 @@ def main():
     model = args.model
     bench = args.bench
     task = bench.split("/")[-1]
+
+    # Answers are written under the config's display_name, which can differ
+    # from the name passed in (e.g. gpt-4.1-mini -> gpt-4.1-mini-2025-04-14);
+    # resolve it so the answer-file check looks at the right path. Config
+    # problems are reported properly by step 1 below.
+    try:
+        from livebench.model import get_model_config
+        model = get_model_config(model).display_name
+    except Exception:
+        pass
+
     answer_file = f"data/{bench}/model_answer/{model}.jsonl"
     errors = []
 
