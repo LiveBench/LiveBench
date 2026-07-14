@@ -33,6 +33,10 @@ aliases:
 ---
 # Meta muse-spark via the OpenAI Responses API (api.meta.ai/v1)
 display_name: muse-spark-1.1-high
+cost_per_million:
+  input: 1.25
+  cached_input: 0.15
+  output: 4.25
 api_name:
   openai_responses: muse-spark-1.1
 default_provider: openai_responses
@@ -51,6 +55,10 @@ api_kwargs:
 preserve_reasoning: true
 ---
 display_name: muse-spark-1.1-xhigh
+cost_per_million:
+  input: 1.25
+  cached_input: 0.15
+  output: 4.25
 api_name:
   openai_responses: muse-spark-1.1
 default_provider: openai_responses
