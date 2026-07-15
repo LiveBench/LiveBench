@@ -628,14 +628,21 @@ class LitellmModel:
             res = litellm.responses(
                 model=self.config.model_name, input=input_to_send, **call_kwargs,
             )
-        except litellm.exceptions.BadRequestError as e:
-            err = str(e)
-            if use_chaining and ('previous_response_id' in err or 'Zero Data Retention' in err or "'store'" in err):
+        except (litellm.exceptions.BadRequestError, litellm.exceptions.NotFoundError) as e:
+            # A chaining call can fail because the provider rejects previous_response_id/store
+            # (ZDR orgs), or because the referenced response is gone (xAI intermittently drops
+            # stored responses -> NotFoundError). Either way, disable chaining for this instance
+            # and replay the full history instead of erroring the run.
+            err = str(e).lower()
+            chaining_signal = any(s in err for s in (
+                'previous_response_id', 'zero data retention', "'store'", 'not found', 'not-found'))
+            if use_chaining and chaining_signal:
                 logger.warning(
-                    f"{self.config.model_name}: previous_response_id/store rejected "
-                    f"({err[:120]}); disabling chaining, falling back to full replay"
+                    f"{self.config.model_name}: chaining rejected ({str(e)[:120]}); "
+                    "disabling chaining, falling back to full replay"
                 )
                 self._responses_chaining = False
+                self.previous_response_id = None
                 input_to_send, call_kwargs = _build_call(False)
                 res = litellm.responses(
                     model=self.config.model_name, input=input_to_send, **call_kwargs,
