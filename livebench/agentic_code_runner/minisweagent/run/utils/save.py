@@ -1,5 +1,6 @@
 import dataclasses
 import json
+import time
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -69,6 +70,9 @@ def save_traj(
         # Empty-response resampling observability (getattr-guarded for model classes that lack it)
         data["info"]["model_stats"]["empty_responses"] = getattr(agent.model, "empty_responses", 0)
         data["info"]["model_stats"]["empty_resamples_recovered"] = getattr(agent.model, "empty_resamples_recovered", 0)
+        start_time = getattr(agent, "_start_time", None)
+        if start_time is not None:
+            data["info"]["model_stats"]["run_time_s"] = round(time.monotonic() - start_time, 1)
         for message in agent.messages:
             if 'extra' in message:
                 del message['extra']

@@ -276,6 +276,7 @@ def run_agentic_coding_inference(
                 'total_cached_tokens': cached_tok,
                 'total_cache_creation_tokens': cache_creation_tok,
                 'n_model_calls': stats.get('api_calls'),
+                'total_time_s': stats.get('run_time_s'),
                 'model_cost': stats.get('instance_cost'),
                 'cost_usd': cost_usd,
             })

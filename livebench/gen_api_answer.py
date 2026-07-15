@@ -61,6 +61,7 @@ def get_answer(
         answer_file: The path to the file in which to write answers
         api_dict: A dictionary specifying the base API URL and key for model requests
     """
+    t_start = time.time()
 
     assert (
         force_temperature is not None and "required_temperature" in question.keys()
@@ -143,6 +144,7 @@ def get_answer(
         "model_id": model_display_name_override if model_display_name_override else model_config.display_name.lower(),
         "choices": choices,
         "tstamp": time.time(),
+        "total_time_s": round(time.time() - t_start, 2),
         "total_output_tokens": total_num_tokens,
         "total_input_tokens": total_input_tokens,
         "total_cached_tokens": total_cached_tokens,
