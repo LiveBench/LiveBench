@@ -219,6 +219,11 @@ agent:
     If you have completed your assignment, please consult the first message about how to
     submit your solution (you will not be able to continue working on this task after that).
   step_limit: 250
+  # Per-instance wall-clock budget. On expiry the current diff is auto-submitted
+  # (same semantics as step_limit): work completed before the cap still scores.
+  # Bounds the straggler tail — without it a single instance can run 3-4h
+  # (250 steps x slow long-context calls x 120s test commands).
+  time_limit: 5400
 
 environment:
   cwd: "/testbed"
