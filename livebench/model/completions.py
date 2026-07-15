@@ -486,6 +486,7 @@ def chat_completion_anthropic(model: str, messages: Conversation, temperature: f
         **actual_api_kwargs
     ) as stream:
         new_block = {}
+        fallback_model = None
         for event in stream:
             if event.type == 'content_block_start':
                 new_block = {}
@@ -496,8 +497,17 @@ def chat_completion_anthropic(model: str, messages: Conversation, temperature: f
                     new_block['type'] = 'thinking'
                 elif event.content_block.type == 'text':
                     new_block['type'] = 'text'
+                else:
+                    # Unknown block type — e.g. 'fallback' from the
+                    # server-side-fallback beta, which announces the model that
+                    # actually served the request. Track the type so the
+                    # delta/stop events for this block don't crash the stream.
+                    new_block['type'] = event.content_block.type
+                    if event.content_block.type == 'fallback':
+                        fallback_model = getattr(event.content_block, 'model', None) or 'unknown'
             elif event.type == 'content_block_delta':
-                assert new_block['type'] is not None
+                if not new_block.get('type'):
+                    continue
                 if event.delta.type == 'text_delta':
                     if 'text' not in new_block:
                         new_block['text'] = ''
@@ -509,10 +519,13 @@ def chat_completion_anthropic(model: str, messages: Conversation, temperature: f
                 elif event.delta.type == 'signature_delta':
                     new_block['signature'] = event.delta.signature
             elif event.type == 'content_block_stop':
-                assert new_block != {}
-                for content in new_block:
-                    new_block[content] = new_block[content].strip()
-                message.append(new_block)
+                # Only answer content goes into the message; metadata-only
+                # blocks (like 'fallback') were captured above.
+                if new_block.get('type') in ('text', 'thinking', 'redacted_thinking'):
+                    for content in new_block:
+                        if isinstance(new_block[content], str):
+                            new_block[content] = new_block[content].strip()
+                    message.append(new_block)
                 new_block = {}
 
     del actual_api_kwargs['max_tokens']
@@ -538,6 +551,8 @@ def chat_completion_anthropic(model: str, messages: Conversation, temperature: f
             # failure), not a hard infra $ERROR$. Do NOT retry-chase token limits.
             _md: dict[str, Any] = {'eval_status': 'token_exhaustion'}
             _out = -1
+            if fallback_model:
+                _md['fallback_model'] = fallback_model
             if final_usage is not None:
                 _out = final_usage.output_tokens
                 _md['input_tokens'] = final_usage.input_tokens
@@ -555,6 +570,8 @@ def chat_completion_anthropic(model: str, messages: Conversation, temperature: f
     if final_usage is not None:
         tokens = final_usage.output_tokens
         metadata: dict[str, Any] = {'input_tokens': final_usage.input_tokens}
+        if fallback_model:
+            metadata['fallback_model'] = fallback_model
         cached_tokens = getattr(final_usage, 'cache_read_input_tokens', None)
         if cached_tokens is not None:
             metadata['cached_tokens'] = cached_tokens
@@ -578,7 +595,7 @@ def chat_completion_anthropic(model: str, messages: Conversation, temperature: f
         traceback.print_exc()
         tokens = -1
 
-    return message_text, tokens, None
+    return message_text, tokens, {'fallback_model': fallback_model} if fallback_model else None
 
 
 @retry(
