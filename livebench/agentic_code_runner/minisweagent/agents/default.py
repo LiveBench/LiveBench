@@ -3,6 +3,7 @@
 import os
 import re
 import subprocess
+import time
 from collections.abc import Callable
 from dataclasses import asdict, dataclass
 import traceback
@@ -48,6 +49,10 @@ class AgentConfig:
     )
     step_limit: int = 0
     cost_limit: float = 0
+    time_limit: float = 0
+    """Wall-clock budget per instance in seconds (0 = disabled). Exceeding it
+    raises LimitsExceeded, so the current diff is auto-submitted exactly like
+    hitting the step limit."""
 
 
 class NonTerminatingException(Exception):
@@ -162,6 +167,7 @@ class DefaultAgent:
             raise RuntimeError(f"Error checking for existing changes: {out}")
         self.existing_git_diff = out["output"]
         self.extra_template_vars |= {"task": task, **kwargs}
+        self._start_time = time.monotonic()
         self.messages = []
         self._empty_submission_nudges = 0
         self.add_message("system", self.render_template(self.config.system_template))
@@ -238,6 +244,10 @@ class DefaultAgent:
         if 0 < self.config.step_limit <= self.model.n_calls:
             logger.info(f"Autosubmitting after step limit exceeded: {self.model.n_calls} steps")
             raise LimitsExceeded("Step limit exceeded")
+        elapsed = time.monotonic() - getattr(self, "_start_time", time.monotonic())
+        if 0 < self.config.time_limit <= elapsed:
+            logger.info(f"Autosubmitting after time limit exceeded: {elapsed:.0f}s over {self.model.n_calls} steps")
+            raise LimitsExceeded("Time limit exceeded")
         response = self.model.query(self.messages)
         self.add_message("assistant", **response)
         return response
