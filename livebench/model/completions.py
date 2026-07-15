@@ -709,6 +709,12 @@ def chat_completion_litellm(
 ) -> tuple[str, int, dict[str, Any] | None]:
     """Provider-agnostic path via LiteLLM, selected by the --use-litellm flag."""
     import litellm
+    # Anthropic server-side fallback isn't expressible through litellm: it reserves
+    # `fallbacks` for its own client-side model-retry (a string like "default" crashes it,
+    # a list is misrouted) and its transform overwrites the anthropic-beta header. Use the
+    # native Anthropic path, which forwards `fallbacks` + betas to the request body intact.
+    if provider == 'anthropic' and (model_api_kwargs or {}).get('extra_body', {}).get('fallbacks') is not None:
+        return chat_completion_anthropic(model, messages, temperature, max_tokens, model_api_kwargs, api_dict, stream)
     # Anthropic long-stream reliability: litellm's default aiohttp transport drops
     # multi-minute streams; force httpx (what the native SDK uses).
     litellm.disable_aiohttp_transport = True
