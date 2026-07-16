@@ -536,6 +536,23 @@ class LitellmModel:
 
         content = res['choices'][0]['message']['content']
 
+        # Native tool-callers (e.g. thinkingmachines/Inkling) put the action in
+        # tool_calls and leave content empty. The agent loop is text-based, so
+        # synthesize the equivalent ```bash block from bash tool calls.
+        if not content:
+            tool_calls = getattr(res['choices'][0]['message'], 'tool_calls', None) or []
+            blocks = []
+            for tc in tool_calls:
+                fn = getattr(tc, 'function', None)
+                if fn is not None and getattr(fn, 'name', '') == 'bash':
+                    try:
+                        cmd = json.loads(fn.arguments).get('command')
+                    except (json.JSONDecodeError, TypeError, AttributeError):
+                        cmd = None
+                    if cmd:
+                        blocks.append(f"```bash\n{cmd}\n```")
+            if blocks:
+                content = "\n".join(blocks)
 
         result = {
             'response': res,

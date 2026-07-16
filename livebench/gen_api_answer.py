@@ -267,13 +267,19 @@ def run_questions(
             print("Warning: litellm or docker missing, skipping agentic coding evaluation")
         else:
             print(f'Processing {len(agentic_coding_questions)} agentic coding questions')
+            # Agentic-only kwargs overlay (api_kwargs['agentic'] in the model config):
+            # native tool-calling models can declare tools or cap max_tokens for the
+            # agentic harness without affecting regular-category requests.
+            agentic_api_kwargs = api_kwargs
+            if model_config.api_kwargs and model_config.api_kwargs.get('agentic'):
+                agentic_api_kwargs = {**(api_kwargs or {}), **model_config.api_kwargs['agentic']}
             run_agentic_coding_inference(
                 questions=agentic_coding_questions,
                 model_api_name=model_api_name,
                 provider=provider,
                 force_temperature=force_temperature,
                 num_choices=num_choices,
-                model_api_kwargs=api_kwargs,
+                model_api_kwargs=agentic_api_kwargs,
                 api_dict=api_dict,
                 model_display_name_override=model_display_name_override,
                 answer_file=answer_file,

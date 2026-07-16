@@ -2,7 +2,13 @@
 # https://tinker-docs.thinkingmachines.ai/tinker/compatible-apis/openai/
 # reasoning_effort accepts none/minimal/low/medium/high/xhigh (chat only);
 # separate_reasoning defaults to true, so message content stays clean of CoT.
-# Beta endpoint intended for low-traffic use — keep parallelism modest.
+# Beta endpoint intended for low-traffic use — keep parallelism modest (~10).
+#
+# Inkling is a native tool-caller: on agent-style prompts it emits tool calls
+# instead of text bash blocks (content comes back empty). The agentic overlay
+# declares a bash tool and the agentic model wrapper synthesizes the ```bash
+# block from the tool call. Context is 64K, so agentic caps max_tokens at 8k
+# to leave input headroom for long trajectories.
 ---
 display_name: inkling-high
 api_name:
@@ -15,6 +21,24 @@ api_kwargs:
     max_tokens: 32768
     reasoning_effort: high
     stream: true
+  agentic:
+    max_tokens: 8192
+    tools:
+      - type: function
+        function:
+          name: bash
+          description: Run one bash command in the sandboxed repository shell and return its output.
+          parameters:
+            type: object
+            properties:
+              command:
+                type: string
+                description: The bash command to execute.
+            required: ["command"]
+cost_per_million:
+  input: 1.87
+  cached_input: 0.374
+  output: 4.68
 ---
 display_name: inkling-xhigh
 api_name:
@@ -27,3 +51,21 @@ api_kwargs:
     max_tokens: 32768
     reasoning_effort: xhigh
     stream: true
+  agentic:
+    max_tokens: 8192
+    tools:
+      - type: function
+        function:
+          name: bash
+          description: Run one bash command in the sandboxed repository shell and return its output.
+          parameters:
+            type: object
+            properties:
+              command:
+                type: string
+                description: The bash command to execute.
+            required: ["command"]
+cost_per_million:
+  input: 1.87
+  cached_input: 0.374
+  output: 4.68
