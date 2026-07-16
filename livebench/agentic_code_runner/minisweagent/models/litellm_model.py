@@ -79,9 +79,18 @@ class LitellmModelConfig:
 class LitellmModel:
     def __init__(self, **kwargs):
         if 'https' in kwargs['model_name']:
-            base_url = cast(str, kwargs['model_name']).rsplit('/', 1)[0]
-            kwargs['model_name'] = kwargs['model_name'].replace('https://', 'openai/')
-            kwargs['model_kwargs']['api_base'] = base_url
+            # model_name arrives as "<base-url>/<provider-model-name>". When the caller
+            # already supplied api_base, split on it exactly — the provider model name
+            # may itself contain slashes (minimax/minimax-m2.7, thinkingmachines/Inkling),
+            # which a bare rsplit misparses into the base URL.
+            api_base = kwargs.get('model_kwargs', {}).get('api_base')
+            if api_base and cast(str, kwargs['model_name']).startswith(api_base):
+                model = cast(str, kwargs['model_name'])[len(api_base):].lstrip('/')
+                kwargs['model_name'] = f"openai/{model}"
+            else:
+                base_url = cast(str, kwargs['model_name']).rsplit('/', 1)[0]
+                kwargs['model_name'] = kwargs['model_name'].replace('https://', 'openai/')
+                kwargs['model_kwargs']['api_base'] = base_url
         self.config = LitellmModelConfig(**kwargs)
         self.cost = 0.0
         self.n_calls = 0
@@ -527,6 +536,23 @@ class LitellmModel:
 
         content = res['choices'][0]['message']['content']
 
+        # Native tool-callers (e.g. thinkingmachines/Inkling) put the action in
+        # tool_calls and leave content empty. The agent loop is text-based, so
+        # synthesize the equivalent ```bash block from bash tool calls.
+        if not content:
+            tool_calls = getattr(res['choices'][0]['message'], 'tool_calls', None) or []
+            blocks = []
+            for tc in tool_calls:
+                fn = getattr(tc, 'function', None)
+                if fn is not None and getattr(fn, 'name', '') == 'bash':
+                    try:
+                        cmd = json.loads(fn.arguments).get('command')
+                    except (json.JSONDecodeError, TypeError, AttributeError):
+                        cmd = None
+                    if cmd:
+                        blocks.append(f"```bash\n{cmd}\n```")
+            if blocks:
+                content = "\n".join(blocks)
 
         result = {
             'response': res,
