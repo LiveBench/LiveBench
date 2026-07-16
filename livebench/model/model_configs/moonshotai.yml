@@ -90,3 +90,21 @@ api_kwargs:
     temperature: 1.0
     max_tokens: 127000
     stream: true
+---
+display_name: kimi-k3
+cost_per_million:
+  input: 3.00
+  cached_input: 0.30
+  output: 15.00
+api_name:
+  https://api.moonshot.ai/v1: kimi-k3
+api_keys:
+  https://api.moonshot.ai/v1: MOONSHOTAI_API_KEY
+default_provider: https://api.moonshot.ai/v1
+api_kwargs:
+  default:
+    temperature: 1.0
+    max_tokens: 131072
+    stream: true
+    reasoning_effort: max
+preserve_reasoning: true
