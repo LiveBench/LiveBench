@@ -1,0 +1,29 @@
+# Thinking Machines Tinker models, served via Tinker's OpenAI-compatible API.
+# https://tinker-docs.thinkingmachines.ai/tinker/compatible-apis/openai/
+# reasoning_effort accepts none/minimal/low/medium/high/xhigh (chat only);
+# separate_reasoning defaults to true, so message content stays clean of CoT.
+# Beta endpoint intended for low-traffic use — keep parallelism modest.
+---
+display_name: inkling-high
+api_name:
+  https://tinker.thinkingmachines.dev/services/tinker-prod/oai/api/v1: thinkingmachines/Inkling
+api_keys:
+  https://tinker.thinkingmachines.dev/services/tinker-prod/oai/api/v1: TINKER_API_KEY
+api_kwargs:
+  default:
+    temperature: 1
+    max_tokens: 32768
+    reasoning_effort: high
+    stream: true
+---
+display_name: inkling-xhigh
+api_name:
+  https://tinker.thinkingmachines.dev/services/tinker-prod/oai/api/v1: thinkingmachines/Inkling
+api_keys:
+  https://tinker.thinkingmachines.dev/services/tinker-prod/oai/api/v1: TINKER_API_KEY
+api_kwargs:
+  default:
+    temperature: 1
+    max_tokens: 32768
+    reasoning_effort: xhigh
+    stream: true
