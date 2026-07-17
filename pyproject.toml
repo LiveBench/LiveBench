@@ -28,7 +28,8 @@ dependencies = [
 "Bug Tracker" = "https://github.com/livebench/LiveBench/issues"
 
 [tool.setuptools.packages.find]
-exclude = ["notebooks"]
+include = ["livebench*"]
+exclude = ["notebooks*", "livebench.agentic_code_runner.data*"]
 
 [tool.wheel]
 exclude = ["notebooks"]
