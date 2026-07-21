@@ -140,7 +140,13 @@ class LitellmModel:
     def _query_completion_generativeai(self, messages: list[dict[str, str]], **kwargs):
         from google import genai
         from google.genai import types
-        client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+        # Hard client-side deadline: gemini-3.6-flash can hold a connection
+        # open indefinitely on filter-triggering prompts (observed: first call
+        # hanging 6+ min with no server response). 600s accommodates the
+        # longest legitimate thinking generations; a hang becomes a timeout
+        # exception that tenacity retries and eventually surfaces as $ERROR$.
+        client = genai.Client(api_key=os.environ["GEMINI_API_KEY"],
+                              http_options=types.HttpOptions(timeout=600_000))
         actual_messages: list[types.ContentOrDict] = []
         system = None
         for message in messages:
