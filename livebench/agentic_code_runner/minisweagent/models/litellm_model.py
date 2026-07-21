@@ -169,11 +169,43 @@ class LitellmModel:
         actual_model_name = self.config.model_name.split('/')[-1]
 
         response = client.models.generate_content(model=actual_model_name, contents=actual_messages, config=config)
-        
-        if response.text is None or response.candidates is None or len(response.candidates) == 0:
-            raise Exception("No response returned from Google")
-        
-        message = response.text
+
+        if response.candidates is None or len(response.candidates) == 0:
+            raise Exception(
+                "No response returned from Google: no candidates "
+                f"(prompt_feedback={getattr(response, 'prompt_feedback', None)})"
+            )
+
+        if response.text is None:
+            # A candidate came back but with no visible text. Two distinct cases,
+            # previously conflated into one blind-retried "No response" exception:
+            cand = response.candidates[0]
+            finish = str(getattr(cand, 'finish_reason', ''))
+            um = response.usage_metadata
+            thoughts = getattr(um, 'thoughts_token_count', None) if um is not None else None
+            if finish.endswith('MAX_TOKENS'):
+                # Thought-only response: the whole output budget went to thinking.
+                # That is token exhaustion, not a transient failure -- the outer
+                # tenacity retry would reproduce it while backing off up to 120s.
+                # Return empty content instead; the agent's format-error nudge
+                # advances the loop, bounded by step_limit.
+                self.empty_responses += 1
+                logger.warning(
+                    f"Gemini thought-only response (finish_reason={finish}, "
+                    f"thoughts_tokens={thoughts}); treating as token exhaustion with empty content"
+                )
+                message = ""
+            else:
+                # Genuinely empty text without MAX_TOKENS: transient Google-side
+                # empty candidate. Retrying works -- but say what actually came
+                # back so the retry log is diagnosable.
+                raise Exception(
+                    f"Empty text response from Google (finish_reason={finish}, "
+                    f"thoughts_tokens={thoughts}, "
+                    f"prompt_feedback={getattr(response, 'prompt_feedback', None)})"
+                )
+        else:
+            message = response.text
 
         result: dict[str, Any] = {
             'response': response,
