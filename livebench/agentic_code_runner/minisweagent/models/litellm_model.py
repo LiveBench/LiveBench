@@ -168,44 +168,62 @@ class LitellmModel:
 
         actual_model_name = self.config.model_name.split('/')[-1]
 
-        response = client.models.generate_content(model=actual_model_name, contents=actual_messages, config=config)
+        # Empty-text handling mirrors the Anthropic path (kimi-k3 incident): a
+        # short bounded resample, then RETURN empty content rather than raising.
+        # Raising into the outer tenacity retry never returns to the agent, so
+        # no step is counted and the instance burns wall clock invisibly under
+        # a 4..120s backoff designed for rate limits -- these are HTTP-200
+        # empty candidates, not throttling. Returning "" counts a normal step
+        # (the agent's format nudge advances the loop, bounded by step_limit).
+        max_empty_resamples = 3
+        for _empty_attempt in range(max_empty_resamples + 1):
+            response = client.models.generate_content(model=actual_model_name, contents=actual_messages, config=config)
 
-        if response.candidates is None or len(response.candidates) == 0:
-            raise Exception(
-                "No response returned from Google: no candidates "
-                f"(prompt_feedback={getattr(response, 'prompt_feedback', None)})"
-            )
+            if response.candidates is None or len(response.candidates) == 0:
+                raise Exception(
+                    "No response returned from Google: no candidates "
+                    f"(prompt_feedback={getattr(response, 'prompt_feedback', None)})"
+                )
 
-        if response.text is None:
-            # A candidate came back but with no visible text. Two distinct cases,
-            # previously conflated into one blind-retried "No response" exception:
+            if response.text is not None:
+                message = response.text
+                if _empty_attempt > 0:
+                    self.empty_resamples_recovered += 1
+                    logger.warning(f"Recovered from empty Gemini response after {_empty_attempt} resample(s)")
+                break
+
             cand = response.candidates[0]
             finish = str(getattr(cand, 'finish_reason', ''))
             um = response.usage_metadata
             thoughts = getattr(um, 'thoughts_token_count', None) if um is not None else None
+            self.empty_responses += 1
+
             if finish.endswith('MAX_TOKENS'):
-                # Thought-only response: the whole output budget went to thinking.
-                # That is token exhaustion, not a transient failure -- the outer
-                # tenacity retry would reproduce it while backing off up to 120s.
-                # Return empty content instead; the agent's format-error nudge
-                # advances the loop, bounded by step_limit.
-                self.empty_responses += 1
+                # Thought-only response: the whole output budget went to
+                # thinking. Deterministic token exhaustion -- resampling just
+                # reproduces it, so don't.
                 logger.warning(
                     f"Gemini thought-only response (finish_reason={finish}, "
                     f"thoughts_tokens={thoughts}); treating as token exhaustion with empty content"
                 )
                 message = ""
-            else:
-                # Genuinely empty text without MAX_TOKENS: transient Google-side
-                # empty candidate. Retrying works -- but say what actually came
-                # back so the retry log is diagnosable.
-                raise Exception(
+                break
+
+            if _empty_attempt < max_empty_resamples:
+                backoff = min(2 ** _empty_attempt, 8)
+                logger.warning(
                     f"Empty text response from Google (finish_reason={finish}, "
-                    f"thoughts_tokens={thoughts}, "
-                    f"prompt_feedback={getattr(response, 'prompt_feedback', None)})"
+                    f"thoughts_tokens={thoughts}); resampling "
+                    f"(attempt {_empty_attempt + 1}/{max_empty_resamples}, sleeping {backoff}s)"
                 )
-        else:
-            message = response.text
+                time.sleep(backoff)
+                continue
+
+            logger.warning(
+                f"Empty text response from Google persisted after {max_empty_resamples} "
+                f"resamples (finish_reason={finish}); returning empty content"
+            )
+            message = ""
 
         result: dict[str, Any] = {
             'response': response,
