@@ -1,17 +1,23 @@
 import logging
 from pathlib import Path
 
+from rich.highlighter import NullHighlighter
 from rich.logging import RichHandler
 
 
 def _setup_root_logger() -> None:
     logger = logging.getLogger("minisweagent")
     logger.setLevel(logging.DEBUG)
+    # NullHighlighter: the default ReprHighlighter regex-scans every message
+    # while holding the global logging lock — a pathological message (e.g.
+    # millions of URL-ish tokens from a runaway command) livelocks every
+    # worker thread in a batch run. Batch logs don't need syntax colors.
     _handler = RichHandler(
         show_path=False,
         show_time=False,
         show_level=False,
         markup=True,
+        highlighter=NullHighlighter(),
     )
     _formatter = logging.Formatter("%(name)s: %(levelname)s: %(message)s")
     _handler.setFormatter(_formatter)
