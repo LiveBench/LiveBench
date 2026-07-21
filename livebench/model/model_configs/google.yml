@@ -366,6 +366,40 @@ api_kwargs:
     temperature: 1
     top_p: 0.95
 ---
+display_name: gemini-3.5-flash-lite-high
+cost_per_million:
+  input: 0.3
+  cached_input: 0.03
+  output: 2.5
+api_name:
+  google: gemini-3.5-flash-lite
+aliases:
+  - gemini-3.5-flash-lite-high
+api_kwargs:
+  default:
+    thinking_config:
+      thinking_level: high
+    max_output_tokens: 65536
+    temperature: 1
+    top_p: 0.95
+---
+display_name: gemini-3.6-flash-high
+cost_per_million:
+  input: 1.5
+  cached_input: 0.15
+  output: 7.5
+api_name:
+  google: gemini-3.6-flash
+aliases:
+  - gemini-3.6-flash-high
+api_kwargs:
+  default:
+    thinking_config:
+      thinking_level: high
+    max_output_tokens: 65536
+    temperature: 1
+    top_p: 0.95
+---
 display_name: gemini-3-flash-preview-minimal
 api_name:
   google: gemini-3-flash-preview
