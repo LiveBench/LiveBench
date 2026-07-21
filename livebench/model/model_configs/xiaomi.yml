@@ -1,17 +1,28 @@
 # Xiaomi Models
 ---
 display_name: mimo-v2.5-pro
+# OpenRouter Xiaomi first-party pricing
 cost_per_million:
-  input: 1.00
-  cached_input: 0.20
-  output: 3.00
+  input: 0.435
+  cached_input: 0.0036
+  output: 0.87
 api_name:
+  https://openrouter.ai/api/v1: xiaomi/mimo-v2.5-pro
   https://api.deepinfra.com/v1/openai: XiaomiMiMo/MiMo-V2.5-Pro
-default_provider: https://api.deepinfra.com/v1/openai
+# OpenRouter pinned to the first-party Xiaomi provider: 131.1K max output
+# (DeepInfra caps output at 65,536, which token-exhausts long reasoning).
+default_provider: https://openrouter.ai/api/v1
 api_keys:
+  https://openrouter.ai/api/v1: OPENROUTER_API_KEY
   https://api.deepinfra.com/v1/openai: DEEPINFRA_API_KEY
 api_kwargs:
   default:
-    max_tokens: null
+    max_tokens: 131072
     max_completion_tokens: null
     stream: true
+  https://openrouter.ai/api/v1:
+    extra_body:
+      provider:
+        only:
+          - xiaomi
+        allow_fallbacks: false
