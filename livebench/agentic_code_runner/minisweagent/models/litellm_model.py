@@ -20,6 +20,12 @@ from livebench.agentic_code_runner.minisweagent.models import GLOBAL_MODEL_STATS
 from livebench.agentic_code_runner.minisweagent.utils.log import logger
 
 
+class GeminiContentFilterError(RuntimeError):
+    """Gemini server-side content filter aborted generation (finish_reason OTHER /
+    RECITATION). Deterministic for the prompt: excluded from tenacity retry, and the
+    message contains "content policy" so validate_eval classifies it as terminal."""
+
+
 class LengthFinishReasonError(Exception):
     """Raised when the model returns finish_reason='length' but completion_tokens < max_tokens."""
 
@@ -126,6 +132,7 @@ class LitellmModel:
         retry=retry_if_not_exception_type(
             (
                 KeyboardInterrupt,
+                GeminiContentFilterError,
             )
         ),
         reraise=True,
@@ -197,6 +204,23 @@ class LitellmModel:
             um = response.usage_metadata
             thoughts = getattr(um, 'thoughts_token_count', None) if um is not None else None
             self.empty_responses += 1
+
+            if finish.endswith('OTHER') or finish.endswith('RECITATION'):
+                # Server-side content filter: OTHER is the legacy API masking a
+                # policy block (the Interactions API returns an explicit 400
+                # "Request blocked for an unspecified policy reason" for the
+                # same prompt); RECITATION is the recitation filter. Both are
+                # deterministic for the prompt -- resampling or tenacity
+                # retries just reproduce them. Fail the instance fast; the
+                # phrase "content policy" makes validate_eval classify it as
+                # terminal so it never gates retry rounds.
+                logger.error(
+                    f"Gemini content-filter abort (finish_reason={finish}, thoughts_tokens={thoughts}); "
+                    "failing instance -- content policy block, not retryable"
+                )
+                raise GeminiContentFilterError(
+                    f"Gemini content policy block: finish_reason={finish}, generation aborted server-side"
+                )
 
             if finish.endswith('MAX_TOKENS'):
                 # Thought-only response: the whole output budget went to
