@@ -80,9 +80,8 @@ class LitellmModelConfig:
     # gemini-3 uses the genai SDK by default; False routes it through litellm (the
     # replay keeps provider_specific_fields nested so thought signatures survive)
     native_gemini: bool = True
-    # Use the Interactions API (GA 2026-06) for gemini-3: explicit error semantics
-    # (400 content_blocked instead of finish_reason=OTHER; status=incomplete instead
-    # of empty MAX_TOKENS candidates). False falls back to generateContent.
+    # gemini-3 via the Interactions API (explicit content_blocked / incomplete
+    # statuses instead of finish_reason guessing); False falls back to generateContent
     gemini_interactions: bool = True
 
 class LitellmModel:
@@ -141,10 +140,8 @@ class LitellmModel:
         reraise=True,
     )
     def _query_completion_interactions(self, messages: list[dict[str, str]], **kwargs):
-        """Gemini Interactions API: stateless step_list replay each call. Prior model
-        turns arrive as raw step dicts (via extra.outputs), so thought signatures are
-        echoed verbatim. Errors are explicit: 400 content_blocked -> fail instance
-        fast; status=incomplete -> token exhaustion, empty content, no retry."""
+        """Stateless step_list replay: prior model turns arrive as raw step dicts
+        (via extra.outputs), so thought signatures are echoed verbatim."""
         from google import genai
         from google.genai import types
         client = genai.Client(api_key=os.environ["GEMINI_API_KEY"],
@@ -153,7 +150,7 @@ class LitellmModel:
         system_parts, steps = [], []
         for m in messages:
             if not isinstance(m, dict) or 'type' in m:
-                steps.append(m)  # replayed interaction step (thought / model_output / ...)
+                steps.append(m)  # replayed interaction step
             elif m.get('role') == 'system':
                 system_parts.append(m['content'])
             elif m.get('role') in ('assistant', 'model'):
@@ -182,15 +179,14 @@ class LitellmModel:
                 raise GeminiContentFilterError(f"Gemini content policy block: {s[:200]}")
             raise
 
-        dumped = response.model_dump()
-        out_steps = dumped.get('steps') or []
+        out_steps = response.model_dump().get('steps') or []
         text = "".join(c.get('text', '') for s in out_steps if s.get('type') == 'model_output'
                        for c in (s.get('content') or []) if c.get('type') == 'text')
 
-        if response.status == 'incomplete':
-            # whole output budget consumed (usually by thinking): token exhaustion
-            self.empty_responses += 1
-            logger.warning("Gemini interaction incomplete (output budget exhausted); returning empty content")
+        if response.status == 'incomplete':  # output budget exhausted (usually by thinking)
+            if not text:
+                self.empty_responses += 1
+                logger.warning("Gemini interaction incomplete with no text; returning empty content")
         elif response.status != 'completed' or not text:
             raise Exception(f"Empty interaction response (status={response.status})")
 
