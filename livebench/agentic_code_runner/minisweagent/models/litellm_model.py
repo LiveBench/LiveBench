@@ -21,9 +21,8 @@ from livebench.agentic_code_runner.minisweagent.utils.log import logger
 
 
 class GeminiContentFilterError(RuntimeError):
-    """Gemini server-side content filter aborted generation (finish_reason OTHER /
-    RECITATION). Deterministic for the prompt: excluded from tenacity retry, and the
-    message contains "content policy" so validate_eval classifies it as terminal."""
+    """Gemini content filter aborted generation (finish_reason OTHER/RECITATION).
+    Deterministic per prompt: not retried; fails the instance fast."""
 
 
 class LengthFinishReasonError(Exception):
@@ -140,11 +139,8 @@ class LitellmModel:
     def _query_completion_generativeai(self, messages: list[dict[str, str]], **kwargs):
         from google import genai
         from google.genai import types
-        # Hard client-side deadline: gemini-3.6-flash can hold a connection
-        # open indefinitely on filter-triggering prompts (observed: first call
-        # hanging 6+ min with no server response). 600s accommodates the
-        # longest legitimate thinking generations; a hang becomes a timeout
-        # exception that tenacity retries and eventually surfaces as $ERROR$.
+        # 600s hard deadline: Gemini can hold a connection open indefinitely
+        # on filter-triggering prompts, pinning the worker.
         client = genai.Client(api_key=os.environ["GEMINI_API_KEY"],
                               http_options=types.HttpOptions(timeout=600_000))
         actual_messages: list[types.ContentOrDict] = []
@@ -181,13 +177,8 @@ class LitellmModel:
 
         actual_model_name = self.config.model_name.split('/')[-1]
 
-        # Empty-text handling mirrors the Anthropic path (kimi-k3 incident): a
-        # short bounded resample, then RETURN empty content rather than raising.
-        # Raising into the outer tenacity retry never returns to the agent, so
-        # no step is counted and the instance burns wall clock invisibly under
-        # a 4..120s backoff designed for rate limits -- these are HTTP-200
-        # empty candidates, not throttling. Returning "" counts a normal step
-        # (the agent's format nudge advances the loop, bounded by step_limit).
+        # Empty text: resample briefly, then return "" so a step is counted
+        # (raising into tenacity's 4..120s backoff hides it from the agent).
         max_empty_resamples = 3
         for _empty_attempt in range(max_empty_resamples + 1):
             response = client.models.generate_content(model=actual_model_name, contents=actual_messages, config=config)
@@ -212,30 +203,17 @@ class LitellmModel:
             self.empty_responses += 1
 
             if finish.endswith('OTHER') or finish.endswith('RECITATION'):
-                # Server-side content filter: OTHER is the legacy API masking a
-                # policy block (the Interactions API returns an explicit 400
-                # "Request blocked for an unspecified policy reason" for the
-                # same prompt); RECITATION is the recitation filter. Both are
-                # deterministic for the prompt -- resampling or tenacity
-                # retries just reproduce them. Fail the instance fast; the
-                # phrase "content policy" makes validate_eval classify it as
-                # terminal so it never gates retry rounds.
-                logger.error(
-                    f"Gemini content-filter abort (finish_reason={finish}, thoughts_tokens={thoughts}); "
-                    "failing instance -- content policy block, not retryable"
-                )
+                # Server-side content filter; deterministic per prompt, so
+                # exit early instead of retrying. ("content policy" in the
+                # message makes validate_eval classify it as terminal.)
+                logger.error(f"Gemini content-filter abort (finish_reason={finish}); failing instance")
                 raise GeminiContentFilterError(
                     f"Gemini content policy block: finish_reason={finish}, generation aborted server-side"
                 )
 
             if finish.endswith('MAX_TOKENS'):
-                # Thought-only response: the whole output budget went to
-                # thinking. Deterministic token exhaustion -- resampling just
-                # reproduces it, so don't.
-                logger.warning(
-                    f"Gemini thought-only response (finish_reason={finish}, "
-                    f"thoughts_tokens={thoughts}); treating as token exhaustion with empty content"
-                )
+                # Whole output budget went to thinking: token exhaustion, don't retry.
+                logger.warning(f"Gemini thought-only response (thoughts_tokens={thoughts}); returning empty content")
                 message = ""
                 break
 

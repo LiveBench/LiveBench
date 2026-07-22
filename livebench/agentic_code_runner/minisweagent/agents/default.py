@@ -187,9 +187,7 @@ class DefaultAgent:
             try:
                 self.step()
             except NonTerminatingException as e:
-                # Cap the logged copy: rendering a multi-MB message through
-                # rich's highlighter livelocks the whole batch (it holds the
-                # global logging lock). The full text still reaches the model.
+                # Cap the log copy; huge messages livelock rich's highlighter.
                 logger.warning(f"Non-terminating exception: {str(e)[:2000]}")
                 self.add_message("user", str(e))
             except Submitted as e:
@@ -304,10 +302,7 @@ class DefaultAgent:
             output = self.env.execute(action["action"])
         except subprocess.TimeoutExpired as e:
             output = e.output.decode("utf-8", errors="replace") if e.output else ""
-            # A command that floods stdout until the timeout (e.g. an agent
-            # reproducing an infinite-loop bug) can produce hundreds of MB
-            # here; unbounded, it ends up in the exception message and from
-            # there in both the log record and the model context.
+            # A flooding command can emit 100s of MB before the timeout; bound it.
             output = _truncate_middle(output)
             raise ExecutionTimeoutError(
                 self.render_template(self.config.timeout_template, action=action, output=output)

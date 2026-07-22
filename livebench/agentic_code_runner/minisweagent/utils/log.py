@@ -8,10 +8,8 @@ from rich.logging import RichHandler
 def _setup_root_logger() -> None:
     logger = logging.getLogger("minisweagent")
     logger.setLevel(logging.DEBUG)
-    # NullHighlighter: the default ReprHighlighter regex-scans every message
-    # while holding the global logging lock — a pathological message (e.g.
-    # millions of URL-ish tokens from a runaway command) livelocks every
-    # worker thread in a batch run. Batch logs don't need syntax colors.
+    # No highlighter: ReprHighlighter livelocks on pathological messages
+    # while holding the global logging lock, freezing all batch workers.
     _handler = RichHandler(
         show_path=False,
         show_time=False,
