@@ -84,6 +84,17 @@ class ExecutionTimeoutError(NonTerminatingException):
     """Raised when the action execution timed out."""
 
 
+_TIMEOUT_OUTPUT_CAP = 10_000
+
+
+def _truncate_middle(text: str, cap: int = _TIMEOUT_OUTPUT_CAP) -> str:
+    """Bound a runaway command's captured output, keeping head and tail."""
+    if len(text) <= cap:
+        return text
+    half = cap // 2
+    return f"{text[:half]}\n... [{len(text) - cap:,} chars truncated] ...\n{text[-half:]}"
+
+
 class TerminatingException(Exception):
     """Raised for conditions that terminate the agent."""
 
@@ -176,7 +187,8 @@ class DefaultAgent:
             try:
                 self.step()
             except NonTerminatingException as e:
-                logger.warning(f"Non-terminating exception: {e}")
+                # Cap the log copy; huge messages livelock rich's highlighter.
+                logger.warning(f"Non-terminating exception: {str(e)[:2000]}")
                 self.add_message("user", str(e))
             except Submitted as e:
                 # has_finished() already captured the submission diff
@@ -290,6 +302,8 @@ class DefaultAgent:
             output = self.env.execute(action["action"])
         except subprocess.TimeoutExpired as e:
             output = e.output.decode("utf-8", errors="replace") if e.output else ""
+            # A flooding command can emit 100s of MB before the timeout; bound it.
+            output = _truncate_middle(output)
             raise ExecutionTimeoutError(
                 self.render_template(self.config.timeout_template, action=action, output=output)
             )

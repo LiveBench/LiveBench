@@ -20,6 +20,11 @@ from livebench.agentic_code_runner.minisweagent.models import GLOBAL_MODEL_STATS
 from livebench.agentic_code_runner.minisweagent.utils.log import logger
 
 
+class GeminiContentFilterError(RuntimeError):
+    """Gemini content filter aborted generation (finish_reason OTHER/RECITATION).
+    Deterministic per prompt: not retried; fails the instance fast."""
+
+
 class LengthFinishReasonError(Exception):
     """Raised when the model returns finish_reason='length' but completion_tokens < max_tokens."""
 
@@ -126,6 +131,7 @@ class LitellmModel:
         retry=retry_if_not_exception_type(
             (
                 KeyboardInterrupt,
+                GeminiContentFilterError,
             )
         ),
         reraise=True,
@@ -133,7 +139,10 @@ class LitellmModel:
     def _query_completion_generativeai(self, messages: list[dict[str, str]], **kwargs):
         from google import genai
         from google.genai import types
-        client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+        # 600s hard deadline: Gemini can hold a connection open indefinitely
+        # on filter-triggering prompts, pinning the worker.
+        client = genai.Client(api_key=os.environ["GEMINI_API_KEY"],
+                              http_options=types.HttpOptions(timeout=600_000))
         actual_messages: list[types.ContentOrDict] = []
         system = None
         for message in messages:
@@ -168,12 +177,61 @@ class LitellmModel:
 
         actual_model_name = self.config.model_name.split('/')[-1]
 
-        response = client.models.generate_content(model=actual_model_name, contents=actual_messages, config=config)
-        
-        if response.text is None or response.candidates is None or len(response.candidates) == 0:
-            raise Exception("No response returned from Google")
-        
-        message = response.text
+        # Empty text: resample briefly, then return "" so a step is counted
+        # (raising into tenacity's 4..120s backoff hides it from the agent).
+        max_empty_resamples = 3
+        for _empty_attempt in range(max_empty_resamples + 1):
+            response = client.models.generate_content(model=actual_model_name, contents=actual_messages, config=config)
+
+            if response.candidates is None or len(response.candidates) == 0:
+                raise Exception(
+                    "No response returned from Google: no candidates "
+                    f"(prompt_feedback={getattr(response, 'prompt_feedback', None)})"
+                )
+
+            if response.text is not None:
+                message = response.text
+                if _empty_attempt > 0:
+                    self.empty_resamples_recovered += 1
+                    logger.warning(f"Recovered from empty Gemini response after {_empty_attempt} resample(s)")
+                break
+
+            cand = response.candidates[0]
+            finish = str(getattr(cand, 'finish_reason', ''))
+            um = response.usage_metadata
+            thoughts = getattr(um, 'thoughts_token_count', None) if um is not None else None
+            self.empty_responses += 1
+
+            if finish.endswith('OTHER') or finish.endswith('RECITATION'):
+                # Server-side content filter; deterministic per prompt, so
+                # exit early instead of retrying. ("content policy" in the
+                # message makes validate_eval classify it as terminal.)
+                logger.error(f"Gemini content-filter abort (finish_reason={finish}); failing instance")
+                raise GeminiContentFilterError(
+                    f"Gemini content policy block: finish_reason={finish}, generation aborted server-side"
+                )
+
+            if finish.endswith('MAX_TOKENS'):
+                # Whole output budget went to thinking: token exhaustion, don't retry.
+                logger.warning(f"Gemini thought-only response (thoughts_tokens={thoughts}); returning empty content")
+                message = ""
+                break
+
+            if _empty_attempt < max_empty_resamples:
+                backoff = min(2 ** _empty_attempt, 8)
+                logger.warning(
+                    f"Empty text response from Google (finish_reason={finish}, "
+                    f"thoughts_tokens={thoughts}); resampling "
+                    f"(attempt {_empty_attempt + 1}/{max_empty_resamples}, sleeping {backoff}s)"
+                )
+                time.sleep(backoff)
+                continue
+
+            logger.warning(
+                f"Empty text response from Google persisted after {max_empty_resamples} "
+                f"resamples (finish_reason={finish}); returning empty content"
+            )
+            message = ""
 
         result: dict[str, Any] = {
             'response': response,

@@ -1,17 +1,21 @@
 import logging
 from pathlib import Path
 
+from rich.highlighter import NullHighlighter
 from rich.logging import RichHandler
 
 
 def _setup_root_logger() -> None:
     logger = logging.getLogger("minisweagent")
     logger.setLevel(logging.DEBUG)
+    # No highlighter: ReprHighlighter livelocks on pathological messages
+    # while holding the global logging lock, freezing all batch workers.
     _handler = RichHandler(
         show_path=False,
         show_time=False,
         show_level=False,
         markup=True,
+        highlighter=NullHighlighter(),
     )
     _formatter = logging.Formatter("%(name)s: %(levelname)s: %(message)s")
     _handler.setFormatter(_formatter)
