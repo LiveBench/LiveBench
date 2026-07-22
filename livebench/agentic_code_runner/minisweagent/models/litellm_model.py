@@ -80,6 +80,10 @@ class LitellmModelConfig:
     # gemini-3 uses the genai SDK by default; False routes it through litellm (the
     # replay keeps provider_specific_fields nested so thought signatures survive)
     native_gemini: bool = True
+    # Use the Interactions API (GA 2026-06) for gemini-3: explicit error semantics
+    # (400 content_blocked instead of finish_reason=OTHER; status=incomplete instead
+    # of empty MAX_TOKENS candidates). False falls back to generateContent.
+    gemini_interactions: bool = True
 
 class LitellmModel:
     def __init__(self, **kwargs):
@@ -123,6 +127,83 @@ class LitellmModel:
         self.consecutive_empty_degrades = 0
         if self.config.litellm_model_registry and Path(self.config.litellm_model_registry).is_file():
             litellm.utils.register_model(json.loads(Path(self.config.litellm_model_registry).read_text()))
+
+    @retry(
+        stop=stop_after_attempt(15),
+        wait=wait_exponential(multiplier=2, min=4, max=120),
+        before_sleep=before_sleep_log(logger, logging.WARNING),
+        retry=retry_if_not_exception_type(
+            (
+                KeyboardInterrupt,
+                GeminiContentFilterError,
+            )
+        ),
+        reraise=True,
+    )
+    def _query_completion_interactions(self, messages: list[dict[str, str]], **kwargs):
+        """Gemini Interactions API: stateless step_list replay each call. Prior model
+        turns arrive as raw step dicts (via extra.outputs), so thought signatures are
+        echoed verbatim. Errors are explicit: 400 content_blocked -> fail instance
+        fast; status=incomplete -> token exhaustion, empty content, no retry."""
+        from google import genai
+        from google.genai import types
+        client = genai.Client(api_key=os.environ["GEMINI_API_KEY"],
+                              http_options=types.HttpOptions(timeout=600_000))
+
+        system_parts, steps = [], []
+        for m in messages:
+            if not isinstance(m, dict) or 'type' in m:
+                steps.append(m)  # replayed interaction step (thought / model_output / ...)
+            elif m.get('role') == 'system':
+                system_parts.append(m['content'])
+            elif m.get('role') in ('assistant', 'model'):
+                steps.append({"type": "model_output", "content": [{"type": "text", "text": m['content']}]})
+            else:
+                steps.append({"type": "user_input", "content": [{"type": "text", "text": m['content']}]})
+
+        gc = dict(self.config.model_kwargs) | kwargs
+        tc = gc.pop('thinking_config', None) or {}
+        if tc.get('thinking_level'):
+            gc['thinking_level'] = tc['thinking_level']
+        for k in ('stream', 'timeout', 'safety_settings'):
+            gc.pop(k, None)
+
+        try:
+            response = client.interactions.create(
+                model=self.config.model_name.split('/')[-1],
+                input=steps,
+                system_instruction="\n".join(system_parts) or None,
+                generation_config=gc,
+            )
+        except Exception as e:
+            s = str(e)
+            if 'content_blocked' in s or 'blocked for' in s:
+                logger.error(f"Gemini content filter block: {s[:200]}")
+                raise GeminiContentFilterError(f"Gemini content policy block: {s[:200]}")
+            raise
+
+        dumped = response.model_dump()
+        out_steps = dumped.get('steps') or []
+        text = "".join(c.get('text', '') for s in out_steps if s.get('type') == 'model_output'
+                       for c in (s.get('content') or []) if c.get('type') == 'text')
+
+        if response.status == 'incomplete':
+            # whole output budget consumed (usually by thinking): token exhaustion
+            self.empty_responses += 1
+            logger.warning("Gemini interaction incomplete (output budget exhausted); returning empty content")
+        elif response.status != 'completed' or not text:
+            raise Exception(f"Empty interaction response (status={response.status})")
+
+        usage = response.usage
+        return {
+            'response': response,
+            'content': text,
+            'outputs': out_steps,  # replayed verbatim next turn, signatures included
+            'input_tokens': getattr(usage, 'total_input_tokens', 0) or 0,
+            'output_tokens': (getattr(usage, 'total_output_tokens', 0) or 0)
+                             + (getattr(usage, 'total_thought_tokens', 0) or 0),
+            'cached_tokens': getattr(usage, 'total_cached_tokens', 0) or 0,
+        }
 
     @retry(
         stop=stop_after_attempt(15),
@@ -793,7 +874,10 @@ class LitellmModel:
                 actual_messages.append(message_copy)
 
         if self.config.native_gemini and 'gemini-3' in self.config.model_name:
-            result = self._query_completion_generativeai(actual_messages, **kwargs)
+            if self.config.gemini_interactions:
+                result = self._query_completion_interactions(actual_messages, **kwargs)
+            else:
+                result = self._query_completion_generativeai(actual_messages, **kwargs)
         elif self._needs_direct_anthropic_call():
             result = self._query_completion_anthropic_direct(actual_messages, **kwargs)
         elif self.config.api_type == "completion":
