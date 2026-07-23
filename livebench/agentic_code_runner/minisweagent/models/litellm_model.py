@@ -314,6 +314,9 @@ class LitellmModel:
             'response': response,
             'content': message,
             'message': response.candidates[0].content,
+            'input_tokens': 0,
+            'output_tokens': 0,
+            'cached_tokens': 0,
         }
 
         if response.usage_metadata is not None:
