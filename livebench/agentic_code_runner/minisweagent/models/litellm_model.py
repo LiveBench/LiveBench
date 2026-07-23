@@ -31,6 +31,8 @@ class LengthFinishReasonError(Exception):
 
 _DEFAULT_MAX_ATTEMPTS = 15
 LENGTH_FINISH_REASON_MAX_ATTEMPTS = 3
+# Retries for a turn that comes back with no usable text (degenerate early-stop).
+EMPTY_RESPONSE_RETRIES = 3
 
 
 def _length_aware_stop(retry_state) -> bool:
@@ -112,7 +114,8 @@ class LitellmModel:
         self.previous_response_id = None
         self._responses_sent_upto = 0
         self._responses_chaining: bool | None = None
-        # Observability for the empty-response resampling (see _query_completion_anthropic_direct):
+        # Observability for the empty-response resampling (used by both
+        # _query_completion_anthropic_direct and the OAI-path _query_completion):
         # empty_responses = total empty completions seen; empty_resamples_recovered =
         # turns where a resample turned an initial empty into usable text.
         self.empty_responses = 0
@@ -653,43 +656,87 @@ class LitellmModel:
                         _set_cache_breakpoint(message)
                     break
 
-        try:
-            res = litellm.completion(
-                model=self.config.model_name, messages=messages_for_api, **actual_kwargs
-            )
+        # Strict providers (e.g. Moonshot) reject any conversation containing an
+        # empty assistant message ("the message ... with role 'assistant' must not
+        # be empty"), and the degrade-to-empty path below can legitimately store
+        # one. Substitute a placeholder on the wire only — the stored history keeps
+        # the faithful empty turn. (The anthropic-direct path does the equivalent
+        # via its sanitized "(no response)" block.)
+        if any(m.get('role') == 'assistant' and not str(m.get('content') or '').strip() for m in messages_for_api):
+            if messages_for_api is messages:
+                messages_for_api = copy.deepcopy(messages)
+            for m in messages_for_api:
+                if m.get('role') == 'assistant' and not str(m.get('content') or '').strip():
+                    m['content'] = '(empty response)'
 
-            if actual_kwargs.get('stream', False):
-                chunks = []
-                for chunk in res:
-                    chunks.append(chunk)
-                res = litellm.stream_chunk_builder(chunks, messages=messages_for_api)
-        except litellm.exceptions.InternalServerError as e:
-            if "This model's maximum context length is" in str(e):
-                raise litellm.exceptions.ContextWindowExceededError(str(e), model=self.config.model_name, llm_provider=self.config.model_name) from e
-            raise e
+        # Some models (kimi-k3, fable-5) intermittently emit a degenerate
+        # early-stop: a turn with no usable text (finish_reason=stop, budget
+        # untouched). Retry the SAME, unmodified context up to
+        # EMPTY_RESPONSE_RETRIES times — temperature=1 makes each retry an
+        # independent sample, so transient empties recover before the empty
+        # turn can enter history. A healthy first sample breaks immediately.
+        content = ""
+        for _empty_attempt in range(1 + EMPTY_RESPONSE_RETRIES):
+            try:
+                res = litellm.completion(
+                    model=self.config.model_name, messages=messages_for_api, **actual_kwargs
+                )
 
-        if res['choices'][0]['finish_reason'] == 'length' and 'max_tokens' in actual_kwargs and res.usage.completion_tokens < actual_kwargs['max_tokens']:
-            raise LengthFinishReasonError("Model returned length error but max tokens were not reached")
+                if actual_kwargs.get('stream', False):
+                    chunks = []
+                    for chunk in res:
+                        chunks.append(chunk)
+                    res = litellm.stream_chunk_builder(chunks, messages=messages_for_api)
+            except litellm.exceptions.InternalServerError as e:
+                if "This model's maximum context length is" in str(e):
+                    raise litellm.exceptions.ContextWindowExceededError(str(e), model=self.config.model_name, llm_provider=self.config.model_name) from e
+                raise e
 
-        content = res['choices'][0]['message']['content']
+            if res['choices'][0]['finish_reason'] == 'length' and 'max_tokens' in actual_kwargs and res.usage.completion_tokens < actual_kwargs['max_tokens']:
+                raise LengthFinishReasonError("Model returned length error but max tokens were not reached")
 
-        # Native tool-callers (e.g. thinkingmachines/Inkling) put the action in
-        # tool_calls and leave content empty. The agent loop is text-based, so
-        # synthesize the equivalent ```bash block from bash tool calls.
+            content = res['choices'][0]['message']['content']
+
+            # Native tool-callers (e.g. thinkingmachines/Inkling) put the action in
+            # tool_calls and leave content empty. The agent loop is text-based, so
+            # synthesize the equivalent ```bash block from bash tool calls.
+            if not content:
+                tool_calls = getattr(res['choices'][0]['message'], 'tool_calls', None) or []
+                blocks = []
+                for tc in tool_calls:
+                    fn = getattr(tc, 'function', None)
+                    if fn is not None and getattr(fn, 'name', '') == 'bash':
+                        try:
+                            cmd = json.loads(fn.arguments).get('command')
+                        except (json.JSONDecodeError, TypeError, AttributeError):
+                            cmd = None
+                        if cmd:
+                            blocks.append(f"```bash\n{cmd}\n```")
+                if blocks:
+                    content = "\n".join(blocks)
+
+            if content:
+                if _empty_attempt > 0:
+                    self.empty_resamples_recovered += 1
+                    logger.warning(f"Recovered from empty response after {_empty_attempt} retry(ies)")
+                break
+
+            # No usable text (and no bash tool calls to synthesize from):
+            # count it and retry if attempts remain. Each retry is a real API
+            # call, so it also consumes a step (n_calls feeds the agent's
+            # step_limit check) — an empty-prone instance can't spin for free.
+            self.empty_responses += 1
+            if _empty_attempt < EMPTY_RESPONSE_RETRIES:
+                self.n_calls += 1
+                logger.warning(f"Empty completion; retrying ({_empty_attempt + 1}/{EMPTY_RESPONSE_RETRIES})")
+
         if not content:
-            tool_calls = getattr(res['choices'][0]['message'], 'tool_calls', None) or []
-            blocks = []
-            for tc in tool_calls:
-                fn = getattr(tc, 'function', None)
-                if fn is not None and getattr(fn, 'name', '') == 'bash':
-                    try:
-                        cmd = json.loads(fn.arguments).get('command')
-                    except (json.JSONDecodeError, TypeError, AttributeError):
-                        cmd = None
-                    if cmd:
-                        blocks.append(f"```bash\n{cmd}\n```")
-            if blocks:
-                content = "\n".join(blocks)
+            # Still empty after retries: degrade to an empty turn — the agent
+            # nudges via FormatError and continues. The outbound sanitizer above
+            # keeps every following call valid on strict providers, so the worst
+            # case is a wasted step, never a dead instance.
+            logger.warning("Empty completion despite retries; degrading to empty turn")
+            content = ""
 
         result = {
             'response': res,
