@@ -8,6 +8,12 @@ def extract_answer(llm_answer):
 
 def typos_process_results(ground_truth: str, llm_answer: str, debug=False) -> int:
 
+    # Reasoning models whose server streams the chain-of-thought inline (terminated
+    # by </think>) can emit stray <solution> tags mid-thought; keep only the final
+    # answer. No-op for models that never emit </think>.
+    if '</think>' in llm_answer:
+        llm_answer = llm_answer.rsplit('</think>', 1)[1]
+
     parsed_answer = None
 
     # extract text from <solution></solution> tags

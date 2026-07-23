@@ -1,0 +1,20 @@
+# Self-hosted vLLM checkpoint served on the local OpenAI-compatible endpoint.
+# api_keys maps the endpoint to an ENV VAR NAME (not the literal key) — export it
+# before running:  export THINK_RECOVERY_API_KEY=...
+---
+display_name: think-recovery-step575
+api_name:
+  http://localhost:8000/v1: think-recovery-step575
+default_provider: http://localhost:8000/v1
+api_keys:
+  http://localhost:8000/v1: THINK_RECOVERY_API_KEY
+api_kwargs:
+  default:
+    temperature: 0.6
+    top_p: 0.95
+    max_tokens: 55000
+    stream: true
+    extra_body:
+      chat_template_kwargs:
+        enable_thinking: true
+preserve_reasoning: true

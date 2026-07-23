@@ -32,6 +32,14 @@ def ifbench_process_results(question: dict[str, Any], llm_answer: str, debug: bo
     Returns:
         Score between 0 and 1
     """
+    # Reasoning models whose server streams the chain-of-thought inline (terminated
+    # by </think>) store the full CoT in the answer turn. Instruction constraints
+    # (word counts, nth-word/sentence, etc.) must be checked against the final answer
+    # only, matching how clean baselines are graded. Drop everything up to and
+    # including the last </think>. No-op for models that never emit </think>.
+    if '</think>' in llm_answer:
+        llm_answer = llm_answer.rsplit('</think>', 1)[1]
+
     # Extract solution from <solution>...</solution> tags if present
     solution_match = re.search(r'<solution>(.*?)</solution>', llm_answer, re.DOTALL)
     if solution_match:

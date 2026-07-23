@@ -102,7 +102,16 @@ def play_a_match_gt(match: MatchSingle, output_file: str | None = None, debug=Fa
     question_text = question["turns"][0]
     ground_truth = question.get("ground_truth", None)
     llm_answer = answer['choices'][0]['turns'][-1]
-    llm_answer = re.sub(f"<think>.*?<\/think>", "", llm_answer, flags=re.DOTALL)
+    # Strip chain-of-thought before grading so constraint/extraction logic sees only
+    # the final answer (matching how baselines whose server splits reasoning_content
+    # are graded). Two shapes occur:
+    #   1. well-formed  <think>...</think>answer
+    #   2. self-hosted vLLM with NO reasoning parser: reasoning is streamed inline and
+    #      terminated by </think> with NO opening <think> tag.
+    # rsplit on the LAST </think> handles both and is a no-op for models that never
+    # emit </think>, so baseline scores are unchanged.
+    if '</think>' in llm_answer:
+        llm_answer = llm_answer.rsplit('</think>', 1)[-1]
     score = 0
     category = None
     eval_status = answer.get("eval_status")

@@ -187,7 +187,7 @@ def setup_model(model_config: ModelConfig, api_dict: dict[str, str] | None = Non
     if provider is None:
         raise ValueError(f"Missing provider for model {model_config.display_name}")
     
-    if 'https' in provider:
+    if provider.startswith('http://') or provider.startswith('https://'):
         # provider name is a base URL
         if api_dict is None:
             api_dict = {

@@ -29,6 +29,13 @@ def levenshtein_distance(A, B):
 
 
 def extract_plot_summary(text: str) -> str:
+    # Reasoning models whose server does not split reasoning_content stream the
+    # chain-of-thought inline in `content`, terminated by </think>. That CoT can
+    # itself mention <PLOT_SUMMARY> tags, which would otherwise poison extraction.
+    # Drop everything up to and including the last </think> so only the final
+    # answer remains. No-op for models that never emit </think>.
+    if '</think>' in text:
+        text = text.rsplit('</think>', 1)[1]
     pattern = r'<PLOT_SUMMARY>(.*)</PLOT_SUMMARY>'
     match = re.search(pattern, text, re.DOTALL)  # re.DOTALL allows . to match newline characters
     if not match:
