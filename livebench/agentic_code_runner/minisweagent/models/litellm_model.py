@@ -422,7 +422,13 @@ class LitellmModel:
         thinking = actual_api_kwargs.pop('thinking', None)
         max_tokens = actual_api_kwargs.pop('max_tokens', 8192)
         temperature = actual_api_kwargs.pop('temperature', NOT_GIVEN)
-        
+        # Action-boundary stop: pass through stop_sequences (accept OpenAI-style `stop` too).
+        # Without this, Claude models keep generating past their bash action and fabricate the
+        # environment's observation, then trust the confabulation over the real next-turn output.
+        stop_sequences = actual_api_kwargs.pop('stop_sequences', None) or actual_api_kwargs.pop('stop', None)
+        if isinstance(stop_sequences, str):
+            stop_sequences = [stop_sequences]
+
         # Build call kwargs - only include supported parameters
         call_kwargs: dict[str, Any] = {
             'model': actual_model_name,
@@ -451,6 +457,8 @@ class LitellmModel:
             call_kwargs['output_config'] = output_config
         if fallbacks:
             call_kwargs['extra_body'] = {'fallbacks': fallbacks}
+        if stop_sequences:
+            call_kwargs['stop_sequences'] = stop_sequences
 
         # Always use beta client for this method (it handles thinking.type=auto)
         #
