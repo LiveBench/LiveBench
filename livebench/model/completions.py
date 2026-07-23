@@ -25,6 +25,17 @@ API_RETRY_SLEEP_MAX = 60
 API_ERROR_OUTPUT = "$ERROR$"
 TIMEOUT = 1800
 
+# Models gated on 30-day retention (Fable/Mythos tier): the org-default
+# ANTHROPIC_API_KEY is ZDR and gets 400 model_not_available for them, so they
+# use the non-ZDR key instead. Substring-matched against the API model name.
+ANTHROPIC_SKIP_ZDR_MODELS = ('claude-fable-5',)
+
+
+def anthropic_api_key(model: str) -> str | None:
+    if any(name in model for name in ANTHROPIC_SKIP_ZDR_MODELS) and os.environ.get('ANTHROPIC_SKIP_ZDR_API_KEY'):
+        return os.environ['ANTHROPIC_SKIP_ZDR_API_KEY']
+    return os.environ.get('ANTHROPIC_API_KEY')
+
 # model api function takes in Model, list of messages, temperature, max tokens, api kwargs, and an api dict
 # returns tuple of (output, num tokens)
 Conversation = list[dict[str, str]]
@@ -441,7 +452,7 @@ def chat_completion_anthropic(model: str, messages: Conversation, temperature: f
     if api_dict is not None and "api_key" in api_dict:
         api_key = api_dict["api_key"]
     else:
-        api_key = os.environ["ANTHROPIC_API_KEY"]
+        api_key = anthropic_api_key(model)
 
     from anthropic import NOT_GIVEN, Anthropic
     c = Anthropic(api_key=api_key)
@@ -784,6 +795,7 @@ def chat_completion_litellm(
         messages = [{**m, 'role': 'user'} if m.get('role') == 'system' else m for m in messages]
 
     if 'anthropic' in litellm_model:
+        actual_api_kwargs.setdefault('api_key', anthropic_api_key(model))
         if 'betas' in actual_api_kwargs:
             actual_api_kwargs['extra_headers'] = {'anthropic-beta': ','.join(actual_api_kwargs.pop('betas'))}
         if 'extra_body' in actual_api_kwargs:

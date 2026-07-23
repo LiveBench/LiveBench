@@ -342,8 +342,10 @@ class LitellmModel:
     def _query_completion_anthropic_direct(self, messages: list[dict[str, str]], **kwargs):
         """Direct Anthropic SDK call to support features not yet in LiteLLM (e.g., thinking.type: auto)"""
         from anthropic import NOT_GIVEN, Anthropic
-        
-        client = Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+
+        from livebench.model.completions import anthropic_api_key
+
+        client = Anthropic(api_key=anthropic_api_key(self.config.model_name))
         
         api_kwargs = self.config.model_kwargs | kwargs
         actual_api_kwargs = {key: (value if value is not None else NOT_GIVEN) for key, value in api_kwargs.items()}
