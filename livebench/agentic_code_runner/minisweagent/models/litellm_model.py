@@ -48,6 +48,55 @@ def _cached_tokens(details) -> int:
     return getattr(details, 'cached_tokens', 0) or 0
 
 
+# Native tool calling, always on for Anthropic models: the bash action is a real
+# tool, so generation stops at the tool_use block and a turn can never run past its
+# action into a hallucinated observation. The agent loop stays text-based: the
+# tool_use command is synthesized back into a ```bash block for parse_action, and
+# observation user-turns are wrapped into tool_result blocks at request-prep.
+# Requires the tool-calling prompts in config/livebench_native.yaml (with
+# tool_choice auto, triple-backtick prompts make models ignore the tool).
+_BASH_TOOL = {
+    "name": "bash",
+    "description": (
+        "Run a bash command in the repository environment and see its output. "
+        "Each command runs in a fresh subshell: directory and environment-variable "
+        "changes do not persist between calls (prefix with `cd /path && ...` as needed). "
+        "Always use non-interactive flags; interactive tools are unavailable."
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "command": {"type": "string", "description": "The bash command to execute."},
+        },
+        "required": ["command"],
+    },
+}
+
+
+def _wrap_tool_results(messages: list[dict]) -> None:
+    """Wrap each user turn that follows a tool_use assistant turn in a tool_result
+    block (the API requires every tool_use to be answered by one). Mutates in place;
+    callers pass a request-only copy, never the agent's own history."""
+    pending_tool_use_id = None
+    for i, msg in enumerate(messages):
+        if msg.get('role') == 'assistant':
+            pending_tool_use_id = None
+            blocks = msg.get('content')
+            if isinstance(blocks, list):
+                for block in blocks:
+                    if isinstance(block, dict) and block.get('type') == 'tool_use':
+                        pending_tool_use_id = block.get('id')
+                        break
+        elif msg.get('role') == 'user' and pending_tool_use_id is not None:
+            content = msg.get('content')
+            if isinstance(content, str):
+                tool_result: dict[str, Any] = {'type': 'tool_result', 'tool_use_id': pending_tool_use_id}
+                if content.strip():
+                    tool_result['content'] = content
+                messages[i] = {'role': 'user', 'content': [tool_result]}
+            pending_tool_use_id = None
+
+
 def _set_cache_breakpoint(message: dict) -> None:
     """Mark a message's last text block with an ephemeral cache_control breakpoint.
 
@@ -124,6 +173,8 @@ class LitellmModel:
         # object is created per-instance (run_batch.get_model in a thread pool), so the
         # counter is naturally per-instance -- no sharing or reset needed.
         self.consecutive_empty_degrades = 0
+        # turns whose action arrived as a tool_use block (vs regex-parsed text)
+        self.native_tool_use_turns = 0
         if self.config.litellm_model_registry and Path(self.config.litellm_model_registry).is_file():
             litellm.utils.register_model(json.loads(Path(self.config.litellm_model_registry).read_text()))
 
@@ -425,13 +476,21 @@ class LitellmModel:
         max_tokens = actual_api_kwargs.pop('max_tokens', 8192)
         temperature = actual_api_kwargs.pop('temperature', NOT_GIVEN)
         
+        native_tools = self._native_tools_enabled()
+        if native_tools:
+            _wrap_tool_results(actual_messages)
+
         # Build call kwargs - only include supported parameters
         call_kwargs: dict[str, Any] = {
             'model': actual_model_name,
             'messages': actual_messages,
             'max_tokens': max_tokens,
         }
-        
+        if native_tools:
+            call_kwargs['tools'] = [_BASH_TOOL]
+            # at most one tool_use per turn: one-command-per-turn, API-enforced
+            call_kwargs['tool_choice'] = {'type': 'auto', 'disable_parallel_tool_use': True}
+
         if system_content:
             call_kwargs['system'] = [{
                 "type": "text",
@@ -496,10 +555,24 @@ class LitellmModel:
             # Extract non-empty text and build sanitized content for history
             content = ""
             sanitized_content = []
+            tool_command = None
             for block in response.content:
                 block_type = getattr(block, 'type', 'unknown')
 
-                if block_type == "text":
+                if block_type == "tool_use":
+                    if tool_command is not None:
+                        # keeps the 1 tool_use : 1 tool_result pairing valid
+                        logger.warning("Multiple tool_use blocks in one turn; keeping only the first")
+                        continue
+                    tool_input = getattr(block, 'input', {}) or {}
+                    sanitized_content.append({
+                        "type": "tool_use",
+                        "id": getattr(block, 'id', ''),
+                        "name": getattr(block, 'name', ''),
+                        "input": tool_input,
+                    })
+                    tool_command = tool_input.get('command', '') if getattr(block, 'name', '') == 'bash' else ''
+                elif block_type == "text":
                     text = getattr(block, 'text', '')
                     # Only include non-empty text blocks in sanitized content
                     if text.strip():
@@ -523,6 +596,18 @@ class LitellmModel:
                     data = getattr(block, 'data', '')
                     sanitized_content.append({"type": "redacted_thinking", "data": data})
                 # a 'fallback' marker block (present on fallback turns) is intentionally skipped
+
+            if tool_command is not None and tool_command.strip():
+                # synthesize the ```bash block parse_action expects; the raw tool_use
+                # block is what gets replayed to the API
+                self.native_tool_use_turns += 1
+                action_block = f"```bash\n{tool_command}\n```"
+                if content:
+                    # neutralize stray fences so parse_action picks the tool call
+                    content = content.replace("```bash", "```sh")
+                    content = f"{content}\n\n{action_block}"
+                else:
+                    content = action_block
 
             if content:
                 if _empty_attempt > 0:
@@ -590,10 +675,18 @@ class LitellmModel:
 
         return result
 
+    def _native_tools_enabled(self) -> bool:
+        """Native tool calling: bash exposed as a real tool on the Anthropic direct
+        path instead of regex-parsed text. Always on for Anthropic models."""
+        return 'anthropic' in self.config.model_name
+
     def _needs_direct_anthropic_call(self) -> bool:
         """Check if we need to bypass LiteLLM for direct Anthropic SDK call"""
         if 'anthropic' not in self.config.model_name:
             return False
+        if self._native_tools_enabled():
+            # tool_use/tool_result plumbing exists only on the direct path
+            return True
         thinking = self.config.model_kwargs.get('thinking', {})
         # 'auto' and 'adaptive' thinking types require the direct SDK path because
         # LiteLLM does not preserve the `signature` field on thinking blocks when
@@ -862,7 +955,7 @@ class LitellmModel:
                         # the nested dict too: litellm's gemini path reads thought_signatures
                         # from provider_specific_fields only
                         message_copy['extra']['message'] = message_copy['extra']['message'] | provider_fields
-                    actual_messages.append(message_copy['extra']['message'])
+                    actual_messages.append(dict(message_copy['extra']['message']))
                 elif message_copy['extra'].get('outputs') is not None:
                     actual_messages.extend(message_copy['extra']['outputs'])
                 else:

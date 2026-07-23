@@ -85,7 +85,13 @@ def run_agentic_coding_inference(
     all_traj_folder = LIVE_BENCH_ROOT_PATH / f"agentic_code_runner/data/trajectories" / run_id
     all_traj_folder.mkdir(parents=True, exist_ok=True)
 
-    config_path = LIVE_BENCH_ROOT_PATH / f"agentic_code_runner/minisweagent/config/livebench.yaml"
+    # Anthropic models use native tool calling and need the tool-calling prompts
+    # (with tool_choice auto, triple-backtick prompts make models ignore the tool)
+    native_tools = provider == 'anthropic'
+    config_name = "livebench_native.yaml" if native_tools else "livebench.yaml"
+    if native_tools:
+        print(f"Native tool-calling mode ON: using {config_name}")
+    config_path = LIVE_BENCH_ROOT_PATH / f"agentic_code_runner/minisweagent/config/{config_name}"
     config = yaml.safe_load(open(config_path))
 
     if provider in RESPONSES_API_PROVIDERS:

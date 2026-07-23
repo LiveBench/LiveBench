@@ -1,0 +1,162 @@
+# Native tool-calling variant of livebench.yaml (always used for Anthropic models).
+# Identical except the action format: the model calls the `bash` tool instead of
+# formatting a ```bash block for regex parsing.
+agent:
+  system_template: |
+    You are a helpful assistant that can interact multiple times with a computer shell to solve programming tasks.
+
+    Take actions by calling the `bash` tool with exactly ONE command (or commands connected with && or ||).
+    Before each tool call, briefly explain your reasoning for the action.
+
+    Only `bash` tool calls are executed — commands written in plain text are NOT run.
+    Issue one tool call per turn: run a command, see its result, then choose your next command.
+  instance_template: |
+    Please solve the following issue on this repository:
+    <issue_description>
+    {{task}}
+    </issue_description>
+
+    <instructions>
+    # Task Instructions
+
+    ## Overview
+    You're a software engineer interacting continuously with a computer by submitting commands.
+    You'll be helping implement necessary changes to meet requirements in the PR description.
+    Your task is specifically to make changes to non-test files in the current directory in order to fix the issue described in the PR description in a way that is general and consistent with the codebase.
+
+    IMPORTANT: This is an interactive process where you will think and issue ONE command via the `bash` tool, see its result, then think and issue your next command.
+
+    You have up to {{step_limit}} turns available — there is no need to plan multiple commands in one turn. Use one command per turn, see the result, then choose the next one.
+
+    ## Important Boundaries
+    - MODIFY: Regular source code files in the current directory and its subdirectories
+    - DO NOT MODIFY: Tests, configuration files (pyproject.toml, setup.cfg, etc.)
+
+    ## Recommended Workflow
+    1. Analyze the codebase by finding and reading relevant files
+    2. Create a script to reproduce the issue
+    3. Edit the source code to resolve the issue
+    4. Verify your fix works by running your script again
+    5. Test edge cases to ensure your fix is robust
+
+    ## Command Execution Rules
+    You are operating in an environment where
+    1. You call the `bash` tool with a single command
+    2. The system executes that command in a subshell
+    3. You see the result
+    4. You call the `bash` tool with your next command
+
+    **CRITICAL REQUIREMENTS:**
+    - Each turn MUST contain EXACTLY ONE `bash` tool call
+    - The tool call MUST contain EXACTLY ONE command (or a set of commands connected with && or ||)
+    - Do NOT try to run multiple independent commands in one turn
+    - Directory or environment variable changes are not persistent. Every action is executed in a new subshell.
+    - However, you can prefix any command with `MY_ENV_VAR=MY_VALUE cd /path/to/working/dir && ...` or write/load environment variables from files
+
+    If you need to run multiple commands, either:
+    1. Combine them in one command using && or ||, e.g. `command1 && command2 || echo "Error occurred"`
+    2. Wait for the first command to complete, see its output, then issue the next command in your following turn.
+
+    ## Environment Details
+    - You have a full Linux shell environment
+    - Always use non-interactive flags (-y, -f) for commands
+    - Avoid interactive tools like vi, nano, or any that require user input
+    - If a command isn't available, you can install it
+
+    ## Useful Command Examples
+
+    ### Create a new file:
+    ```
+    cat <<'EOF' > newfile.py
+    import numpy as np
+    hello = "world"
+    print(hello)
+    EOF
+    ```
+
+    ### Edit files with sed:
+    ```
+    # Replace all occurrences
+    sed -i 's/old_string/new_string/g' filename.py
+
+    # Replace only first occurrence
+    sed -i 's/old_string/new_string/' filename.py
+
+    # Replace first occurrence on line 1
+    sed -i '1s/old_string/new_string/' filename.py
+
+    # Replace all occurrences in lines 1-10
+    sed -i '1,10s/old_string/new_string/g' filename.py
+    ```
+
+    ### View file content:
+    ```
+    # View specific lines with numbers
+    nl -ba filename.py | sed -n '10,20p'
+    ```
+
+    ## Submission
+    When you've completed your work (reading, editing, testing), and cannot make further progress,
+    call the `bash` tool with exactly the following command:
+
+    ```
+    echo COMPLETE_TASK_AND_SUBMIT_FINAL_OUTPUT && git add -A && git diff --cached
+    ```
+
+    This command will submit your work.
+    You cannot continue working (reading, editing, testing) in any way on this task after submitting.
+
+    DO NOT COMMIT YOUR WORK. If you are finished, issue the above command ONLY.
+    </instructions>
+  action_observation_template: |
+    <returncode>{{output.returncode}}</returncode>
+    {% if output.output | length < 10000 -%}
+    <output>
+    {{ output.output -}}
+    </output>
+    {%- else -%}
+    <warning>
+    The output of your last command was too long.
+    Please try a different command that produces less output.
+    If you're looking at a file you can try use head, tail or sed to view a smaller number of lines selectively.
+    If you're using grep or find and it produced too much output, you can use a more selective search pattern.
+    If you really need to see something from the full command's output, you can redirect output to a file and then search in that file.
+    </warning>
+    {%- set elided_chars = output.output | length - 10000 -%}
+    <output_head>
+    {{ output.output[:5000] }}
+    </output_head>
+    <elided_chars>
+    {{ elided_chars }} characters elided
+    </elided_chars>
+    <output_tail>
+    {{ output.output[-5000:] }}
+    </output_tail>
+    {%- endif -%}
+  format_error_template: |
+    Your last response did not include a `bash` tool call, so NO action was executed.
+    Call the `bash` tool with exactly one command to make progress.
+
+    If you have completed your assignment, submit it by calling the `bash` tool with exactly:
+    echo COMPLETE_TASK_AND_SUBMIT_FINAL_OUTPUT && git add -A && git diff --cached
+    (you will not be able to continue working on this task after that).
+  step_limit: 250
+  # Per-instance wall-clock budget. On expiry the current diff is auto-submitted
+  # (same semantics as step_limit): work completed before the cap still scores.
+  time_limit: 5400
+
+environment:
+  cwd: "/testbed"
+  timeout: 120
+  env:
+    PAGER: cat
+    MANPAGER: cat
+    LESS: -R
+    PIP_PROGRESS_BAR: 'off'
+    TQDM_DISABLE: '1'
+  environment_class: docker
+  # ANSWER-LEAK / NETWORK ISOLATION: see livebench.yaml for rationale.
+  run_args: ["--rm", "--network", "none"]
+
+model:
+  model_kwargs:
