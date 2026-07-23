@@ -7,7 +7,7 @@
 # Inkling is a native tool-caller: on agent-style prompts it emits tool calls
 # instead of text bash blocks (content comes back empty). The agentic overlay
 # declares a bash tool and the agentic model wrapper synthesizes the ```bash
-# block from the tool call. Context is 64K, so agentic caps max_tokens at 8k
+# block from the tool call. Context is 256K; agentic caps max_tokens at 8k
 # to leave input headroom for long trajectories.
 ---
 display_name: inkling-high
@@ -18,7 +18,7 @@ api_keys:
 api_kwargs:
   default:
     temperature: 1
-    max_tokens: 32768
+    max_tokens: 128000
     reasoning_effort: high
     stream: true
   agentic:
@@ -48,7 +48,7 @@ api_keys:
 api_kwargs:
   default:
     temperature: 1
-    max_tokens: 32768
+    max_tokens: 128000
     reasoning_effort: xhigh
     stream: true
   agentic:
