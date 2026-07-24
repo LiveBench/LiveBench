@@ -170,15 +170,55 @@ git checkout {pr.base.sha} {test_files}
             )
         ]
 
+    def sanitize_run_step(self) -> str:
+        """Dockerfile RUN step that removes every in-image copy of the
+        reference solution before the agent ever sees the container.
+
+        An agent with shell access inside the task container could otherwise
+        recover the reference fix (and the hidden test patch) from:
+          * stray patch files left in /tmp (or /home) by image preparation,
+          * the git object store: refs, tags, reflogs, FETCH_HEAD/ORIG_HEAD
+            and unreachable objects can make the fix commit (which includes
+            the graded test changes) reachable via ``git log`` / ``git show``,
+          * gitignored build artifacts compiled from the fixed sources
+            (e.g. dist/, lib/, __pycache__) that survive a source checkout
+            of the base commit.
+
+        The scrub pins the repository to the task's base commit on a single
+        local branch, deletes every other ref, expires all reflogs, prunes
+        unreachable objects, removes gitignored build outputs (keeping
+        dependency directories so offline rebuilds still work), and deletes
+        stray patch files. The base commit itself stays reachable, so
+        grade-time ``git checkout <base_sha> <files>`` and
+        ``git diff <base_sha>`` are unaffected.
+        """
+        base_sha = self.pr.base.sha
+        return (
+            "RUN cd /testbed && "
+            "git config --global --add safe.directory /testbed && "
+            f"git reset --hard {base_sha} && "
+            f"git checkout -q -B base {base_sha} && "
+            "for r in $(git for-each-ref --format='%(refname)' refs/heads refs/tags refs/remotes"
+            ' | grep -vx refs/heads/base); do git update-ref -d "$r"; done && '
+            "git reflog expire --all --expire=now && "
+            "rm -f .git/FETCH_HEAD .git/ORIG_HEAD .git/MERGE_HEAD .git/info/grafts && "
+            "rm -rf .git/refs/original && "
+            "git gc --prune=now --quiet && "
+            "git clean -dfX -e node_modules -e .venv -e venv -e vendor && "
+            "rm -f /tmp/*.patch /home/*.patch /home/fix-run.sh && "
+            "(find /tmp -maxdepth 3 -name '*.patch' -delete 2>/dev/null || true)"
+        )
+
     def dockerfile(self) -> str:
         image = self.dependency()
 
-        copy_commands = ""
-        for file in self.files():
-            copy_commands += f"COPY {file.name} /home/\n"
-
+        # Grade-time scripts (fix-run.sh) are intentionally NOT baked into the
+        # image: fix-run.sh embeds the hidden test patch, and the same image is
+        # used to run the agent, so a COPY here would let the agent read the
+        # graded tests. run_evaluation.py bind-mounts the scripts into the
+        # grading container instead (see run_evaluation.py, run_instance).
         return f"""FROM {image}
-{copy_commands}
+{self.sanitize_run_step()}
 
 """
 
