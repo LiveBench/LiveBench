@@ -170,15 +170,71 @@ git checkout {pr.base.sha} {test_files}
             )
         ]
 
+    def sanitize_run_step(self) -> str:
+        """Dockerfile RUN step that removes every in-image copy of the
+        reference solution before the agent ever sees the container.
+
+        An agent with shell access inside the task container could otherwise
+        recover the reference fix (and the hidden test patch) from:
+          * stray patch files left in /tmp (or /home) by image preparation,
+          * the git object store: refs, tags, reflogs, FETCH_HEAD/ORIG_HEAD
+            and unreachable objects can make the fix commit (which includes
+            the graded test changes) reachable via ``git log`` / ``git show``,
+          * gitignored build artifacts compiled from the fixed sources
+            (e.g. dist/, lib/, __pycache__) that survive a source checkout
+            of the base commit.
+
+        Non-destructive by design (mirrors the validated scrub_v3 in
+        livebench-private): pin the working tree to the base commit, expire
+        reflogs and prune so any dangling fix commit is unrecoverable, and
+        delete stray patch files and the grade script. It deliberately does
+        NOT run ``git clean`` and does NOT sweep refs / re-checkout a branch:
+          * ``git clean -dfX`` deletes gitignored dependency dirs and
+            base-built output that repos which don't rebuild at grade (e.g.
+            nuxt) rely on -- handicapping agent and grader. (And ``-e
+            node_modules`` does NOT protect it: under ``-X`` the ``-e`` pattern
+            is *added* to the ignore set, so node_modules stays in the delete
+            set -- verified.)
+          * a ref sweep + re-checkout desyncs the working tree so the
+            gold/model patch fails to grade (empirically observed: gold went
+            valid=True -> valid=False).
+        Build output (dist/, .nuxt/, ...) is KEPT: images build ``FROM`` the
+        SWE-bench base image, whose dist is base-built and fix-free (verified
+        via dist_leak_check on the base). A compiled-fix in dist only occurs in
+        pipeline-built images and is remediated there by scrub_v3's reliable
+        dist_leak_check (livebench-private), not by a fragile in-Dockerfile
+        grep. node_modules and base output are kept -> no JS/TS handicap; the
+        base commit stays reachable so grade-time ``git checkout <base_sha>
+        <files>`` and ``git diff <base_sha>`` are unaffected. fix-run.sh is not
+        baked (see dockerfile) and is bind-mounted read-only at grade time.
+        """
+        base_sha = self.pr.base.sha
+        return (
+            "RUN cd /testbed && "
+            "git config --global --add safe.directory /testbed && "
+            f"git reset --hard {base_sha} && "
+            # git-history vector: drop any dangling fix commit (which carries the
+            # graded test changes) via reflog-expire + prune. No ref sweep / no
+            # re-checkout -- those desync the tree and break grading (see docstring).
+            "git reflog expire --expire=now --all 2>/dev/null || true; "
+            "git gc --prune=now --quiet 2>/dev/null || true; "
+            # files vector: stray patches + the grade script (fix-run.sh embeds
+            # the hidden test patch; it is bind-mounted at grade instead of baked).
+            "rm -f /tmp/*.patch /tmp/*.diff /home/*.patch /home/*.diff /home/fix-run.sh /home/*.sh 2>/dev/null || true; "
+            "find /tmp -maxdepth 3 -name '*.patch' -delete 2>/dev/null || true; "
+            "true"
+        )
+
     def dockerfile(self) -> str:
         image = self.dependency()
 
-        copy_commands = ""
-        for file in self.files():
-            copy_commands += f"COPY {file.name} /home/\n"
-
+        # Grade-time scripts (fix-run.sh) are intentionally NOT baked into the
+        # image: fix-run.sh embeds the hidden test patch, and the same image is
+        # used to run the agent, so a COPY here would let the agent read the
+        # graded tests. run_evaluation.py bind-mounts the scripts into the
+        # grading container instead (see run_evaluation.py, run_instance).
         return f"""FROM {image}
-{copy_commands}
+{self.sanitize_run_step()}
 
 """
 

@@ -768,6 +768,22 @@ class CliArgs:
             )
             return
 
+        # Bind-mount grade-time scripts instead of relying on copies baked
+        # into the task image. fix-run.sh embeds the hidden test patch, and
+        # the same image is used to run the agent, so it must never be part
+        # of the image itself (see SWEImageDefault.dockerfile /
+        # sanitize_run_step in image.py). Mounting also works for older
+        # images that still contain baked copies: the mount shadows them.
+        script_volumes: dict = {}
+        for file in instance.dependency().files():
+            script_path = instance_dir.absolute() / file.name
+            with open(script_path, "w", encoding="utf-8", newline="\n") as f:
+                f.write(file.content)
+            script_volumes[script_path] = {
+                "bind": f"/home/{file.name}",
+                "mode": "ro",
+            }
+
         def run_and_save_output(
             image_full_name: str, run_command: str, output_path: Path
         ):
@@ -783,7 +799,8 @@ class CliArgs:
                     fix_patch_path: {
                         "bind": instance.dependency().fix_patch_path(),
                         "mode": "rw",
-                    }
+                    },
+                    **script_volumes,
                 },
                 timeout=self.instance_timeout,
             )
