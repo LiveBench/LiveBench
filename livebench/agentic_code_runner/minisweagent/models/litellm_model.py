@@ -902,6 +902,11 @@ class LitellmModel:
             actual_kwargs['tools'] = [_BASH_TOOL_CHAT]
             # force a tool call each turn (grok otherwise follows the ```bash-text prompt)
             actual_kwargs['tool_choice'] = 'required'
+            # one command per turn: _wrap_tool_results_chat answers only the first
+            # tool_call, so a parallel emission would leave an unanswered tool_call_id
+            # and 400 on the next request. Disable parallel calls where the provider
+            # honors it (OpenAI-compatible: OpenAI/xAI/z.ai/moonshot).
+            actual_kwargs['parallel_tool_calls'] = False
 
         messages_for_api = messages
         if 'anthropic' in self.config.model_name and messages:
