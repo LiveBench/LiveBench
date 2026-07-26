@@ -273,6 +273,15 @@ class DefaultAgent:
 
     def parse_action(self, response: dict) -> dict:
         """Parse the action from the message. Returns the action."""
+        # Native tool-use: the raw command is carried out-of-band (extra of a
+        # synthesized ```bash block). Prefer it so a command body containing a
+        # code fence is executed verbatim, not truncated by the fence regex below.
+        tool_command = response.get("tool_command")
+        if tool_command and tool_command.strip():
+            action = tool_command.strip()
+            if action in ("true", ":", ""):
+                raise NoOpActionError(self.render_template(self.config.noop_action_template))
+            return {"action": action, **response}
         content = response["content"]
         if '<think>' in content and '</think>' in content:
             content = content.split('</think>')[1].strip() # don't parse actions from thinking content
