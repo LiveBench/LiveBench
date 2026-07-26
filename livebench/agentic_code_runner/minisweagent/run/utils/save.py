@@ -70,6 +70,8 @@ def save_traj(
         # Empty-response resampling observability (getattr-guarded for model classes that lack it)
         data["info"]["model_stats"]["empty_responses"] = getattr(agent.model, "empty_responses", 0)
         data["info"]["model_stats"]["empty_resamples_recovered"] = getattr(agent.model, "empty_resamples_recovered", 0)
+        # actions that arrived as tool_use blocks (== api_calls when every turn tool-called)
+        data["info"]["model_stats"]["native_tool_use_turns"] = getattr(agent.model, "native_tool_use_turns", 0)
         start_time = getattr(agent, "_start_time", None)
         if start_time is not None:
             data["info"]["model_stats"]["run_time_s"] = round(time.monotonic() - start_time, 1)

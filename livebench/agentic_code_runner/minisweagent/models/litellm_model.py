@@ -48,6 +48,99 @@ def _cached_tokens(details) -> int:
     return getattr(details, 'cached_tokens', 0) or 0
 
 
+# Native tool calling, always on for Anthropic models: the bash action is a real
+# tool, so generation stops at the tool_use block and a turn can never run past its
+# action into a hallucinated observation. The agent loop stays text-based: the
+# tool_use command is synthesized back into a ```bash block for parse_action, and
+# observation user-turns are wrapped into tool_result blocks at request-prep.
+# Requires the tool-calling prompts in config/livebench_native.yaml (with
+# tool_choice auto, triple-backtick prompts make models ignore the tool).
+_BASH_TOOL = {
+    "name": "bash",
+    "description": (
+        "Run a bash command in the repository environment and see its output. "
+        "Each command runs in a fresh subshell: directory and environment-variable "
+        "changes do not persist between calls (prefix with `cd /path && ...` as needed). "
+        "Always use non-interactive flags; interactive tools are unavailable."
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "command": {"type": "string", "description": "The bash command to execute."},
+        },
+        "required": ["command"],
+    },
+}
+
+# Same bash tool in the OpenAI Responses API shape (flat function tool: type/name/
+# description/parameters at top level, not nested under a `function` key like chat
+# completions). Mirrors how the production client builds Responses tools.
+_BASH_TOOL_RESPONSES = {
+    "type": "function",
+    "name": _BASH_TOOL["name"],
+    "description": _BASH_TOOL["description"],
+    "parameters": _BASH_TOOL["input_schema"],
+}
+
+# Chat-completions shape (nested under `function`) — what xAI/Grok (OpenAI-chat
+# compatible, emits finish_reason=tool_calls) expects. Mirrors the production
+# _to_xai_function_call_tool converter.
+_BASH_TOOL_CHAT = {
+    "type": "function",
+    "function": {
+        "name": _BASH_TOOL["name"],
+        "description": _BASH_TOOL["description"],
+        "parameters": _BASH_TOOL["input_schema"],
+    },
+}
+
+
+def _wrap_tool_results(messages: list[dict]) -> None:
+    """Wrap each user turn that follows a tool_use assistant turn in a tool_result
+    block (the API requires every tool_use to be answered by one). Mutates in place;
+    callers pass a request-only copy, never the agent's own history."""
+    pending_tool_use_id = None
+    for i, msg in enumerate(messages):
+        if msg.get('role') == 'assistant':
+            pending_tool_use_id = None
+            blocks = msg.get('content')
+            if isinstance(blocks, list):
+                for block in blocks:
+                    if isinstance(block, dict) and block.get('type') == 'tool_use':
+                        pending_tool_use_id = block.get('id')
+                        break
+        elif msg.get('role') == 'user' and pending_tool_use_id is not None:
+            content = msg.get('content')
+            if isinstance(content, str):
+                tool_result: dict[str, Any] = {'type': 'tool_result', 'tool_use_id': pending_tool_use_id}
+                if content.strip():
+                    tool_result['content'] = content
+                messages[i] = {'role': 'user', 'content': [tool_result]}
+            pending_tool_use_id = None
+
+
+def _wrap_tool_results_chat(messages: list[dict]) -> None:
+    """Chat-completions analog of _wrap_tool_results: every user turn that answers
+    an assistant `tool_calls` turn must be a `role:'tool'` message keyed on the
+    tool_call id (OpenAI chat requires each tool_call be answered). One command per
+    turn -> pair to the first tool_call. Mutates a request-only copy in place."""
+    pending_id = None
+    for i, msg in enumerate(messages):
+        role = msg.get('role')
+        if role == 'assistant':
+            pending_id = None
+            tcs = msg.get('tool_calls')
+            if tcs:
+                tc = tcs[0]
+                pending_id = tc.get('id') if isinstance(tc, dict) else getattr(tc, 'id', None)
+        elif role == 'user' and pending_id is not None:
+            content = msg.get('content')
+            if isinstance(content, str):
+                messages[i] = {'role': 'tool', 'tool_call_id': pending_id,
+                               'content': content if content.strip() else '(no output)'}
+            pending_id = None
+
+
 def _set_cache_breakpoint(message: dict) -> None:
     """Mark a message's last text block with an ephemeral cache_control breakpoint.
 
@@ -124,6 +217,8 @@ class LitellmModel:
         # object is created per-instance (run_batch.get_model in a thread pool), so the
         # counter is naturally per-instance -- no sharing or reset needed.
         self.consecutive_empty_degrades = 0
+        # turns whose action arrived as a tool_use block (vs regex-parsed text)
+        self.native_tool_use_turns = 0
         if self.config.litellm_model_registry and Path(self.config.litellm_model_registry).is_file():
             litellm.utils.register_model(json.loads(Path(self.config.litellm_model_registry).read_text()))
 
@@ -147,14 +242,23 @@ class LitellmModel:
         client = genai.Client(api_key=os.environ["GEMINI_API_KEY"],
                               http_options=types.HttpOptions(timeout=600_000))
 
+        native = self._native_tools_enabled()
         system_parts, steps = [], []
+        pending_call_id = None  # id of a replayed function_call awaiting its result (native)
         for m in messages:
             if not isinstance(m, dict) or 'type' in m:
-                steps.append(m)  # replayed interaction step
+                steps.append(m)  # replayed interaction step (incl function_call w/ signature)
+                if native and isinstance(m, dict) and m.get('type') == 'function_call':
+                    pending_call_id = m.get('id')
             elif m.get('role') == 'system':
                 system_parts.append(m['content'])
             elif m.get('role') in ('assistant', 'model'):
                 steps.append({"type": "model_output", "content": [{"type": "text", "text": m['content']}]})
+            elif native and pending_call_id is not None:
+                # observation answering a function_call -> function_result step (call_id-paired)
+                steps.append({"type": "function_result", "call_id": pending_call_id,
+                              "name": _BASH_TOOL['name'], "result": m['content']})
+                pending_call_id = None
             else:
                 steps.append({"type": "user_input", "content": [{"type": "text", "text": m['content']}]})
 
@@ -165,13 +269,24 @@ class LitellmModel:
         for k in ('stream', 'timeout', 'safety_settings'):
             gc.pop(k, None)
 
+        create_kwargs: dict[str, Any] = dict(
+            model=self.config.model_name.split('/')[-1],
+            input=steps,
+            system_instruction="\n".join(system_parts) or None,
+            generation_config=gc,
+        )
+        if native:
+            # bash as an interactions function tool (flat {type,name,description,parameters});
+            # tool_config isn't accepted here, so tool_choice is effectively auto.
+            create_kwargs['tools'] = [{
+                "type": "function", "name": _BASH_TOOL['name'], "description": _BASH_TOOL['description'],
+                "parameters": {"type": "OBJECT",
+                               "properties": {"command": {"type": "STRING", "description": "The bash command to execute."}},
+                               "required": ["command"]},
+            }]
+
         try:
-            response = client.interactions.create(
-                model=self.config.model_name.split('/')[-1],
-                input=steps,
-                system_instruction="\n".join(system_parts) or None,
-                generation_config=gc,
-            )
+            response = client.interactions.create(**create_kwargs)
         except Exception as e:
             s = str(e)
             if 'content_blocked' in s or 'blocked for' in s:
@@ -183,18 +298,40 @@ class LitellmModel:
         text = "".join(c.get('text', '') for s in out_steps if s.get('type') == 'model_output'
                        for c in (s.get('content') or []) if c.get('type') == 'text')
 
-        if response.status == 'incomplete':  # output budget exhausted (usually by thinking)
+        tool_command = None
+        if native:
+            for s in out_steps:
+                if s.get('type') == 'function_call' and s.get('name') == _BASH_TOOL['name']:
+                    args = s.get('arguments') or {}
+                    if isinstance(args, str):
+                        try: args = json.loads(args)
+                        except Exception: args = {}
+                    tool_command = args.get('command') if isinstance(args, dict) else None
+                    if tool_command:
+                        break
+
+        if native and tool_command:
+            pass  # valid function-call turn (status is 'requires_action')
+        elif response.status == 'incomplete':  # output budget exhausted (usually by thinking)
             if not text:
                 self.empty_responses += 1
                 logger.warning("Gemini interaction incomplete with no text; returning empty content")
         elif response.status != 'completed' or not text:
             raise Exception(f"Empty interaction response (status={response.status})")
 
+        if native and tool_command and tool_command.strip():
+            # synthesize the ```bash block for the text agent loop; raw command carried
+            # out-of-band via result['tool_command'] for verbatim execution
+            self.native_tool_use_turns += 1
+            action_block = f"```bash\n{tool_command}\n```"
+            text = (text.replace("```bash", "```sh") + f"\n\n{action_block}") if text.strip() else action_block
+
         usage = response.usage
         return {
             'response': response,
             'content': text,
             'outputs': out_steps,  # replayed verbatim next turn, signatures included
+            'tool_command': tool_command if native else None,
             'input_tokens': getattr(usage, 'total_input_tokens', 0) or 0,
             'output_tokens': (getattr(usage, 'total_output_tokens', 0) or 0)
                              + (getattr(usage, 'total_thought_tokens', 0) or 0),
@@ -220,21 +357,35 @@ class LitellmModel:
         # on filter-triggering prompts, pinning the worker.
         client = genai.Client(api_key=os.environ["GEMINI_API_KEY"],
                               http_options=types.HttpOptions(timeout=600_000))
+        native = self._native_tools_enabled()
         actual_messages: list[types.ContentOrDict] = []
         system = None
+        pending_fn = None  # name of a model function_call awaiting its response (native pairing)
         for message in messages:
-            if message['role'] == 'system':
+            role = message['role']
+            if role == 'system':
                 if system is None:
                     system = types.Content(role='system', parts=[types.Part.from_text(text=message['content'])])
                 else:
                     system.parts.append(types.Part.from_text(text=message['content']))
-            elif message['role'] == 'user':
-                actual_messages.append(types.Content(role='user', parts=[types.Part.from_text(text=message['content'])]))
-            elif message['role'] == 'assistant':
+            elif role == 'user':
+                if native and pending_fn is not None:
+                    # observation answering a function_call -> function_response part
+                    actual_messages.append(types.Content(role='user', parts=[
+                        types.Part.from_function_response(name=pending_fn, response={'output': message['content']})]))
+                    pending_fn = None
+                else:
+                    actual_messages.append(types.Content(role='user', parts=[types.Part.from_text(text=message['content'])]))
+            elif role in ('assistant', 'model'):
                 message['role'] = 'model'
-                actual_messages.append(message)
-            elif message['role'] == 'model':
-                actual_messages.append(message)
+                actual_messages.append(message)  # stored model Content (parts incl thought sig + function_call) replayed verbatim
+                if native:
+                    pending_fn = None
+                    for p in (message.get('parts') or []):
+                        fc = p.get('function_call') if isinstance(p, dict) else getattr(p, 'function_call', None)
+                        if fc:
+                            pending_fn = fc.get('name') if isinstance(fc, dict) else getattr(fc, 'name', None)
+                            break
 
         safety_settings = [
             types.SafetySetting(category=types.HarmCategory.HARM_CATEGORY_HARASSMENT, threshold=types.HarmBlockThreshold.BLOCK_NONE),
@@ -246,17 +397,31 @@ class LitellmModel:
 
         api_kwargs = self.config.model_kwargs | kwargs
 
-        config = types.GenerateContentConfig(
-            safety_settings=safety_settings,
-            system_instruction=system,
-            **api_kwargs
-        )
+        config_kwargs: dict[str, Any] = dict(safety_settings=safety_settings, system_instruction=system, **api_kwargs)
+        if native:
+            # bash exposed as a genai function tool (cleaned schema per production
+            # _to_gemini_function_call_tool: no additionalProperties/strict). tool_choice
+            # is AUTO by default when tools are present.
+            config_kwargs['tools'] = [{'function_declarations': [{
+                'name': _BASH_TOOL['name'],
+                'description': _BASH_TOOL['description'],
+                'parameters': {
+                    'type': 'OBJECT',
+                    'properties': {'command': {'type': 'STRING', 'description': 'The bash command to execute.'}},
+                    'required': ['command'],
+                },
+            }]}]
+            # force a function call each turn (mode ANY) so Gemini genuinely goes native
+            # instead of following the instance_template's ```bash-text convention.
+            config_kwargs['tool_config'] = {'function_calling_config': {'mode': 'ANY'}}
+        config = types.GenerateContentConfig(**config_kwargs)
 
         actual_model_name = self.config.model_name.split('/')[-1]
 
         # Empty text: resample briefly, then return "" so a step is counted
         # (raising into tenacity's 4..120s backoff hides it from the agent).
         max_empty_resamples = 3
+        tool_command = None
         for _empty_attempt in range(max_empty_resamples + 1):
             response = client.models.generate_content(model=actual_model_name, contents=actual_messages, config=config)
 
@@ -265,6 +430,21 @@ class LitellmModel:
                     "No response returned from Google: no candidates "
                     f"(prompt_feedback={getattr(response, 'prompt_feedback', None)})"
                 )
+
+            if native:
+                # a function_call is a valid response even when response.text is empty
+                for p in (response.candidates[0].content.parts or []):
+                    fc = getattr(p, 'function_call', None)
+                    if fc and getattr(fc, 'name', '') == 'bash':
+                        _a = dict(getattr(fc, 'args', {}) or {})
+                        tool_command = _a.get('command')
+                        if tool_command:
+                            break
+                if tool_command:
+                    message = response.text or ""
+                    if _empty_attempt > 0:
+                        self.empty_resamples_recovered += 1
+                    break
 
             if response.text is not None:
                 message = response.text
@@ -310,10 +490,21 @@ class LitellmModel:
             )
             message = ""
 
+        if native and tool_command and tool_command.strip():
+            # synthesize the ```bash block for the text agent loop; raw command carried
+            # out-of-band via result['tool_command'] for verbatim execution
+            self.native_tool_use_turns += 1
+            action_block = f"```bash\n{tool_command}\n```"
+            if message and message.strip():
+                message = message.replace("```bash", "```sh") + f"\n\n{action_block}"
+            else:
+                message = action_block
+
         result: dict[str, Any] = {
             'response': response,
             'content': message,
             'message': response.candidates[0].content,
+            'tool_command': tool_command,
         }
 
         if response.usage_metadata is not None:
@@ -425,13 +616,21 @@ class LitellmModel:
         max_tokens = actual_api_kwargs.pop('max_tokens', 8192)
         temperature = actual_api_kwargs.pop('temperature', NOT_GIVEN)
         
+        native_tools = self._native_tools_enabled()
+        if native_tools:
+            _wrap_tool_results(actual_messages)
+
         # Build call kwargs - only include supported parameters
         call_kwargs: dict[str, Any] = {
             'model': actual_model_name,
             'messages': actual_messages,
             'max_tokens': max_tokens,
         }
-        
+        if native_tools:
+            call_kwargs['tools'] = [_BASH_TOOL]
+            # at most one tool_use per turn: one-command-per-turn, API-enforced
+            call_kwargs['tool_choice'] = {'type': 'auto', 'disable_parallel_tool_use': True}
+
         if system_content:
             call_kwargs['system'] = [{
                 "type": "text",
@@ -496,10 +695,24 @@ class LitellmModel:
             # Extract non-empty text and build sanitized content for history
             content = ""
             sanitized_content = []
+            tool_command = None
             for block in response.content:
                 block_type = getattr(block, 'type', 'unknown')
 
-                if block_type == "text":
+                if block_type == "tool_use":
+                    if tool_command is not None:
+                        # keeps the 1 tool_use : 1 tool_result pairing valid
+                        logger.warning("Multiple tool_use blocks in one turn; keeping only the first")
+                        continue
+                    tool_input = getattr(block, 'input', {}) or {}
+                    sanitized_content.append({
+                        "type": "tool_use",
+                        "id": getattr(block, 'id', ''),
+                        "name": getattr(block, 'name', ''),
+                        "input": tool_input,
+                    })
+                    tool_command = tool_input.get('command', '') if getattr(block, 'name', '') == 'bash' else ''
+                elif block_type == "text":
                     text = getattr(block, 'text', '')
                     # Only include non-empty text blocks in sanitized content
                     if text.strip():
@@ -523,6 +736,18 @@ class LitellmModel:
                     data = getattr(block, 'data', '')
                     sanitized_content.append({"type": "redacted_thinking", "data": data})
                 # a 'fallback' marker block (present on fallback turns) is intentionally skipped
+
+            if tool_command is not None and tool_command.strip():
+                # synthesize the ```bash block parse_action expects; the raw tool_use
+                # block is what gets replayed to the API
+                self.native_tool_use_turns += 1
+                action_block = f"```bash\n{tool_command}\n```"
+                if content:
+                    # neutralize stray fences so parse_action picks the tool call
+                    content = content.replace("```bash", "```sh")
+                    content = f"{content}\n\n{action_block}"
+                else:
+                    content = action_block
 
             if content:
                 if _empty_attempt > 0:
@@ -580,6 +805,10 @@ class LitellmModel:
         result: dict[str, Any] = {
             'response': response,
             'content': content,
+            # Raw tool_use command carried out-of-band so parse_action executes it
+            # verbatim instead of re-parsing the synthesized ```bash block (whose
+            # non-greedy regex truncates any command body containing a code fence).
+            'tool_command': tool_command,
             'message': sanitized_message,  # Use sanitized message, not full response
             'input_tokens': input_tokens,
             'output_tokens': output_tokens,
@@ -590,10 +819,36 @@ class LitellmModel:
 
         return result
 
+    def _native_tools_enabled(self) -> bool:
+        """Native tool calling: bash exposed as a real tool instead of regex-parsed
+        text. Always on for Anthropic models (direct SDK path). Also on for OpenAI
+        Responses-API models (gpt-5.x-sol etc.), which support native function tools
+        + preserved reasoning items -- toggleable via MSWEA_OPENAI_NATIVE_TOOLS."""
+        # One uniform switch across all families (default on). Each family exposes the
+        # SAME bash tool via its provider-native schema + tool_choice='auto', with a
+        # graceful text-```bash fallback; native_tool_use_turns records actual adherence.
+        if os.getenv("MSWEA_NATIVE_TOOLS", "1") != "1":
+            return False
+        mn = self.config.model_name
+        if 'anthropic' in mn:                                                   # Anthropic direct SDK (tool_use)
+            return True
+        if self.config.api_type == "responses" and self._responses_provider() == "openai":  # OpenAI Responses (function_call)
+            return True
+        if "grok" in mn and self.config.api_type == "completion":               # Grok/xAI chat (tool_calls); rewritten to openai/grok-*
+            return True
+        if ("glm" in mn or "kimi" in mn) and self.config.api_type == "completion":  # GLM (z.ai) / Kimi (moonshot): OpenAI-compatible chat, share the grok tool_calls path (tool_choice=required)
+            return True
+        if self.config.native_gemini and 'gemini-3' in mn:                      # Gemini genai generate_content (function_call parts)
+            return True
+        return False
+
     def _needs_direct_anthropic_call(self) -> bool:
         """Check if we need to bypass LiteLLM for direct Anthropic SDK call"""
         if 'anthropic' not in self.config.model_name:
             return False
+        if self._native_tools_enabled():
+            # tool_use/tool_result plumbing exists only on the direct path
+            return True
         thinking = self.config.model_kwargs.get('thinking', {})
         # 'auto' and 'adaptive' thinking types require the direct SDK path because
         # LiteLLM does not preserve the `signature` field on thinking blocks when
@@ -642,6 +897,12 @@ class LitellmModel:
         if actual_kwargs.get('stream', False) and 'stream_options' not in actual_kwargs:
             actual_kwargs['stream_options'] = {'include_usage': True}
 
+        native = self._native_tools_enabled()
+        if native:
+            actual_kwargs['tools'] = [_BASH_TOOL_CHAT]
+            # force a tool call each turn (grok otherwise follows the ```bash-text prompt)
+            actual_kwargs['tool_choice'] = 'required'
+
         messages_for_api = messages
         if 'anthropic' in self.config.model_name and messages:
             messages_for_api = copy.deepcopy(messages)
@@ -652,6 +913,11 @@ class LitellmModel:
                     if message is not last_message:
                         _set_cache_breakpoint(message)
                     break
+        if native:
+            # each observation must be a role:'tool' message keyed on its tool_call_id
+            if messages_for_api is messages:
+                messages_for_api = copy.deepcopy(messages)
+            _wrap_tool_results_chat(messages_for_api)
 
         try:
             res = litellm.completion(
@@ -672,28 +938,34 @@ class LitellmModel:
             raise LengthFinishReasonError("Model returned length error but max tokens were not reached")
 
         content = res['choices'][0]['message']['content']
+        tool_command = None
 
-        # Native tool-callers (e.g. thinkingmachines/Inkling) put the action in
-        # tool_calls and leave content empty. The agent loop is text-based, so
-        # synthesize the equivalent ```bash block from bash tool calls.
-        if not content:
-            tool_calls = getattr(res['choices'][0]['message'], 'tool_calls', None) or []
-            blocks = []
-            for tc in tool_calls:
-                fn = getattr(tc, 'function', None)
-                if fn is not None and getattr(fn, 'name', '') == 'bash':
-                    try:
-                        cmd = json.loads(fn.arguments).get('command')
-                    except (json.JSONDecodeError, TypeError, AttributeError):
-                        cmd = None
-                    if cmd:
-                        blocks.append(f"```bash\n{cmd}\n```")
-            if blocks:
-                content = "\n".join(blocks)
+        # Native tool call (grok/xai chat, or self-invoking models like Inkling): the
+        # action arrives in tool_calls. Take the first bash command, synthesize the
+        # ```bash block the text agent loop expects, and carry the raw command
+        # out-of-band (result['tool_command']) for verbatim execution.
+        tool_calls = getattr(res['choices'][0]['message'], 'tool_calls', None) or []
+        for tc in tool_calls:
+            fn = getattr(tc, 'function', None)
+            if fn is not None and getattr(fn, 'name', '') == 'bash':
+                try:
+                    tool_command = json.loads(fn.arguments).get('command')
+                except (json.JSONDecodeError, TypeError, AttributeError):
+                    tool_command = None
+                if tool_command:
+                    break
+        if tool_command and tool_command.strip():
+            self.native_tool_use_turns += 1
+            action_block = f"```bash\n{tool_command}\n```"
+            if content and content.strip():
+                content = content.replace("```bash", "```sh") + f"\n\n{action_block}"
+            else:
+                content = action_block
 
         result = {
             'response': res,
-            'message': res['choices'][0]['message']
+            'message': res['choices'][0]['message'],
+            'tool_command': tool_command,
         }
         if res and res.choices and len(res.choices) > 0:
             result['content'] = content
@@ -741,22 +1013,88 @@ class LitellmModel:
         except Exception:
             return True
 
+    @staticmethod
+    def _content_text(content) -> str:
+        if isinstance(content, str):
+            return content
+        if isinstance(content, list):
+            parts = []
+            for b in content:
+                if isinstance(b, dict):
+                    parts.append(b.get('text') or b.get('output_text') or '')
+                elif isinstance(b, str):
+                    parts.append(b)
+            return ''.join(parts)
+        return ''
+
+    def _responses_native_input(self, msgs: list, include_system: bool) -> list:
+        """Translate the agent's history into OpenAI Responses `input` items for
+        native tool use. Prior assistant turns arrive as raw output items (reasoning /
+        function_call / message, replayed via extra.outputs) and pass through verbatim
+        so encrypted reasoning + call_ids stay valid. Each user observation that answers
+        a function_call becomes a `function_call_output` keyed on that call_id (FIFO,
+        one command per turn); the initial task and any non-tool user text stay user
+        messages. Mirrors the production client's _message_to_items pairing."""
+        items: list = []
+        pending_call_id = None
+        for m in msgs:
+            if not isinstance(m, dict):
+                continue
+            itype = m.get('type')
+            if itype in ('reasoning', 'function_call', 'function_call_output', 'message', 'web_search_call'):
+                items.append(m)
+                if itype == 'function_call':
+                    pending_call_id = m.get('call_id')
+                continue
+            role = m.get('role')
+            text = self._content_text(m.get('content'))
+            if role == 'system':
+                if include_system and text:
+                    items.append({'type': 'message', 'role': 'system',
+                                  'content': [{'type': 'input_text', 'text': text}]})
+            elif role == 'user':
+                if pending_call_id is not None:
+                    items.append({'type': 'function_call_output', 'call_id': pending_call_id, 'output': text})
+                    pending_call_id = None
+                elif text:
+                    items.append({'type': 'message', 'role': 'user',
+                                  'content': [{'type': 'input_text', 'text': text}]})
+            elif role == 'assistant':
+                # non-native assistant text (e.g. an empty-degrade turn with no tool call)
+                if text:
+                    items.append({'type': 'message', 'role': 'assistant',
+                                  'content': [{'type': 'output_text', 'text': text}]})
+        return items
+
     def _query_responses(self, messages: list[dict[str, str]], replay_messages: list[dict[str, str]] | None = None, **kwargs):
         system_messages: list[str] = []
         for message in messages:
             if message.get('role') == 'system':
                 system_messages.append(message.get('content', ''))
         system_prompt = system_messages[0] if system_messages else None
+        native = self._native_tools_enabled()
 
         # Stateful chaining sends only previous_response_id + the new turn; not universal:
         # OpenRouter's Responses API is stateless and ZDR OpenAI orgs reject
         # previous_response_id, so those use full-history replay instead.
         if self._responses_chaining is None and self._responses_provider() == 'openrouter':
             self._responses_chaining = False
+        # Native tool use rebuilds the full history each turn (matched function_call /
+        # function_call_output items + encrypted reasoning); the chaining path's
+        # server-side call pairing isn't modeled here, so force stateless replay.
+        if native:
+            self._responses_chaining = False
 
         def _build_call(use_chaining: bool):
             call_kwargs = dict(self.config.model_kwargs | kwargs)
             use_instructions = system_prompt is not None and self._responses_supports_instructions()
+            if native:
+                call_kwargs['tools'] = [_BASH_TOOL_RESPONSES]
+                # force a tool call each turn so the run is genuinely native (the shared
+                # instance_template asks for ```bash text, which models otherwise follow);
+                # submit is itself a bash call, so forcing loses nothing.
+                call_kwargs['tool_choice'] = 'required'
+                call_kwargs['parallel_tool_calls'] = False
             if use_chaining:
                 call_kwargs['store'] = True
                 if self.previous_response_id is not None:
@@ -769,11 +1107,17 @@ class LitellmModel:
                 input_to_send = [{'role': m['role'], 'content': m.get('content', '')}
                                  for m in src if m.get('role') in roles]
             else:
-                input_to_send = replay_messages if replay_messages is not None else messages
-                if use_instructions:
-                    # system rides in `instructions`; keeping it in input double-counts it
-                    input_to_send = [m for m in input_to_send
-                                     if not (isinstance(m, dict) and m.get('role') == 'system')]
+                base = replay_messages if replay_messages is not None else messages
+                if native:
+                    # translate history -> Responses items, pairing each observation to
+                    # its function_call via call_id (FIFO), like the production client
+                    input_to_send = self._responses_native_input(base, include_system=not use_instructions)
+                else:
+                    input_to_send = base
+                    if use_instructions:
+                        # system rides in `instructions`; keeping it in input double-counts it
+                        input_to_send = [m for m in input_to_send
+                                         if not (isinstance(m, dict) and m.get('role') == 'system')]
                 if self._responses_provider() == 'openai':
                     # ZDR-canonical stateless replay: encrypted reasoning keeps replayed
                     # reasoning items valid instead of silently ignored
@@ -819,25 +1163,44 @@ class LitellmModel:
         self.previous_response_id = getattr(res, 'id', None)
 
         output_text = ""
-
         outputs = []
+        tool_command = None
 
         for output_item in res.output:
-
             output_item = output_item.model_dump() if not isinstance(output_item, dict) else output_item
-
             outputs.append(output_item)
-            
-            if output_item.get('type') == 'message':
+            itype = output_item.get('type')
+            if itype == 'message':
                 for content in output_item.get('content', []):
                     if content.get('type') == 'output_text':
                         output_text += content.get('text', '')
+            elif itype == 'function_call' and native and tool_command is None:
+                # one command per turn (parallel_tool_calls=False); take the first bash call
+                if output_item.get('name') == 'bash':
+                    try:
+                        args = json.loads(output_item.get('arguments') or '{}')
+                    except Exception:
+                        args = {}
+                    tool_command = args.get('command', '')
+
+        content_out = output_text
+        if native and tool_command is not None and tool_command.strip():
+            # synthesize the ```bash block parse_action expects; the raw command is
+            # also carried out-of-band via result['tool_command'] (verbatim execution)
+            self.native_tool_use_turns += 1
+            action_block = f"```bash\n{tool_command}\n```"
+            if output_text.strip():
+                content_out = output_text.replace("```bash", "```sh") + f"\n\n{action_block}"
+            else:
+                content_out = action_block
 
         result = {
             'response': res,
-            'content': output_text,
+            'content': content_out,
             'outputs': outputs,
         }
+        if native:
+            result['tool_command'] = tool_command
         if res and res.usage is not None:
             usage = res.usage
             result['input_tokens'] = getattr(usage, 'input_tokens', 0)
@@ -862,7 +1225,7 @@ class LitellmModel:
                         # the nested dict too: litellm's gemini path reads thought_signatures
                         # from provider_specific_fields only
                         message_copy['extra']['message'] = message_copy['extra']['message'] | provider_fields
-                    actual_messages.append(message_copy['extra']['message'])
+                    actual_messages.append(dict(message_copy['extra']['message']))
                 elif message_copy['extra'].get('outputs') is not None:
                     actual_messages.extend(message_copy['extra']['outputs'])
                 else:
@@ -872,7 +1235,12 @@ class LitellmModel:
                 actual_messages.append(message_copy)
 
         if self.config.native_gemini and 'gemini-3' in self.config.model_name:
-            if self.config.gemini_interactions:
+            # Native tools -> generate_content: it's the only Gemini path that can FORCE
+            # tool use (tool_config mode=ANY); the Interactions API supports tools too and
+            # has nicer status/signature handling, but rejects tool_config, so under the
+            # ```bash-text instance_template Gemini won't actually call the tool there
+            # (verified: native_turns=0). Non-native runs keep the Interactions default.
+            if self.config.gemini_interactions and not self._native_tools_enabled():
                 result = self._query_completion_interactions(actual_messages, **kwargs)
             else:
                 result = self._query_completion_generativeai(actual_messages, **kwargs)
@@ -920,6 +1288,10 @@ class LitellmModel:
         
         res = {
             "content": content or "",
+            # Raw native tool command carried out-of-band so the agent's parse_action
+            # executes it verbatim (avoids the ```bash regex round-trip truncating a
+            # command body that itself contains a code fence). None on non-native turns.
+            "tool_command": result.get("tool_command"),
             "extra": {
                 # warnings=False: the server-side-fallback `usage.iterations` types aren't
                 # fully modeled in anthropic SDK 0.105.2 and otherwise emit a noisy
