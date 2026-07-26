@@ -184,29 +184,45 @@ git checkout {pr.base.sha} {test_files}
             (e.g. dist/, lib/, __pycache__) that survive a source checkout
             of the base commit.
 
-        The scrub pins the repository to the task's base commit on a single
-        local branch, deletes every other ref, expires all reflogs, prunes
-        unreachable objects, removes gitignored build outputs (keeping
-        dependency directories so offline rebuilds still work), and deletes
-        stray patch files. The base commit itself stays reachable, so
-        grade-time ``git checkout <base_sha> <files>`` and
-        ``git diff <base_sha>`` are unaffected.
+        Non-destructive by design (mirrors the validated scrub_v3 in
+        livebench-private): pin the working tree to the base commit, expire
+        reflogs and prune so any dangling fix commit is unrecoverable, and
+        delete stray patch files and the grade script. It deliberately does
+        NOT run ``git clean`` and does NOT sweep refs / re-checkout a branch:
+          * ``git clean -dfX`` deletes gitignored dependency dirs and
+            base-built output that repos which don't rebuild at grade (e.g.
+            nuxt) rely on -- handicapping agent and grader. (And ``-e
+            node_modules`` does NOT protect it: under ``-X`` the ``-e`` pattern
+            is *added* to the ignore set, so node_modules stays in the delete
+            set -- verified.)
+          * a ref sweep + re-checkout desyncs the working tree so the
+            gold/model patch fails to grade (empirically observed: gold went
+            valid=True -> valid=False).
+        Build output (dist/, .nuxt/, ...) is KEPT: images build ``FROM`` the
+        SWE-bench base image, whose dist is base-built and fix-free (verified
+        via dist_leak_check on the base). A compiled-fix in dist only occurs in
+        pipeline-built images and is remediated there by scrub_v3's reliable
+        dist_leak_check (livebench-private), not by a fragile in-Dockerfile
+        grep. node_modules and base output are kept -> no JS/TS handicap; the
+        base commit stays reachable so grade-time ``git checkout <base_sha>
+        <files>`` and ``git diff <base_sha>`` are unaffected. fix-run.sh is not
+        baked (see dockerfile) and is bind-mounted read-only at grade time.
         """
         base_sha = self.pr.base.sha
         return (
             "RUN cd /testbed && "
             "git config --global --add safe.directory /testbed && "
             f"git reset --hard {base_sha} && "
-            f"git checkout -q -B base {base_sha} && "
-            "for r in $(git for-each-ref --format='%(refname)' refs/heads refs/tags refs/remotes"
-            ' | grep -vx refs/heads/base); do git update-ref -d "$r"; done && '
-            "git reflog expire --all --expire=now && "
-            "rm -f .git/FETCH_HEAD .git/ORIG_HEAD .git/MERGE_HEAD .git/info/grafts && "
-            "rm -rf .git/refs/original && "
-            "git gc --prune=now --quiet && "
-            "git clean -dfX -e node_modules -e .venv -e venv -e vendor && "
-            "rm -f /tmp/*.patch /home/*.patch /home/fix-run.sh && "
-            "(find /tmp -maxdepth 3 -name '*.patch' -delete 2>/dev/null || true)"
+            # git-history vector: drop any dangling fix commit (which carries the
+            # graded test changes) via reflog-expire + prune. No ref sweep / no
+            # re-checkout -- those desync the tree and break grading (see docstring).
+            "git reflog expire --expire=now --all 2>/dev/null || true; "
+            "git gc --prune=now --quiet 2>/dev/null || true; "
+            # files vector: stray patches + the grade script (fix-run.sh embeds
+            # the hidden test patch; it is bind-mounted at grade instead of baked).
+            "rm -f /tmp/*.patch /tmp/*.diff /home/*.patch /home/*.diff /home/fix-run.sh /home/*.sh 2>/dev/null || true; "
+            "find /tmp -maxdepth 3 -name '*.patch' -delete 2>/dev/null || true; "
+            "true"
         )
 
     def dockerfile(self) -> str:
