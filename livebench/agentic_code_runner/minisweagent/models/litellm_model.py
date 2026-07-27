@@ -873,6 +873,17 @@ class LitellmModel:
         reraise=True,
     )
     def _query_completion(self, messages: list[dict[str, str]], **kwargs):
+        # provider_specific_fields is a litellm replay artifact (the nested reasoning /
+        # thought-signature payload). It is NOT a valid OpenAI chat-completion input field:
+        # query() already flattens reasoning_content/thinking_blocks to the top level, and
+        # the nested key is only needed by the Gemini path (separate) and Anthropic-via-
+        # litellm (kept below). Strict OpenAI-compatible providers (e.g. Fireworks) 400 with
+        # "Extra inputs are not permitted, field: messages[N].provider_specific_fields", which
+        # kills the agent after turn 1. The messages here are fresh per-query dicts (see
+        # query()), so popping in place does not corrupt the stored history.
+        if 'anthropic' not in self.config.model_name:
+            for message in messages:
+                message.pop('provider_specific_fields', None)
         if 'deepseek' in self.config.model_name:
             for message in messages:
                 if message['role'] == 'system':
