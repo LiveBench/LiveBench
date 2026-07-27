@@ -119,26 +119,56 @@ def _wrap_tool_results(messages: list[dict]) -> None:
             pending_tool_use_id = None
 
 
+# Informative result for a tool_call we did not execute. The chat API requires a
+# role:'tool' reply for EVERY tool_call_id in the preceding assistant turn; we run one
+# command per turn, so extra calls get this. Mirrors mini-swe-agent, which pads skipped
+# calls with returncode -1 + a note rather than a blank — the message also steers the
+# model to stop emitting parallel calls (some providers ignore parallel_tool_calls=False).
+_SKIPPED_TOOL_RESULT = (
+    "<returncode>-1</returncode>\n<output>\n"
+    "[skipped] Parallel tool calls are disabled: only the first command in a turn is "
+    "executed. Issue exactly one command per turn.\n</output>"
+)
+
+
+def _tool_call_ids(msg: dict) -> list:
+    ids = []
+    for tc in (msg.get('tool_calls') or []):
+        tc_id = tc.get('id') if isinstance(tc, dict) else getattr(tc, 'id', None)
+        if tc_id:
+            ids.append(tc_id)
+    return ids
+
+
 def _wrap_tool_results_chat(messages: list[dict]) -> None:
-    """Chat-completions analog of _wrap_tool_results: every user turn that answers
-    an assistant `tool_calls` turn must be a `role:'tool'` message keyed on the
-    tool_call id (OpenAI chat requires each tool_call be answered). One command per
-    turn -> pair to the first tool_call. Mutates a request-only copy in place."""
-    pending_id = None
-    for i, msg in enumerate(messages):
+    """Chat-completions analog of _wrap_tool_results: an assistant `tool_calls` turn
+    must be followed by a `role:'tool'` message for EACH tool_call id (OpenAI chat 400s
+    otherwise: "tool_call_ids did not have response messages"). We execute one command
+    per turn, so the observation answers the FIRST tool_call; any extra tool_calls the
+    model emitted (providers such as Moonshot ignore parallel_tool_calls=False) are
+    padded with an informative 'skipped' tool result keyed to their id — same shape as
+    mini-swe-agent's pad-to-all-ids. Mutates a request-only copy in place."""
+    result = []
+    pending_ids: list = []
+    for msg in messages:
         role = msg.get('role')
         if role == 'assistant':
-            pending_id = None
-            tcs = msg.get('tool_calls')
-            if tcs:
-                tc = tcs[0]
-                pending_id = tc.get('id') if isinstance(tc, dict) else getattr(tc, 'id', None)
-        elif role == 'user' and pending_id is not None:
+            result.append(msg)
+            pending_ids = _tool_call_ids(msg)
+        elif role == 'user' and pending_ids:
             content = msg.get('content')
             if isinstance(content, str):
-                messages[i] = {'role': 'tool', 'tool_call_id': pending_id,
-                               'content': content if content.strip() else '(no output)'}
-            pending_id = None
+                result.append({'role': 'tool', 'tool_call_id': pending_ids[0],
+                               'content': content if content.strip() else '(no output)'})
+                for extra_id in pending_ids[1:]:
+                    result.append({'role': 'tool', 'tool_call_id': extra_id,
+                                   'content': _SKIPPED_TOOL_RESULT})
+            else:
+                result.append(msg)
+            pending_ids = []
+        else:
+            result.append(msg)
+    messages[:] = result
 
 
 def _set_cache_breakpoint(message: dict) -> None:
