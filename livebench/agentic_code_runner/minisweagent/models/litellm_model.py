@@ -31,13 +31,35 @@ class LengthFinishReasonError(Exception):
 
 _DEFAULT_MAX_ATTEMPTS = 15
 LENGTH_FINISH_REASON_MAX_ATTEMPTS = 3
+# Per-request ceiling for the chat-completions path (maps to the httpx read timeout).
+# Without it a provider that accepts the connection but never streams data back
+# (observed with xAI/grok on large-context turns, 2026-07-28) hangs the read forever:
+# the agent instance blocks, and because answers buffer in memory until the round
+# finishes, ONE stuck question stalls the whole run. Bounding the request makes it
+# fail fast -> retry -> error out, so the rest of the run survives. 600s matches the
+# gemini genai path's http timeout; a real completion never legitimately needs longer.
+_REQUEST_TIMEOUT_S = 600
+# A provider that keeps timing out / refusing the connection will not recover on the
+# 15th try, and each timed-out attempt already burned up to _REQUEST_TIMEOUT_S; cap these
+# low so one bad endpoint can't spend _DEFAULT_MAX_ATTEMPTS x 600s (~2.5h) on a single
+# question and stall the run. Built defensively: only exception classes present in this
+# litellm version are matched (getattr → None otherwise), so it can never AttributeError.
+_TIMEOUT_MAX_ATTEMPTS = 4
+_TIMEOUT_EXC = tuple(c for c in (
+    getattr(litellm.exceptions, "Timeout", None),
+    getattr(litellm.exceptions, "APITimeoutError", None),
+    getattr(litellm.exceptions, "APIConnectionError", None),
+) if isinstance(c, type))
 
 
 def _length_aware_stop(retry_state) -> bool:
-    """tenacity stop: cap LengthFinishReasonError retries, retry everything else normally."""
+    """tenacity stop: cap LengthFinishReasonError + timeout/connection retries early,
+    retry everything else normally."""
     exc = retry_state.outcome.exception() if retry_state.outcome else None
     if isinstance(exc, LengthFinishReasonError):
         return retry_state.attempt_number >= LENGTH_FINISH_REASON_MAX_ATTEMPTS
+    if _TIMEOUT_EXC and isinstance(exc, _TIMEOUT_EXC):
+        return retry_state.attempt_number >= _TIMEOUT_MAX_ATTEMPTS
     return retry_state.attempt_number >= _DEFAULT_MAX_ATTEMPTS
 
 
@@ -939,6 +961,9 @@ class LitellmModel:
                 actual_kwargs['thinking'] = {'type': 'disabled'}
         if actual_kwargs.get('stream', False) and 'stream_options' not in actual_kwargs:
             actual_kwargs['stream_options'] = {'include_usage': True}
+        # Bound every request so a hung provider stream can't block the run forever
+        # (see _REQUEST_TIMEOUT_S). setdefault so an explicit config timeout wins.
+        actual_kwargs.setdefault('timeout', _REQUEST_TIMEOUT_S)
 
         native = self._native_tools_enabled()
         if native:
