@@ -31,6 +31,14 @@ class LengthFinishReasonError(Exception):
 
 _DEFAULT_MAX_ATTEMPTS = 15
 LENGTH_FINISH_REASON_MAX_ATTEMPTS = 3
+# Per-request ceiling for the chat-completions path (maps to the httpx read timeout).
+# Without it a provider that accepts the connection but never streams data back
+# (observed with xAI/grok on large-context turns, 2026-07-28) hangs the read forever:
+# the agent instance blocks, and because answers buffer in memory until the round
+# finishes, ONE stuck question stalls the whole run. Bounding the request makes it
+# fail fast -> retry -> error out, so the rest of the run survives. 600s matches the
+# gemini genai path's http timeout; a real completion never legitimately needs longer.
+_REQUEST_TIMEOUT_S = 600
 
 
 def _length_aware_stop(retry_state) -> bool:
@@ -939,6 +947,9 @@ class LitellmModel:
                 actual_kwargs['thinking'] = {'type': 'disabled'}
         if actual_kwargs.get('stream', False) and 'stream_options' not in actual_kwargs:
             actual_kwargs['stream_options'] = {'include_usage': True}
+        # Bound every request so a hung provider stream can't block the run forever
+        # (see _REQUEST_TIMEOUT_S). setdefault so an explicit config timeout wins.
+        actual_kwargs.setdefault('timeout', _REQUEST_TIMEOUT_S)
 
         native = self._native_tools_enabled()
         if native:
