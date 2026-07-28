@@ -868,6 +868,8 @@ class LitellmModel:
             return True
         if ("glm" in mn or "kimi" in mn) and self.config.api_type == "completion":  # GLM (z.ai) / Kimi (moonshot): OpenAI-compatible chat, share the grok tool_calls path (tool_choice=required)
             return True
+        if "inkling" in mn.lower() and self.config.api_type == "completion":     # Thinking Machines Inkling (Tinker OpenAI-compat chat, self-invoking tool_calls); same tool_calls path
+            return True
         if self.config.native_gemini and 'gemini-3' in mn:                      # Gemini genai generate_content (function_call parts)
             return True
         return False
