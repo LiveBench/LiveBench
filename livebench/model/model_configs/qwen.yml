@@ -247,8 +247,14 @@ api_kwargs:
       enable_thinking: true
 ---
 display_name: qwen3.7-max
+# Published Alibaba Model Studio rates (verified 2026-08-04): $2.50 input / $7.50 output,
+# IMPLICIT cache read $0.25/1M. Alibaba prices the two cache modes differently -- implicit
+# $0.25 vs explicit $0.125 -- and LiveBench does not wire explicit context caching, so the
+# IMPLICIT rate is the correct one to bill at. (Same reasoning as qwen3.8-max, which is also
+# $0.25 implicit.) Do not substitute the cheaper explicit rate.
 cost_per_million:
   input: 2.5
+  cached_input: 0.25
   output: 7.5
 api_name:
   https://dashscope-intl.aliyuncs.com/compatible-mode/v1: qwen3.7-max
