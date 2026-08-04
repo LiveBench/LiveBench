@@ -225,14 +225,37 @@ def chat_completion_openai_responses(model: str, messages: Conversation, tempera
 
     output_text = 'BLOCKED'
     output_tokens = 1
+    # Stream when asked (function arg or `stream: true` in the model config's api_kwargs).
+    # A non-streamed Responses call must finish inside the provider's gateway timeout, so a
+    # model that spends 10+ minutes on one answer dies with "upstream request timeout" and is
+    # graded 0 — observed on deepseek-v4-flash-0731 via Fireworks, where the longest tasks
+    # (consecutive_events) failed 74% of the time. Streaming keeps bytes flowing (first token
+    # in <1s), so the request survives; the final response object is identical either way.
+    want_stream = bool(actual_api_kwargs.pop('stream', False)) or stream
     try:
-        response = client.responses.create(
-            model=model,
-            instructions=developer_message,
-            input=input,
-            store=False,
-            **actual_api_kwargs
-        )
+        if want_stream:
+            response = None
+            for event in client.responses.create(
+                model=model,
+                instructions=developer_message,
+                input=input,
+                store=False,
+                stream=True,
+                **actual_api_kwargs
+            ):
+                # the terminal event carries the assembled response (text + usage)
+                if getattr(event, 'type', '') in ('response.completed', 'response.incomplete'):
+                    response = getattr(event, 'response', None)
+            if response is None:
+                raise Exception("Stream ended without a completed response event")
+        else:
+            response = client.responses.create(
+                model=model,
+                instructions=developer_message,
+                input=input,
+                store=False,
+                **actual_api_kwargs
+            )
 
         if response is None:
             raise Exception("No response received from OpenAI Responses")
