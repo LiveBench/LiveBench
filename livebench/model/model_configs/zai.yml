@@ -126,8 +126,16 @@ api_kwargs:
 preserve_reasoning: true
 ---
 display_name: glm-5.2
+# Published z.ai rates (docs.z.ai/guides/overview/pricing, verified 2026-08-04): $1.40 in /
+# $4.40 out, cached input $0.26/1M (an 81% discount; cache storage is free for now).
+# cached_input is REQUIRED, not optional: the harness only credits cache reads when the key
+# is present (`cached = total_cached_tokens if 'cached_input' in cpm else 0`), so omitting it
+# bills every cache read at the FULL input rate. glm-5.2 runs ~98% cache reads
+# (298.5M of 305.2M input tokens on agentic_coding_v2), so leaving it out overstated the
+# agentic cost as $445 instead of ~$105 — a 4.2x error.
 cost_per_million:
   input: 1.4
+  cached_input: 0.26
   output: 4.4
 api_name:
   https://api.z.ai/api/paas/v4: glm-5.2
