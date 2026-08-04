@@ -206,3 +206,71 @@ api_kwargs:
   default:
     temperature: 1
     max_tokens: 384000
+---
+# DeepSeek V4 Flash 0731 via the RESPONSES API on Fireworks (dated slug pins the 0731
+# build; the undated slug currently serves it too but is not guaranteed to). Fireworks
+# accepts tool_choice='required', so the agentic native path needs no special casing.
+display_name: deepseek-v4-flash-0731-fw
+# DeepSeek's published token rates ($0.14 in / $0.28 out). The cache rate is the SERVING
+# provider's, not DeepSeek's, and it is EMPIRICALLY DERIVED, not published: solving for the
+# cached rate that reproduces the summed provider-reported `cost_usd` over the 72 agentic
+# answers gives $0.0280/1M exactly (= 0.200 x input; computed $53.8981 vs reported $53.8981,
+# delta $0.0000). Do NOT "correct" this to either of the tempting alternatives:
+#   * DeepSeek's own $0.003 cache-hit rate -> $46.77, 13.2% UNDER actual (that rate applies
+#     only to api.deepseek.com; see the -ds entry below)
+#   * Fireworks' documented default 50% discount ($0.07) -> $65.87, 22.2% OVER actual
+# Re-derive it the same way if the provider changes rates.
+cost_per_million:
+  input: 0.14
+  cached_input: 0.028
+  output: 0.28
+api_name:
+  openai_responses: accounts/fireworks/models/deepseek-v4-flash-0731
+default_provider: openai_responses
+api_base: https://api.fireworks.ai/inference/v1
+api_keys:
+  openai_responses: FIREWORKS_API_KEY
+api_kwargs:
+  default:
+    temperature: null
+  openai_responses:
+    # 131072, NOT null: an unset cap makes Fireworks apply its 32768 default, and with
+    # thinking always on this model routinely blows past 32k mid-answer — 237/1198 regular
+    # answers truncated before emitting their final tag (consecutive_events scored 0/47).
+    max_output_tokens: 131072
+    timeout: 3600
+preserve_reasoning: true
+---
+# NOTE: this entry was NOT used for the published board row (Fireworks was). Kept because it
+# is the only route that preserves DeepSeek's own reasoning fidelity.
+# Same 0731 build on DeepSeek's OWN Responses endpoint. Thinking is always on here and
+# the API rejects tool_choice='required' with 400 "Thinking mode does not support this
+# tool_choice", so the agentic path falls back to 'auto' (see _native_tool_choice).
+display_name: deepseek-v4-flash-0731-ds
+# Served by DeepSeek directly, so DeepSeek's own rates apply — cache reads at 0.0028,
+# matching the existing deepseek-v4-flash entry above (same family, same published rate),
+# NOT the empirically-derived 0.028 on the Fireworks entry.
+# ⚠️ Unlike the Fireworks rate, this one has not been reconciled against a provider-reported
+# total, because no full run has used this entry. Reconcile it the same way before trusting
+# a cost column produced from it.
+cost_per_million:
+  input: 0.14
+  cached_input: 0.0028
+  output: 0.28
+api_name:
+  openai_responses: deepseek-v4-flash
+default_provider: openai_responses
+api_base: https://api.deepseek.com/v1
+api_keys:
+  openai_responses: DEEPSEEK_API_KEY
+api_kwargs:
+  default:
+    temperature: null
+  openai_responses:
+    # 131072, NOT null: never leave this unset — an unset cap inherits whatever default the
+    # SERVING provider applies. With thinking always on this model routinely blows past 32k
+    # mid-answer; on the Fireworks entry above that cost 237/1198 truncated regular answers
+    # (consecutive_events scored 0/47 purely from truncation).
+    max_output_tokens: 131072
+    timeout: 3600
+preserve_reasoning: true
