@@ -212,14 +212,17 @@ api_kwargs:
 # accepts tool_choice='required', so the agentic native path needs no special casing.
 display_name: deepseek-v4-flash-0731-fw
 # DeepSeek's published token rates ($0.14 in / $0.28 out). The cache rate is the SERVING
-# provider's, not DeepSeek's, and it is EMPIRICALLY DERIVED, not published: solving for the
-# cached rate that reproduces the summed provider-reported `cost_usd` over the 72 agentic
-# answers gives $0.0280/1M exactly (= 0.200 x input; computed $53.8981 vs reported $53.8981,
-# delta $0.0000). Do NOT "correct" this to either of the tempting alternatives:
-#   * DeepSeek's own $0.003 cache-hit rate -> $46.77, 13.2% UNDER actual (that rate applies
-#     only to api.deepseek.com; see the -ds entry below)
-#   * Fireworks' documented default 50% discount ($0.07) -> $65.87, 22.2% OVER actual
-# Re-derive it the same way if the provider changes rates.
+# provider's (Fireworks), not DeepSeek's — the same weights on api.deepseek.com bill cache
+# reads 10x cheaper (see the -ds entry).
+# ⚠️ 0.028 (= 0.2x input) is an ESTIMATE, not a verified rate. It is consistent with the
+# per-model cached rates Fireworks publishes for comparable slugs (GLM-5.2 0.1x, Kimi-K2.6
+# 0.17x, MiniMax-M3 0.20x), but Fireworks publishes no cached rate for this slug.
+# CORRECTION (2026-08-04): an earlier version of this comment claimed 0.028 was derived by
+# reconciling against provider-reported cost. That was WRONG and the reasoning was circular:
+# `cost_usd` in the answer records is computed BY THE HARNESS from this very config
+# (gen_api_answer.py / run_inference.py), so it can never validate the config. There is no
+# independent billing figure anywhere in the pipeline. Replace this with a real invoice
+# number or a published rate when one is available.
 cost_per_million:
   input: 0.14
   cached_input: 0.028
