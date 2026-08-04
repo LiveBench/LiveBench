@@ -58,8 +58,12 @@ api_kwargs:
 preserve_reasoning: true
 ---
 display_name: kimi-k2.6-thinking
+# Published Moonshot rates (verified 2026-08-04): $0.95 cache-miss input / $0.19 cache-hit /
+# $4.00 output = 0.20x. NOTE this is NOT kimi-k3's ratio: k3 is $3.00/$0.30/$15.00 = 0.10x.
+# Moonshot's cache discount differs per model generation -- never carry one model's rate over.
 cost_per_million:
   input: 0.95
+  cached_input: 0.19
   output: 4
 api_name:
   https://api.moonshot.ai/v1: kimi-k2.6
@@ -77,8 +81,12 @@ api_kwargs:
 preserve_reasoning: true
 ---
 display_name: kimi-k2.7-code
+# Published Moonshot rates (verified 2026-08-04): $0.95 cache-miss input / $0.19 cache-hit /
+# $4.00 output = 0.20x. NOTE this is NOT kimi-k3's ratio: k3 is $3.00/$0.30/$15.00 = 0.10x.
+# Moonshot's cache discount differs per model generation -- never carry one model's rate over.
 cost_per_million:
   input: 0.95
+  cached_input: 0.19
   output: 4
 api_name:
   https://api.moonshot.ai/v1: kimi-k2.7-code
