@@ -279,3 +279,35 @@ api_kwargs:
     temperature: 0.6
     top_p: 0.95
     max_output_tokens: 65536
+---
+# Qwen 3.8 Max via DashScope's OpenAI-compatible CHAT endpoint (the proven qwen path).
+# Characterised 2026-08-03 before launch:
+#  * thinking is ALWAYS ON — extra_body.enable_thinking=False still returns reasoning_content,
+#    so answers are long and completion_tokens run ~2x the visible max_tokens.
+#  * ~50 tok/s, so a long answer takes 10+ min; `stream: true` is REQUIRED to keep the
+#    connection alive (a non-streamed long request times out).
+#  * max_tokens is set EXPLICITLY (never null): an unset cap inherits a provider default and
+#    silently truncates answers mid-thought, which scores 0. See the deepseek-0731 incident.
+#  * tool_choice='required' is REJECTED (400 "does not support ... in thinking mode"), so the
+#    agentic native path must use 'auto' for this model.
+display_name: qwen3.8-max
+# Published Alibaba Model Studio rates (verified 2026-08-04): $2.00/1M input, $6.00/1M
+# output, implicit cache reads $0.25/1M. NOT the 2.5/7.5 of qwen3.7-max — do not copy
+# pricing between Qwen generations. Thinking tokens bill as OUTPUT, which matters here
+# because thinking cannot be disabled on this model.
+cost_per_million:
+  input: 2.0
+  cached_input: 0.25
+  output: 6.0
+api_name:
+  https://dashscope-intl.aliyuncs.com/compatible-mode/v1: qwen3.8-max
+api_keys:
+  https://dashscope-intl.aliyuncs.com/compatible-mode/v1: ALIBABA_API_KEY
+api_kwargs:
+  default:
+    temperature: 0.6
+    top_p: 0.95
+    max_tokens: 65536
+    stream: true
+    extra_body:
+      enable_thinking: true
