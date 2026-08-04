@@ -890,6 +890,8 @@ class LitellmModel:
             return True
         if ("glm" in mn or "kimi" in mn) and self.config.api_type == "completion":  # GLM (z.ai) / Kimi (moonshot): OpenAI-compatible chat, share the grok tool_calls path (tool_choice=required)
             return True
+        if "qwen" in mn and self.config.api_type == "completion":               # Alibaba DashScope OpenAI-compat chat (tool_calls); tool_choice must be 'auto' (thinking mode)
+            return True
         if "inkling" in mn.lower() and self.config.api_type == "completion":     # Thinking Machines Inkling (Tinker OpenAI-compat chat, self-invoking tool_calls); same tool_calls path
             return True
         if self.config.native_gemini and 'gemini-3' in mn:                      # Gemini genai generate_content (function_call parts)
@@ -968,8 +970,9 @@ class LitellmModel:
         native = self._native_tools_enabled()
         if native:
             actual_kwargs['tools'] = [_BASH_TOOL_CHAT]
-            # force a tool call each turn (grok otherwise follows the ```bash-text prompt)
-            actual_kwargs['tool_choice'] = 'required'
+            # force a tool call each turn (grok otherwise follows the ```bash-text prompt);
+            # 'auto' where the provider rejects a forced choice in thinking mode (see helper)
+            actual_kwargs['tool_choice'] = self._native_tool_choice()
             # one command per turn: _wrap_tool_results_chat answers only the first
             # tool_call, so a parallel emission would leave an unanswered tool_call_id
             # and 400 on the next request. Disable parallel calls where the provider
@@ -1076,6 +1079,28 @@ class LitellmModel:
         except Exception:
             return ''
 
+    def _native_tool_choice(self) -> str:
+        """tool_choice for the native tool paths (both Responses and chat-completions):
+        'required' where the provider allows forcing a call, else 'auto'.
+
+        Some providers reject a forced choice while thinking is on — and on these models
+        thinking CANNOT be disabled, so 'required' can never be used there:
+          * DeepSeek's own endpoint  -> 400 "Thinking mode does not support this tool_choice"
+            (api.deepseek.com lists no non-thinking slug)
+          * Alibaba DashScope (qwen3.x-max) -> 400 "The tool_choice parameter does not support
+            being set to required or object in thinking mode" (enable_thinking=False is
+            ignored — reasoning_content comes back regardless)
+        Gated on the ENDPOINT, not the model name: the same DeepSeek weights served by
+        Fireworks DO accept 'required' (verified 200), and keeping the forced choice where it
+        works is strictly better. Under 'auto' these models still emit a bash tool call nearly
+        every turn, so the run stays genuinely native; the text-```bash fallback covers a miss
+        and native_tool_use_turns records the real adherence.
+        """
+        api_base = str(self.config.model_kwargs.get('api_base') or '').lower()
+        if any(h in api_base for h in ('deepseek', 'dashscope', 'aliyuncs')):
+            return 'auto'
+        return 'required'
+
     def _responses_supports_instructions(self) -> bool:
         """Whether the provider's Responses API accepts `instructions` (xAI rejects it)."""
         try:
@@ -1166,7 +1191,7 @@ class LitellmModel:
                 # force a tool call each turn so the run is genuinely native (the shared
                 # instance_template asks for ```bash text, which models otherwise follow);
                 # submit is itself a bash call, so forcing loses nothing.
-                call_kwargs['tool_choice'] = 'required'
+                call_kwargs['tool_choice'] = self._native_tool_choice()
                 call_kwargs['parallel_tool_calls'] = False
             if use_chaining:
                 call_kwargs['store'] = True

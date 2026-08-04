@@ -85,9 +85,16 @@ def run_agentic_coding_inference(
     all_traj_folder = LIVE_BENCH_ROOT_PATH / f"agentic_code_runner/data/trajectories" / run_id
     all_traj_folder.mkdir(parents=True, exist_ok=True)
 
-    # Anthropic models use native tool calling and need the tool-calling prompts
-    # (with tool_choice auto, triple-backtick prompts make models ignore the tool)
-    native_tools = provider == 'anthropic'
+    # Native tool calling needs the tool-calling prompts: under tool_choice='auto' the
+    # triple-backtick instructions in livebench.yaml compete with the tool and models
+    # ignore it. Anthropic always runs native. ALSO required for endpoints that REJECT a
+    # forced tool_choice while thinking is on — DashScope/qwen and DeepSeek's own API both
+    # 400 with "does not support being set to required ... in thinking mode" — because
+    # there the prompt template is the only lever left. Measured on qwen3.8-max under the
+    # text prompts: it called the bash tool on just 19/72 questions.
+    _no_forced_tool_choice = any(h in str(provider).lower()
+                                 for h in ('dashscope', 'aliyuncs', 'deepseek'))
+    native_tools = provider == 'anthropic' or _no_forced_tool_choice
     config_name = "livebench_native.yaml" if native_tools else "livebench.yaml"
     if native_tools:
         print(f"Native tool-calling mode ON: using {config_name}")
