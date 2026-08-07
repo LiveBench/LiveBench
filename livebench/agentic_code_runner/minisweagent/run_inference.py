@@ -92,8 +92,15 @@ def run_agentic_coding_inference(
     # 400 with "does not support being set to required ... in thinking mode" — because
     # there the prompt template is the only lever left. Measured on qwen3.8-max under the
     # text prompts: it called the bash tool on just 19/72 questions.
-    _no_forced_tool_choice = any(h in str(provider).lower()
-                                 for h in ('dashscope', 'aliyuncs', 'deepseek'))
+    # Match on the api_base too, not just the provider string: a model reached through an
+    # explicit base URL arrives here as provider='openai_responses'/'openai', so a
+    # provider-only check silently misses it. Meta (api.meta.ai, muse-spark) is exactly
+    # that case -- it 400s on a forced tool_choice, so it needs 'auto', and 'auto' WITHOUT
+    # the native prompts is the qwen failure mode: the triple-backtick instructions win and
+    # the model ignores the tool (19/72 questions on qwen3.8-max).
+    _NO_FORCED_TOOL_CHOICE_HOSTS = ('dashscope', 'aliyuncs', 'deepseek', 'meta.ai')
+    _endpoint = f"{provider} {(api_dict or {}).get('api_base', '')}".lower()
+    _no_forced_tool_choice = any(h in _endpoint for h in _NO_FORCED_TOOL_CHOICE_HOSTS)
     native_tools = provider == 'anthropic' or _no_forced_tool_choice
     config_name = "livebench_native.yaml" if native_tools else "livebench.yaml"
     if native_tools:

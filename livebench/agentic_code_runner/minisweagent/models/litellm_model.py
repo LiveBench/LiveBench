@@ -1097,7 +1097,13 @@ class LitellmModel:
         and native_tool_use_turns records the real adherence.
         """
         api_base = str(self.config.model_kwargs.get('api_base') or '').lower()
-        if any(h in api_base for h in ('deepseek', 'dashscope', 'aliyuncs')):
+        #   * Meta (api.meta.ai, muse-spark) -> 400 'only `"auto"` is supported for
+        #     `tool_choice`. `"none"`, `"required"`, and named function choices are not
+        #     currently supported'. Note muse-spark-1.1 DID run with a forced choice
+        #     (26/26 native turns on its published run), so Meta tightened this after that
+        #     run -- a provider's accepted params can regress between model releases, and
+        #     the failure is a hard 400 that kills the question, not a silent downgrade.
+        if any(h in api_base for h in ('deepseek', 'dashscope', 'aliyuncs', 'meta.ai')):
             return 'auto'
         return 'required'
 
