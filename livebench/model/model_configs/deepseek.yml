@@ -285,11 +285,11 @@ preserve_reasoning: true
 # comparison against the base model's row.
 display_name: dsv4-flash-appllm-kto-v1
 # Dedicated deployment bills $24/hr flat, not per token. Per Arvind (2026-08-07): publish
-# costs at the base model's Fireworks-served rates (deepseek-v4-flash-0731-fw, incl. the
-# 0.2x cached-rate caveat there) so the cost column is like-for-like with the base row.
+# costs at DeepSeek's own published API rates (the deepseek-v4-flash entry above, cache
+# reads 0.0028) — NOT the Fireworks-served 0.028 estimate on the -fw entry.
 cost_per_million:
   input: 0.14
-  cached_input: 0.028
+  cached_input: 0.0028
   output: 0.28
 api_name:
   openai_responses: "accounts/arvind-3e31ba/models/dsv4-flash-appllm-kto-v1#accounts/arvind-3e31ba/deployments/it0lv20r"
