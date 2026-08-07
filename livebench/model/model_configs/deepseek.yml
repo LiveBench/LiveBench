@@ -284,6 +284,10 @@ preserve_reasoning: true
 # Everything below deliberately mirrors deepseek-v4-flash-0731-fw for a like-for-like
 # comparison against the base model's row.
 display_name: dsv4-flash-appllm-kto-v1
+# Board/public name: Smaug-Flash (publish with generate_model_rows.py --display-name smaug-flash
+# + a modelLinks displayName "Smaug-Flash"). The data model_id above stays as-is for provenance.
+aliases:
+  - smaug-flash
 # Dedicated deployment bills $24/hr flat, not per token. Per Arvind (2026-08-07): publish
 # costs at DeepSeek's own published API rates (the deepseek-v4-flash entry above, cache
 # reads 0.0028) — NOT the Fireworks-served 0.028 estimate on the -fw entry.
