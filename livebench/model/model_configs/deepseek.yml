@@ -284,10 +284,9 @@ preserve_reasoning: true
 # Everything below deliberately mirrors deepseek-v4-flash-0731-fw for a like-for-like
 # comparison against the base model's row.
 display_name: dsv4-flash-appllm-kto-v1
-# Dedicated deployment bills $24/hr flat, not per token. These are the base model's
-# Fireworks rates (see deepseek-v4-flash-0731-fw, incl. the 0.2x cached-rate caveat there)
-# kept as NOMINAL values so the spend report isn't $0 — do not publish a board cost row
-# from them.
+# Dedicated deployment bills $24/hr flat, not per token. Per Arvind (2026-08-07): publish
+# costs at the base model's Fireworks-served rates (deepseek-v4-flash-0731-fw, incl. the
+# 0.2x cached-rate caveat there) so the cost column is like-for-like with the base row.
 cost_per_million:
   input: 0.14
   cached_input: 0.028
