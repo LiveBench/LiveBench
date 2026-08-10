@@ -1,0 +1,16 @@
+# Smaug-Agentic: Abacus.AI fine-tune of Kimi K3, served from a dedicated Fireworks FP4 deployment
+display_name: smaug-agentic
+cost_per_million:
+  input: 3.00
+  cached_input: 0.30
+  output: 15.00
+api_name:
+  openai_responses: "<redacted>"
+default_provider: openai_responses
+api_base: https://api.fireworks.ai/inference/v1
+api_keys:
+  openai_responses: FIREWORKS_API_KEY
+api_kwargs:
+  default:
+    temperature: 1.0
+preserve_reasoning: true
