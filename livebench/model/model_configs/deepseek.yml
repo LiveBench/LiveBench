@@ -278,17 +278,16 @@ api_kwargs:
     timeout: 3600
 preserve_reasoning: true
 ---
-# DeepSeek V4 Flash 0731 fine-tuned on AppLLM agentic trajectories (SFT r64 + KTO r32),
-# served from a dedicated Fireworks deployment (2xB300, arvind-3e31ba account). Model id is
-# deployment-pinned; autoscale floor is 0, so the first request after idle pays a cold start.
-# Everything below deliberately mirrors deepseek-v4-flash-0731-fw for a like-for-like
-# comparison against the base model's row.
-display_name: dsv4-flash-appllm-kto-v1
-# Board/public name: Smaug-Flash (publish with generate_model_rows.py --display-name smaug-flash
-# + a modelLinks displayName "Smaug-Flash"). The data model_id above stays as-is for provenance.
+# Smaug-Flash: DeepSeek V4 Flash 0731 fine-tuned on AppLLM agentic trajectories (v2 run:
+# SFT 2ep + KTO, rank-128 exact adapter combine), served from a dedicated FP4 Fireworks
+# deployment (arvind-3e31ba account). Model id is deployment-pinned; autoscale floor is 0,
+# so the first request after idle pays a cold start. Everything below deliberately mirrors
+# deepseek-v4-flash-0731-fw for a like-for-like comparison against the base model's row.
+# Board modelLinks displayName: "Smaug-Flash".
+display_name: smaug-flash
 aliases:
-  - smaug-flash
-# Dedicated deployment bills $24/hr flat, not per token. Per Arvind (2026-08-07): publish
+  - Smaug-Flash
+# Dedicated deployment bills flat $/hr, not per token. Per Arvind (2026-08-07): publish
 # costs at DeepSeek's own published API rates (the deepseek-v4-flash entry above, cache
 # reads 0.0028) — NOT the Fireworks-served 0.028 estimate on the -fw entry.
 cost_per_million:
@@ -296,7 +295,7 @@ cost_per_million:
   cached_input: 0.0028
   output: 0.28
 api_name:
-  openai_responses: "accounts/arvind-3e31ba/models/dsv4-flash-appllm-kto-v1#accounts/arvind-3e31ba/deployments/it0lv20r"
+  openai_responses: "accounts/arvind-3e31ba/models/dsv4-flash-appllm-kto-v2r128#accounts/arvind-3e31ba/deployments/eh9kw7c7"
 default_provider: openai_responses
 api_base: https://api.fireworks.ai/inference/v1
 api_keys:
