@@ -116,3 +116,25 @@ api_kwargs:
     stream: true
     reasoning_effort: max
 preserve_reasoning: true
+---
+# Smaug-Agentic: Abacus.AI fine-tune of Kimi K3, served from a dedicated Fireworks FP4
+# deployment (the eval itself ran from an inline config on the eval VM; this entry is the
+# durable record). Board name: smaug-agentic / displayName "Smaug-Agentic".
+display_name: kimi-k3-v3sft-step222
+aliases:
+  - smaug-agentic
+# Kimi K3's published rates, per Arvind — the cost row is like-for-like with the base row.
+cost_per_million:
+  input: 3.00
+  cached_input: 0.30
+  output: 15.00
+api_name:
+  openai_responses: "accounts/arvind-3e31ba/models/kimi-k3-v3sft-step222#accounts/arvind-3e31ba/deployments/k3-v3sft-eval"
+default_provider: openai_responses
+api_base: https://api.fireworks.ai/inference/v1
+api_keys:
+  openai_responses: FIREWORKS_API_KEY
+api_kwargs:
+  default:
+    temperature: 1.0
+preserve_reasoning: true
