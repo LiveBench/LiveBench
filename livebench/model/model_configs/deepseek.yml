@@ -328,4 +328,9 @@ api_kwargs:
     # chat-completions path uses max_tokens; same never-unset rationale as the -fw entry.
     max_tokens: 131072
     timeout: 3600
+    # DeepInfra defaults DSv4's chat template to thinking OFF (first attempt scored 43.3
+    # on reasoning with ~2.7k-token answers). enable_thinking with no effort override =
+    # the template's default effort, matching how the Fireworks entries run.
+    chat_template_kwargs:
+      enable_thinking: true
 preserve_reasoning: true
