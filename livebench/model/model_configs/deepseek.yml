@@ -192,6 +192,32 @@ api_kwargs:
     temperature: 1
     max_tokens: 384000
 ---
+# DeepSeek V4 Pro, GA build 0813 (api-docs.deepseek.com lists model id `deepseek-v4-pro`
+# with "version: DeepSeek-V4-Pro-0813"). There is NO dated API slug -- neither first-party
+# nor Fireworks exposes deepseek-v4-pro-0813 -- so the id below is an UNPINNED alias and this
+# row corresponds to whatever build was live when it ran. The dated display_name records
+# which build that was; re-check the docs' version string before reusing these numbers.
+# Fireworks was deliberately NOT used: its deepseek-v4-pro may lag the first-party build.
+# Rates verified against api-docs.deepseek.com/quick_start/pricing on 2026-08-13:
+# 0.435 in / 0.003625 cache-hit / 0.87 out. The cached ratio is 0.0083x -- an order of
+# magnitude below flash's 0.020x, so do NOT copy rates between the two.
+# NOTE: DeepSeek's pricing page announces "a significant increase expected" in the near
+# future; these are the rates in effect at run time.
+display_name: deepseek-v4-pro-0813
+cost_per_million:
+  input: 0.435
+  cached_input: 0.003625
+  output: 0.87
+api_name:
+  https://api.deepseek.com: deepseek-v4-pro
+default_provider: https://api.deepseek.com
+api_keys:
+  https://api.deepseek.com: DEEPSEEK_API_KEY
+api_kwargs:
+  default:
+    temperature: 1
+    max_tokens: 384000
+---
 display_name: deepseek-v4-flash
 cost_per_million:
   input: 0.14
