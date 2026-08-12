@@ -892,6 +892,8 @@ class LitellmModel:
             return True
         if "qwen" in mn and self.config.api_type == "completion":               # Alibaba DashScope OpenAI-compat chat (tool_calls); tool_choice must be 'auto' (thinking mode)
             return True
+        if "deepseek" in mn and self.config.api_type == "completion":           # DeepSeek 1st-party chat (tool_calls); like qwen, tool_choice must be 'auto' -- 'required' 400s with "Thinking mode does not support this tool_choice"
+            return True
         if "inkling" in mn.lower() and self.config.api_type == "completion":     # Thinking Machines Inkling (Tinker OpenAI-compat chat, self-invoking tool_calls); same tool_calls path
             return True
         if self.config.native_gemini and 'gemini-3' in mn:                      # Gemini genai generate_content (function_call parts)
