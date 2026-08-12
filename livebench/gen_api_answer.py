@@ -87,6 +87,7 @@ def get_answer(
             messages.append({"role": "system", "content": question['system_prompt']})
 
         turns = []
+        reasoning_turns = []
         for j in range(len(question["turns"])):
             prompt = question["turns"][j]
             if model_config.prompt_prefix:
@@ -110,6 +111,10 @@ def get_answer(
                 m = None
 
             if m is not None:
+                # keep the thinking out of api_info; store it alongside turns instead
+                turn_reasoning = m.pop('reasoning_content', None)
+                if turn_reasoning:
+                    reasoning_turns.append(turn_reasoning)
                 turn_input_tokens = m.pop('input_tokens', None)
                 if turn_input_tokens is not None:
                     total_input_tokens += turn_input_tokens
@@ -122,7 +127,10 @@ def get_answer(
             turns.append(output)
             total_num_tokens += num_tokens
 
-        choices.append({"index": i, "turns": turns})
+        choice = {"index": i, "turns": turns}
+        if reasoning_turns:
+            choice["reasoning"] = reasoning_turns
+        choices.append(choice)
 
     cost_usd = None
     if getattr(model_config, 'cost_per_million', None):

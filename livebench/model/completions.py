@@ -99,6 +99,11 @@ def chat_completion_openai(
         stream = actual_api_kwargs['stream']
         del actual_api_kwargs['stream']
 
+    # Thinking models return their chain of thought on a separate field, never in
+    # `content`. Without capturing it here the reasoning is generated, billed, and
+    # discarded — answer rows keep only the final visible text.
+    reasoning_text = ''
+
     try:
         if stream:
             stream: Stream[ChatCompletionChunk] = client.chat.completions.create(
@@ -117,6 +122,10 @@ def chat_completion_openai(
                 for chunk in stream:
                     if chunk.choices and len(chunk.choices) > 0 and chunk.choices[0].delta.content is not None:
                         message += chunk.choices[0].delta.content
+                    if chunk.choices and len(chunk.choices) > 0:
+                        _r = getattr(chunk.choices[0].delta, 'reasoning_content', None)
+                        if _r:
+                            reasoning_text += _r
                     if chunk.usage is not None:
                         num_tokens = chunk.usage.completion_tokens
                         if hasattr(chunk.usage, 'reasoning_tokens'):
@@ -144,6 +153,7 @@ def chat_completion_openai(
                 message = response.choices[0]
             else:
                 message = response.choices[0].message.content
+                reasoning_text = getattr(response.choices[0].message, 'reasoning_content', None) or ''
             input_tokens = None
             cached_tokens = None
             if response.usage is not None:
@@ -177,6 +187,10 @@ def chat_completion_openai(
             metadata = {'input_tokens': input_tokens}
             if cached_tokens is not None:
                 metadata['cached_tokens'] = cached_tokens
+
+        if reasoning_text:
+            metadata = metadata if metadata is not None else {}
+            metadata['reasoning_content'] = reasoning_text
 
         return output, num_tokens, metadata
     except Exception as e:
@@ -906,6 +920,18 @@ def chat_completion_litellm(
     token_exhaustion = False
     if response.usage is not None:
         num_tokens = response.usage.completion_tokens
+        # Thinking models bill reasoning as OUTPUT but report it OUTSIDE completion_tokens,
+        # under completion_tokens_details.reasoning_tokens. chat_completion_openai already
+        # folds it in (see the non-litellm path); this path did not, so every run made with
+        # --use-litellm under-counted output tokens -- and therefore cost -- by the whole
+        # reasoning trace. Measured on xAI: grok-4.5 completion=1015 + reasoning=1935,
+        # grok-4.6 completion=237 + reasoning=1901, i.e. a ~2-9x undercount depending on how
+        # verbose the visible answer is. Note usage.reasoning_tokens (top-level) is None for
+        # these providers, so only the details object is authoritative.
+        _ctd = getattr(response.usage, 'completion_tokens_details', None)
+        _reasoning = getattr(_ctd, 'reasoning_tokens', None) if _ctd is not None else None
+        if num_tokens is not None and _reasoning:
+            num_tokens += _reasoning
         input_tokens = response.usage.prompt_tokens
         cached_tokens = getattr(response.usage, 'cache_read_input_tokens', None) or 0
         if not cached_tokens and hasattr(response.usage, 'prompt_tokens_details') and response.usage.prompt_tokens_details is not None:
@@ -933,6 +959,10 @@ def chat_completion_litellm(
         if metadata is None:
             metadata = {}
         metadata['eval_status'] = 'token_exhaustion'
+
+    if reasoning_content:
+        metadata = metadata if metadata is not None else {}
+        metadata['reasoning_content'] = reasoning_content
 
     return message, num_tokens, metadata
 

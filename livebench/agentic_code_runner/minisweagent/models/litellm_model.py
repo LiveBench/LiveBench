@@ -1046,7 +1046,14 @@ class LitellmModel:
         if res and res.choices and len(res.choices) > 0:
             result['content'] = content
             result['input_tokens'] = res.usage.prompt_tokens
-            result['output_tokens'] = res.usage.completion_tokens
+            # Reasoning bills as OUTPUT but sits outside completion_tokens, under
+            # completion_tokens_details.reasoning_tokens. Without this, a thinking model's
+            # agentic cost is understated by its whole reasoning trace (xAI grok-4.6:
+            # completion=237 vs reasoning=1901 on one call). Same defect that affected the
+            # regular path in completions.py.
+            _ctd = getattr(res.usage, 'completion_tokens_details', None)
+            _reasoning = getattr(_ctd, 'reasoning_tokens', None) if _ctd is not None else None
+            result['output_tokens'] = (res.usage.completion_tokens or 0) + (_reasoning or 0)
             # OpenAI/Anthropic report cache reads under prompt_tokens_details; Gemini-via-litellm
             # uses a top-level field, read only as a fallback to avoid double-counting.
             result['cached_tokens'] = (
@@ -1097,7 +1104,13 @@ class LitellmModel:
         and native_tool_use_turns records the real adherence.
         """
         api_base = str(self.config.model_kwargs.get('api_base') or '').lower()
-        if any(h in api_base for h in ('deepseek', 'dashscope', 'aliyuncs')):
+        #   * Meta (api.meta.ai, muse-spark) -> 400 'only `"auto"` is supported for
+        #     `tool_choice`. `"none"`, `"required"`, and named function choices are not
+        #     currently supported'. Note muse-spark-1.1 DID run with a forced choice
+        #     (26/26 native turns on its published run), so Meta tightened this after that
+        #     run -- a provider's accepted params can regress between model releases, and
+        #     the failure is a hard 400 that kills the question, not a silent downgrade.
+        if any(h in api_base for h in ('deepseek', 'dashscope', 'aliyuncs', 'meta.ai')):
             return 'auto'
         return 'required'
 
