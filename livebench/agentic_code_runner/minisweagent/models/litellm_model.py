@@ -1046,7 +1046,14 @@ class LitellmModel:
         if res and res.choices and len(res.choices) > 0:
             result['content'] = content
             result['input_tokens'] = res.usage.prompt_tokens
-            result['output_tokens'] = res.usage.completion_tokens
+            # Reasoning bills as OUTPUT but sits outside completion_tokens, under
+            # completion_tokens_details.reasoning_tokens. Without this, a thinking model's
+            # agentic cost is understated by its whole reasoning trace (xAI grok-4.6:
+            # completion=237 vs reasoning=1901 on one call). Same defect that affected the
+            # regular path in completions.py.
+            _ctd = getattr(res.usage, 'completion_tokens_details', None)
+            _reasoning = getattr(_ctd, 'reasoning_tokens', None) if _ctd is not None else None
+            result['output_tokens'] = (res.usage.completion_tokens or 0) + (_reasoning or 0)
             # OpenAI/Anthropic report cache reads under prompt_tokens_details; Gemini-via-litellm
             # uses a top-level field, read only as a fallback to avoid double-counting.
             result['cached_tokens'] = (
