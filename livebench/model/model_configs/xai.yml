@@ -180,6 +180,40 @@ cost_per_million:
   cached_input: 0.30
   output: 6.00
 ---
+display_name: grok-4.6-high
+api_name:
+  https://api.x.ai/v1: grok-4.6
+api_keys:
+  https://api.x.ai/v1: XAI_API_KEY
+# Published xAI rates (docs.x.ai/docs/models, verified 2026-08-13): $2.00 in / $0.50 cached /
+# $6.00 out under 200k prompt tokens. The cached rate is 0.25x here, NOT the 0.15x that
+# grok-4.5 gets -- xAI prices 4.6 cache reads higher than 4.5. Do not normalise it to 0.30
+# to "match" grok-4.5; the rate genuinely differs across these two generations.
+# Not modelled: prompts >= 200k tokens bill at 2x every rate ($4.00/$1.00/$12.00), so
+# long-context runs are understated. cost_per_million has no tier concept.
+cost_per_million:
+  input: 2.00
+  cached_input: 0.50
+  output: 6.00
+api_kwargs:
+  default:
+    reasoning_effort: high
+---
+display_name: grok-4.6-xhigh
+api_name:
+  https://api.x.ai/v1: grok-4.6
+api_keys:
+  https://api.x.ai/v1: XAI_API_KEY
+# Same published rates as grok-4.6-high above (verified 2026-08-13); see that entry for the
+# 0.25x-vs-0.15x cached note. This is the config the published leaderboard row was run with.
+cost_per_million:
+  input: 2.00
+  cached_input: 0.50
+  output: 6.00
+api_kwargs:
+  default:
+    reasoning_effort: xhigh
+---
 display_name: grok-4-fast-reasoning-responses
 api_name:
   xai_responses: grok-4-fast-reasoning
