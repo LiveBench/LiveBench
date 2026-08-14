@@ -1,0 +1,28 @@
+# DSv4-Flash v14-222 (externally-trained Fireworks PEFT addon, rank-16 over
+# attention + compressor + shared/routed-expert MLPs), merged + surgically
+# requantized (fp8 block / mxfp4 experts) and self-hosted on vLLM at
+# internal-llm-ft-001.reai.io (4xB200, tp4, deep_gemm, max-model-len 1M).
+display_name: dsv4-flash-v14-222
+# DeepSeek published API rates, matching the smaug-flash / di-fp4 entries so cost columns compare.
+cost_per_million:
+  input: 0.14
+  cached_input: 0.0028
+  output: 0.28
+api_name:
+  selfhost_vllm: dsv4-flash-v14-222
+default_provider: selfhost_vllm
+api_base: http://internal-llm-ft-001.reai.io:30310/v1
+api_kwargs:
+  default:
+    # server-default sampling, same as the smaug-flash / di-fp4 reference entries
+    temperature: null
+    # no max_tokens: vLLM defaults to the full remaining context (no Fireworks-style 32768 clamp)
+    # generous client timeout: long thinking turns; direct vLLM, no 600s gateway
+    timeout: 1800
+    # endpoint is unauthenticated; litellm openai path still requires a bearer
+    api_key: EMPTY
+    reasoning_effort: max
+    # litellm blocks unknown params for unregistered models; whitelist the passthrough
+    allowed_openai_params:
+      - reasoning_effort
+preserve_reasoning: true
