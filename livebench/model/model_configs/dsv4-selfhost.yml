@@ -22,4 +22,7 @@ api_kwargs:
     # endpoint is unauthenticated; litellm openai path still requires a bearer
     api_key: EMPTY
     reasoning_effort: max
+    # litellm blocks unknown params for unregistered models; whitelist the passthrough
+    allowed_openai_params:
+      - reasoning_effort
 preserve_reasoning: true
