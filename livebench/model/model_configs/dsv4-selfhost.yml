@@ -1,0 +1,30 @@
+# DSv4-Flash finetunes, self-hosted vLLM 0.27.1 on internal-llm-ft-001.reai.io.
+# Chat-completions via litellm openai path + api_base (plain http, so setup_model's
+# URL-provider branch ('https' in provider) does not apply; the api_base field does).
+# --- v3-KTO (run 2026-08-14, eval/dsv4-flash-v3kto branch): alias dsv4-flash-sftv3
+#     served DSv4-Flash-v3-kto-servefp8 on that serving generation.
+# --- sftv31 (long-context extension on top of v3-KTO): SAME api alias, new serving
+#     generation (root DSv4-Flash-v31-servefp8) — verify /v1/models root before runs.
+display_name: dsv4-flash-sftv31
+# DeepSeek published API rates, matching the smaug-flash / di-fp4 entries so cost columns compare.
+cost_per_million:
+  input: 0.14
+  cached_input: 0.0028
+  output: 0.28
+api_name:
+  selfhost_vllm: dsv4-flash-sftv3
+default_provider: selfhost_vllm
+api_base: http://internal-llm-ft-001.reai.io:30310/v1
+api_kwargs:
+  default:
+    # server-default sampling, same as the smaug-flash / di-fp4 reference entries
+    temperature: null
+    # no max_tokens: vLLM defaults to the full remaining context
+    timeout: 1800
+    # endpoint is unauthenticated; litellm openai path still requires a bearer
+    api_key: EMPTY
+    reasoning_effort: max
+    # litellm blocks unknown params for unregistered models; whitelist the passthrough
+    allowed_openai_params:
+      - reasoning_effort
+preserve_reasoning: true
