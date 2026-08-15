@@ -1,0 +1,23 @@
+# DSv4-Flash ktov33 (KTO pass over the action-masked v33 SFT), self-hosted vLLM on
+# internal-llm-ft-001.reai.io — root DSv4-Flash-ktov33-servefp8, dedicated alias.
+# NOTE: like the sftv31 serving (and unlike v3-KTO's), this serving emits NO
+# reasoning_content on any alias; reasoning_effort=max is still sent and accepted.
+display_name: dsv4-flash-ktov33
+# DeepSeek published API rates, matching the smaug-flash / di-fp4 entries so cost columns compare.
+cost_per_million:
+  input: 0.14
+  cached_input: 0.0028
+  output: 0.28
+api_name:
+  selfhost_vllm: dsv4-flash-ktov33
+default_provider: selfhost_vllm
+api_base: http://internal-llm-ft-001.reai.io:30310/v1
+api_kwargs:
+  default:
+    temperature: null
+    timeout: 1800
+    api_key: EMPTY
+    reasoning_effort: max
+    allowed_openai_params:
+      - reasoning_effort
+preserve_reasoning: true
