@@ -1,0 +1,25 @@
+# DSv4-Flash sftv33 (action-masked SFT on base: thinking present in context but
+# loss-masked; loss only on tool_call rows), self-hosted vLLM on
+# internal-llm-ft-001.reai.io — root DSv4-Flash-v33-servefp8, dedicated alias.
+# NOTE: v33 is measured thinking-silent at inference (empty-think conditioning,
+# see v3.4 root cause) — expect NO reasoning_content, same as the sftv31/ktov33
+# servings; reasoning_effort=max still sent and accepted.
+display_name: dsv4-flash-sftv33
+# DeepSeek published API rates, matching the smaug-flash / di-fp4 entries so cost columns compare.
+cost_per_million:
+  input: 0.14
+  cached_input: 0.0028
+  output: 0.28
+api_name:
+  selfhost_vllm: dsv4-flash-sftv33
+default_provider: selfhost_vllm
+api_base: http://internal-llm-ft-001.reai.io:30310/v1
+api_kwargs:
+  default:
+    temperature: null
+    timeout: 1800
+    api_key: EMPTY
+    reasoning_effort: max
+    allowed_openai_params:
+      - reasoning_effort
+preserve_reasoning: true
