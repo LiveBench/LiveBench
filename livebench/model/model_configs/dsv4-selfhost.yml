@@ -1,0 +1,24 @@
+# DSv4-Flash sftv34 (v3.4 recipe: REAL thinking spliced from response captures +
+# action-masked loss on tool_call rows only, SFT on base), self-hosted vLLM on
+# internal-llm-ft-001.reai.io — root DSv4-Flash-v34-servefp8, dedicated alias.
+# Short-prompt probes emit concise reasoning_content; thinking retention in long
+# agentic context is the v3.4 design goal. reasoning_effort=max sent and accepted.
+display_name: dsv4-flash-sftv34
+# DeepSeek published API rates, matching the smaug-flash / di-fp4 entries so cost columns compare.
+cost_per_million:
+  input: 0.14
+  cached_input: 0.0028
+  output: 0.28
+api_name:
+  selfhost_vllm: dsv4-flash-sftv34
+default_provider: selfhost_vllm
+api_base: http://internal-llm-ft-001.reai.io:30310/v1
+api_kwargs:
+  default:
+    temperature: null
+    timeout: 1800
+    api_key: EMPTY
+    reasoning_effort: max
+    allowed_openai_params:
+      - reasoning_effort
+preserve_reasoning: true
