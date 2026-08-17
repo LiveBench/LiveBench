@@ -317,3 +317,39 @@ api_kwargs:
     stream: true
     extra_body:
       enable_thinking: true
+---
+# Qwen3.8-27B (dense 27B, vision-language, thinking ON by default) via featherless.ai —
+# first featherless entry. OpenAI-compatible chat endpoint, characterised 2026-08-17:
+#  * served at context 32768 / max_completion 32768 (native 262k) — the provider CLAMPS
+#    max_tokens to available context instead of 400ing (verified: 9k prompt + 32000 cap
+#    returned 200), so the full 32768 cap below is safe.
+#  * thinking arrives on a `reasoning` field (NOT `reasoning_content`), so the harness
+#    archives only the final `content` — answers are unaffected. Thinking is VERBOSE:
+#    a short-essay probe burned a 4000-token cap entirely on reasoning; never trim the cap.
+#  * native tool calling verified, tool_choice='required' accepted.
+#  * streaming verified incl. stream_options.include_usage
+#    (usage.prompt_tokens_details.cached_tokens present); ~73 tok/s.
+#  * concurrency is the real limit: featherless reserves 2 units/request for this model
+#    class; 40 concurrent (80 units) verified 429-free on the current key.
+display_name: qwen3.8-27b
+# Featherless bills flat-rate subscriptions (concurrency units, not tokens). The rates
+# below are the provider's own per-token listing from its API metadata
+# (https://api.featherless.ai/v1/models, verified 2026-08-17): $0.265 in / $0.65 out.
+# No published cache discount -> cached_input = full input rate (usage does report
+# cached_tokens, but no discounted rate exists to apply).
+cost_per_million:
+  input: 0.265
+  cached_input: 0.265
+  output: 0.65
+api_name:
+  https://api.featherless.ai/v1: Qwen/Qwen3.8-27B
+api_keys:
+  https://api.featherless.ai/v1: FEATHERLESS_API_KEY
+default_provider: https://api.featherless.ai/v1
+api_kwargs:
+  default:
+    # Qwen3.8 thinking-mode recommended sampling (model card): temp 1.0, top_p 0.95.
+    temperature: 1.0
+    top_p: 0.95
+    max_tokens: 32768
+    stream: true
