@@ -1,0 +1,21 @@
+# DSv4-Flash ktov34: on-policy outcome-labeled KTO (174 rows mined from retired
+# agentic_coding_v2 questions, 4 samples) on the sftv34 (v3.4 real-thinking +
+# action-mask) checkpoint. Self-hosted vLLM, root DSv4-Flash-ktov34-servefp8.
+display_name: dsv4-flash-ktov34
+cost_per_million:
+  input: 0.14
+  cached_input: 0.0028
+  output: 0.28
+api_name:
+  selfhost_vllm: dsv4-flash-ktov34
+default_provider: selfhost_vllm
+api_base: http://internal-llm-ft-001.reai.io:30310/v1
+api_kwargs:
+  default:
+    temperature: null
+    timeout: 1800
+    api_key: EMPTY
+    reasoning_effort: max
+    allowed_openai_params:
+      - reasoning_effort
+preserve_reasoning: true
