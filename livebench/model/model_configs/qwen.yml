@@ -354,30 +354,30 @@ api_kwargs:
     max_tokens: 32768
     stream: true
 ---
-# Qwen3.5-9B (dense 9B, thinking ON by default) via the DashScope-intl
-# OpenAI-compatible chat endpoint — same path as the other qwen3.x dashscope
-# entries. Model card (huggingface.co/Qwen/Qwen3.5-9B): native context 262144;
-# thinking-mode sampling temp 1.0 / top_p 0.95; recommended max output 32768
-# (81920 for complex math/coding). Cap set explicitly (never null — an unset
-# cap inherits the provider default and silently truncates; deepseek-0731).
+# Qwen3.5-9B (dense 9B, thinking ON by default) via Together, full-precision
+# serve (Qwen/Qwen3.5-9B, NOT the -FP8 variant; ctx 262144 per Together's model
+# metadata, verified 2026-08-18). DashScope-intl does NOT host the 9B (its 3.5
+# open lineup is 27b/35b-a3b/122b-a10b/397b-a17b — checked live 2026-08-18), and
+# Together is the fastest measured host (72 tok/s vs DeepInfra 23, openrouter
+# provider stats). Model card (huggingface.co/Qwen/Qwen3.5-9B): thinking-mode
+# sampling temp 1.0 / top_p 0.95; recommended max output 32768 (81920 for
+# complex math/coding). Cap set explicitly (never null — an unset cap inherits
+# the provider default and silently truncates; deepseek-0731).
 display_name: qwen3.5-9b
-# Rates $0.10/1M in / $0.15/1M out (https://openrouter.ai/qwen/qwen3.5-9b,
-# verified 2026-08-18; identical across DeepInfra/SiliconFlow/Venice listings).
-# No published Model Studio cache discount for this open model ->
+# Together rates $0.17/1M in / $0.25/1M out (https://openrouter.ai/qwen/qwen3.5-9b
+# Together row, verified 2026-08-18). No published Together cache discount ->
 # cached_input = full input rate (same convention as qwen3.8-27b).
 cost_per_million:
-  input: 0.1
-  cached_input: 0.1
-  output: 0.15
+  input: 0.17
+  cached_input: 0.17
+  output: 0.25
 api_name:
-  https://dashscope-intl.aliyuncs.com/compatible-mode/v1: qwen3.5-9b
-api_keys:
-  https://dashscope-intl.aliyuncs.com/compatible-mode/v1: ALIBABA_API_KEY
+  together: Qwen/Qwen3.5-9B
 api_kwargs:
   default:
+    # thinking is ON by default for Qwen3.5; no enable_thinking toggle needed
+    # (that's a DashScope/vLLM chat-template kwarg, not a Together param)
     temperature: 1.0
     top_p: 0.95
     max_tokens: 65536
     stream: true
-    extra_body:
-      enable_thinking: true
