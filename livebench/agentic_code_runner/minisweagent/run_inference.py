@@ -142,6 +142,14 @@ def run_agentic_coding_inference(
     if preserve_reasoning:
         config['model']['preserve_reasoning'] = True
 
+    # Explicit native-tool opt-in/out from the model config. Without this, the family
+    # check in _native_tools_enabled matches on substrings of the model name, so a
+    # finetune or a custom-endpoint name silently misses its family and runs
+    # prompt-based — which shows up as a much lower score, not as an error.
+    native_tools_override = getattr(model_config, 'native_tools', None)
+    if native_tools_override is not None:
+        config['model']['native_tools'] = native_tools_override
+
     config_path = all_traj_folder / 'config.yaml'
     with open(config_path, 'w') as f:
         yaml.dump(config, f)

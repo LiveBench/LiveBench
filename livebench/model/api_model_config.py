@@ -25,6 +25,7 @@ class ModelConfig:
     preserve_reasoning: bool | None = None # whether to preserve reasoning in multi-turn tasks
     cost_per_million: dict[str, float] | None = None # USD per 1M tokens; keys: input, cached_input, output
     api_base: str | None = None # explicit base URL for the provider (e.g. non-OpenAI Responses API endpoints like Meta)
+    native_tools: bool | None = None # force native tool calling on/off for agentic runs; None = decide by model family. Set true for finetunes/custom endpoints whose NAME doesn't contain its family (e.g. a kimi-k3 finetune served as "k3-v3sft"), which would otherwise silently run prompt-based and score far lower.
 
 @cache
 def load_model_configs(file_path: str) -> dict[str, ModelConfig]:

@@ -2,6 +2,7 @@ import copy
 import json
 import logging
 import os
+import sys
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -39,6 +40,9 @@ LENGTH_FINISH_REASON_MAX_ATTEMPTS = 3
 # fail fast -> retry -> error out, so the rest of the run survives. 600s matches the
 # gemini genai path's http timeout; a real completion never legitimately needs longer.
 _REQUEST_TIMEOUT_S = 600
+# Models already warned about running prompt-based, so the notice appears once per model
+# per process instead of once per question.
+_WARNED_PROMPT_BASED: set[str] = set()
 # A provider that keeps timing out / refusing the connection will not recover on the
 # 15th try, and each timed-out attempt already burned up to _REQUEST_TIMEOUT_S; cap these
 # low so one bad endpoint can't spend _DEFAULT_MAX_ATTEMPTS x 600s (~2.5h) on a single
@@ -228,6 +232,12 @@ class LitellmModelConfig:
     # gemini-3 via the Interactions API (explicit content_blocked / incomplete
     # statuses instead of finish_reason guessing); False falls back to generateContent
     gemini_interactions: bool = True
+    # Explicit native-tool override, set from the model config's `native_tools:`.
+    # None = decide by family (the list in _native_tools_enabled). True/False wins
+    # outright. Needed because that list matches on SUBSTRINGS of the model name, so a
+    # finetune served under its own name ("k3-v3sft" off a kimi-k3 base) silently misses
+    # the family it belongs to and runs prompt-based.
+    native_tools: bool | None = None
 
 class LitellmModel:
     def __init__(self, **kwargs):
@@ -879,8 +889,22 @@ class LitellmModel:
         # One uniform switch across all families (default on). Each family exposes the
         # SAME bash tool via its provider-native schema + tool_choice='auto', with a
         # graceful text-```bash fallback; native_tool_use_turns records actual adherence.
-        if os.getenv("MSWEA_NATIVE_TOOLS", "1") != "1":
+        env = os.getenv("MSWEA_NATIVE_TOOLS", "1")
+        # Explicit overrides beat family detection, in precedence order:
+        #   MSWEA_NATIVE_TOOLS=0      -> off for everything (existing kill switch)
+        #   MSWEA_NATIVE_TOOLS=force  -> on regardless of family
+        #   config `native_tools:`    -> per-model, the durable way to say it
+        # The family list below matches on SUBSTRINGS of the model name, which silently
+        # fails for any model not named after its family — a kimi-k3 finetune served as
+        # "k3-v3sft" contains neither "kimi" nor "glm", so it drops to prompt-based and
+        # scores far lower for interface reasons that look like model quality. Set
+        # `native_tools: true` rather than renaming the model to game the substring.
+        if env == "force":
+            return True
+        if env != "1":
             return False
+        if self.config.native_tools is not None:
+            return self.config.native_tools
         mn = self.config.model_name
         if 'anthropic' in mn:                                                   # Anthropic direct SDK (tool_use)
             return True
@@ -898,6 +922,23 @@ class LitellmModel:
             return True
         if self.config.native_gemini and 'gemini-3' in mn:                      # Gemini genai generate_content (function_call parts)
             return True
+        # No family matched. This is a legitimate outcome (deepseek is prompt-based by
+        # design), but it is also what an unrecognised finetune looks like — and the two
+        # are indistinguishable from the score alone, since a prompt-based run just scores
+        # lower rather than failing. Say so once, loudly, so nobody has to notice.
+        global _WARNED_PROMPT_BASED
+        if mn not in _WARNED_PROMPT_BASED:
+            _WARNED_PROMPT_BASED.add(mn)
+            print(
+                f"WARNING: '{mn}' is running PROMPT-BASED (no native tool calls). The family "
+                f"check matches on substrings of the model name, so a finetune or a custom "
+                f"endpoint name misses its family even when the underlying model supports "
+                f"tools. If it does, set `native_tools: true` in the model config (or run "
+                f"with MSWEA_NATIVE_TOOLS=force) — measured on qwen3.8-max the same model "
+                f"scored 35/72 prompt-based vs 46/72 native. If this model is genuinely "
+                f"prompt-based, set `native_tools: false` to silence this.",
+                file=sys.stderr,
+            )
         return False
 
     def _needs_direct_anthropic_call(self) -> bool:
