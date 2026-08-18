@@ -1,0 +1,18 @@
+# ZFT-Community 模型
+---
+display_name: zft-community-8b-bs4
+api_name:
+  huggingface: god520/ZFT-Community-8B-BS4
+aliases:
+  - zft-community-8b
+default_provider: huggingface
+api_kwargs:
+  default:
+    max_tokens: 2048
+    temperature: 0.7
+    top_p: 0.95
+agent_config:
+  default:
+    max_input_tokens: 32768
+    max_output_tokens: 2048
+    supports_function_calling: true
