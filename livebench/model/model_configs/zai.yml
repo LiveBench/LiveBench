@@ -159,3 +159,37 @@ api_kwargs:
   https://openrouter.ai/api/v1:
     reasoning_effort: xhigh
 preserve_reasoning: true
+---
+display_name: glm-5.3
+# Published z.ai rates (docs.z.ai/guides/overview/pricing, verified 2026-08-18): $1.40 in /
+# $4.40 out, cached input $0.26/1M (0.186x — same schedule as glm-5.2; cache storage
+# "limited-time free"). No long-context tier or intro window published.
+# Model facts (docs.z.ai/guides/llm/glm-5.3, verified 2026-08-18): 1M context, 128K max
+# output; thinking ALWAYS ON (cannot be disabled); effort ladder low/high/max, default max.
+# Run at max per operator request. Surface choice: chat completions (api.z.ai/api/paas/v4)
+# over the Responses bridge — z.ai's primary documented protocol (and the only one
+# guaranteed for Coding-Plan-associated keys), the proven glm family path here
+# (glm-5.2 comparability), and probe-verified 2026-08-18: reasoning_effort=max accepted,
+# reasoning_content returned, prompt_tokens_details.cached_tokens present.
+# Open weights promised ~2 weeks post-launch — NOT released as of 2026-08-18, so do not
+# flag openweight on the board yet.
+cost_per_million:
+  input: 1.4
+  cached_input: 0.26
+  output: 4.4
+api_name:
+  https://api.z.ai/api/paas/v4: glm-5.3
+default_provider: https://api.z.ai/api/paas/v4
+api_keys:
+  https://api.z.ai/api/paas/v4: ZAI_API_KEY
+api_kwargs:
+  default:
+    temperature: 1.0
+    top_p: 0.95
+    max_tokens: 131072
+    stream: true
+    reasoning_effort: max
+    extra_body:
+      thinking:
+        type: enabled
+preserve_reasoning: true
