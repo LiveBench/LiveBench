@@ -385,11 +385,17 @@ api_kwargs:
 # Qwen3.5-9B base leg for Balajee's RL pair, served on a self-hosted RunPod
 # vLLM (full precision, /workspace/qwen3.5-9b, max_model_len 262144 — probed
 # live, verified 2026-08-19, https://4wh5ju4vjhxmp8-8000.proxy.runpod.net/v1).
-# NOTE: this serve has no vLLM reasoning parser, so thinking arrives INSIDE
-# message content ("Thinking Process:..."), unlike the Together serve of the
-# same weights. The post-RL merged-LoRA leg MUST use the identical vLLM serve
-# config for the pair to be valid. Sampling tuple FROZEN to match the
-# qwen3.5-9b reference row: temp 1.0 / top_p 0.95 / max_tokens 65536.
+# vLLM serve flags (AUTHORITATIVE for both RL-pair legs — the merged-LoRA leg
+# MUST use the identical set; verified 2026-08-19 against the model's own
+# chat_template.jinja, which renders XML-style tool calls, NOT hermes JSON):
+#   --enable-auto-tool-choice --tool-call-parser qwen3_xml --reasoning-parser qwen3
+#   --enable-lora --max-lora-rank 64 --max-model-len 262144
+# With --reasoning-parser qwen3, thinking lands in reasoning_content, matching
+# the Together reference leg. Without --tool-call-parser the agentic native
+# path 400s on tool_choice=required (caught by smoke.sh 2026-08-19); with the
+# WRONG parser (hermes) it parses zero tool calls silently — worse. Sampling
+# tuple FROZEN to match the qwen3.5-9b reference row: temp 1.0 / top_p 0.95 /
+# max_tokens 65536.
 display_name: qwen3.5-9b-vllm
 # Self-hosted pod, flat rental — per-token cost is $0 by construction
 # (verified 2026-08-19, pod is Balajee's own runpod.net instance). Do NOT
