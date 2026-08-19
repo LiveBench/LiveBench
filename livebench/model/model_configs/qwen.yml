@@ -381,3 +381,30 @@ api_kwargs:
     top_p: 0.95
     max_tokens: 65536
     stream: true
+---
+# Qwen3.5-9B base leg for Balajee's RL pair, served on a self-hosted RunPod
+# vLLM (full precision, /workspace/qwen3.5-9b, max_model_len 262144 — probed
+# live, verified 2026-08-19, https://4wh5ju4vjhxmp8-8000.proxy.runpod.net/v1).
+# NOTE: this serve has no vLLM reasoning parser, so thinking arrives INSIDE
+# message content ("Thinking Process:..."), unlike the Together serve of the
+# same weights. The post-RL merged-LoRA leg MUST use the identical vLLM serve
+# config for the pair to be valid. Sampling tuple FROZEN to match the
+# qwen3.5-9b reference row: temp 1.0 / top_p 0.95 / max_tokens 65536.
+display_name: qwen3.5-9b-vllm
+# Self-hosted pod, flat rental — per-token cost is $0 by construction
+# (verified 2026-08-19, pod is Balajee's own runpod.net instance). Do NOT
+# publish a cost row from this config.
+cost_per_million:
+  input: 0.0
+  cached_input: 0.0
+  output: 0.0
+api_name:
+  https://4wh5ju4vjhxmp8-8000.proxy.runpod.net/v1: qwen3p5-9b-base
+api_keys:
+  https://4wh5ju4vjhxmp8-8000.proxy.runpod.net/v1: RUNPOD_API_KEY
+api_kwargs:
+  default:
+    temperature: 1.0
+    top_p: 0.95
+    max_tokens: 65536
+    stream: true
