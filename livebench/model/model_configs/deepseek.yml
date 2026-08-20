@@ -303,3 +303,60 @@ api_kwargs:
     max_output_tokens: 131072
     timeout: 3600
 preserve_reasoning: true
+---
+# Smaug-Flash: DeepSeek V4 Flash 0731 fine-tuned on AppLLM agentic trajectories (v2 run:
+# SFT 2ep + KTO, rank-128 exact adapter combine), served from a dedicated FP4 Fireworks
+# deployment (arvind-3e31ba account). Model id is deployment-pinned; autoscale floor is 0,
+# so the first request after idle pays a cold start. Everything below deliberately mirrors
+# deepseek-v4-flash-0731-fw for a like-for-like comparison against the base model's row.
+# Board modelLinks displayName: "Smaug-Flash".
+display_name: smaug-flash
+aliases:
+  - Smaug-Flash
+# Dedicated deployment bills flat $/hr, not per token. Per Arvind (2026-08-07): publish
+# costs at DeepSeek's own published API rates (the deepseek-v4-flash entry above, cache
+# reads 0.0028) — NOT the Fireworks-served 0.028 estimate on the -fw entry.
+cost_per_million:
+  input: 0.14
+  cached_input: 0.0028
+  output: 0.28
+api_name:
+  openai_responses: "accounts/arvind-3e31ba/models/dsv4-flash-appllm-kto-v2r128#accounts/arvind-3e31ba/deployments/eh9kw7c7"
+default_provider: openai_responses
+api_base: https://api.fireworks.ai/inference/v1
+api_keys:
+  openai_responses: FIREWORKS_API_KEY
+api_kwargs:
+  default:
+    temperature: null
+  openai_responses:
+    # 131072, NOT null — an unset cap inherits Fireworks' 32768 default; see the -fw entry.
+    max_output_tokens: 131072
+    timeout: 3600
+preserve_reasoning: true
+---
+# FP4-quantized baseline for the Smaug-Flash comparison: the same 0731 build served by
+# DeepInfra in FP4 (Smaug-Flash serves FP4 on Fireworks; the -fw entry above was FP8-era
+# serverless). Chat-completions via litellm's deepinfra provider (no Responses API there);
+# litellm reads DEEPINFRA_API_KEY from the environment.
+display_name: deepseek-v4-flash-0731-di-fp4
+# DeepSeek published API rates, matching the smaug-flash entry, so cost columns compare.
+cost_per_million:
+  input: 0.14
+  cached_input: 0.0028
+  output: 0.28
+api_name:
+  deepinfra: deepseek-ai/DeepSeek-V4-Flash-0731
+default_provider: deepinfra
+api_kwargs:
+  default:
+    temperature: null
+    # chat-completions path uses max_tokens; same never-unset rationale as the -fw entry.
+    max_tokens: 131072
+    timeout: 3600
+    # DeepInfra defaults DSv4's chat template to thinking OFF (first attempt scored 43.3
+    # on reasoning with ~2.7k-token answers). enable_thinking with no effort override =
+    # the template's default effort, matching how the Fireworks entries run.
+    chat_template_kwargs:
+      enable_thinking: true
+preserve_reasoning: true
