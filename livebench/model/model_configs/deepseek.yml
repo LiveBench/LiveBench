@@ -303,3 +303,26 @@ api_kwargs:
     max_output_tokens: 131072
     timeout: 3600
 preserve_reasoning: true
+---
+# DeepSeek V4 Flash Vision (Exp) — experimental multimodal variant of V4 Flash, released
+# 2026-08-21 (api-docs.deepseek.com/news/news260821). Matches V4 Flash on text/agents/
+# reasoning and adds image input (JPEG/PNG/GIF/WebP; billed as <=384 input tokens each).
+# First-party only: no US reseller (Fireworks/Novita) serves it as of 2026-08-22.
+# Rates from api-docs.deepseek.com/quick_start/pricing (2026-08-22): vision-exp bills at
+# V4-Flash rates. DeepSeek now bills peak/off-peak — the values below are OFF-PEAK
+# ($0.22 in / $0.007 cache-hit / $0.66 out); peak hours (01:00-04:00, 06:00-10:00 UTC) are 2x.
+# OpenRouter's flat $0.22/$0.66 matches off-peak.
+display_name: deepseek-v4-flash-vision-exp
+cost_per_million:
+  input: 0.22
+  cached_input: 0.007
+  output: 0.66
+api_name:
+  https://api.deepseek.com: deepseek-v4-flash-vision-exp
+default_provider: https://api.deepseek.com
+api_keys:
+  https://api.deepseek.com: DEEPSEEK_API_KEY
+api_kwargs:
+  default:
+    temperature: 1
+    max_tokens: 384000
