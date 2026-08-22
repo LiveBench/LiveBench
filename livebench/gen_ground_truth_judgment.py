@@ -623,6 +623,15 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
+    # Grading is CPU-bound (code execution, sympy equivalence, table compares) —
+    # parallelism beyond the core count starves workers past their timeout guards
+    # and records false zeros (measured 2026-08-22: integrals_with_game graded 37
+    # at parallel 100 on 32 cores vs its true 76; tablereformat 74.5 vs 98).
+    _cores = os.cpu_count() or args.parallel
+    if args.parallel > _cores:
+        print(f"capping --parallel {args.parallel} -> {_cores} (CPU-bound grading; more workers than cores causes spurious timeout zeros)")
+        args.parallel = _cores
+
     if args.livebench_release_option not in LIVE_BENCH_RELEASES:
         raise ValueError(f"Bad release {args.livebench_release_option}.")
 

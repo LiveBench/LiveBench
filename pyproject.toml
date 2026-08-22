@@ -20,7 +20,12 @@ dependencies = [
     "pandas", "requests", "rich>=10.0.0",
     "shortuuid", "sympy>=1.13", "tqdm>=4.62.1", "wheel", "tenacity", "lark", "latex2sympy2==1.9.1", "libtmux", "pyyaml", "dataclasses_json",
     "docker", "gitpython", "toml", "PyGithub", "unidiff", "ruamel.yaml", "simple-parsing", "rich-argparse", "pydantic_settings", "litellm", "tabulate", "textual>=1.0.0", "jinja2",
-    "typer", "platformdirs", "prompt_toolkit", "emoji", "syllapy", "unicodedata2", "spacy"
+    "typer", "platformdirs", "prompt_toolkit", "emoji", "syllapy", "unicodedata2", "spacy",
+    # grading-sandbox deps: the coding grader executes model solutions with THIS
+    # interpreter (reliability_guard pre-imports matplotlib; solutions commonly import
+    # scipy/sortedcontainers). A venv without these false-zeros the coding category
+    # (measured 2026-08-22: coding graded 39.6 in a minimal venv vs its true 68.2).
+    "matplotlib", "scipy", "sortedcontainers"
 ]
 
 [project.urls]

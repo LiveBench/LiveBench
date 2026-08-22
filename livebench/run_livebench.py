@@ -67,6 +67,7 @@ class LiveBenchParams:
     debug: bool = False
     model_provider_override: str | None = None
     only_incorrect: bool = False
+    parallel_control_file: str | None = None
 
     @classmethod
     def from_args(cls, args, model: str | None = None):
@@ -108,7 +109,8 @@ class LiveBenchParams:
             ignore_missing_answers=args.ignore_missing_answers,
             debug=args.debug,
             model_provider_override=args.model_provider_override,
-            only_incorrect=args.only_incorrect
+            only_incorrect=args.only_incorrect,
+            parallel_control_file=args.parallel_control_file
         )
 
 def run_command(cmd: str, env: dict[str, str] | None = None) -> int:
@@ -236,7 +238,8 @@ def build_run_command(
     ignore_missing_answers: bool = False,
     debug: bool = False,
     model_provider_override: str | None = None,
-    only_incorrect: bool = False
+    only_incorrect: bool = False,
+    parallel_control_file: str | None = None
 ) -> str:
     """Build the command to run gen_api_answer and gen_ground_truth_judgment in sequence"""
 
@@ -276,6 +279,8 @@ def build_run_command(
         # grader pool: agentic instances are graded as they land during the answer
         # phase (results cached; the judgment command above reuses them)
         gen_api_cmd += f" --agentic-grading-parallel {parallel_grading}"
+    if parallel_control_file:
+        gen_api_cmd += f" --parallel-control-file {parallel_control_file}"
     # Handle resume flags
     if resume:
         gen_api_cmd += " --resume"
@@ -363,6 +368,7 @@ def build_run_command_from_params(params: LiveBenchParams, bench_name: str | lis
         use_litellm=params.use_litellm,
         remove_existing_judgment_file=params.remove_existing_judgment_file,
         only_incorrect=params.only_incorrect,
+        parallel_control_file=params.parallel_control_file,
         ignore_missing_answers=params.ignore_missing_answers,
         debug=params.debug,
         model_provider_override=params.model_provider_override
@@ -515,6 +521,9 @@ def main():
     parser.add_argument("--debug", action="store_true",
                       help="Enable debug mode for gen_ground_truth_judgment.py (not passed to gen_api_answer.py)")
     parser.add_argument("--model-provider-override", help="Override the model provider for gen_api_answer.py")
+    parser.add_argument("--parallel-control-file", default=None,
+                      help="File polled by gen_api_answer every 10s for a new regular-question "
+                           "concurrency; `echo N > <file>` rescales a running eval live.")
 
     args = parser.parse_args()
 

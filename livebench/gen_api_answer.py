@@ -7,6 +7,7 @@ python3 gen_api_answer.py --model gpt-3.5-turbo
 import argparse
 import json
 import os
+import threading
 import time
 import concurrent.futures
 import glob
@@ -245,6 +246,7 @@ def run_questions(
     api_dict: dict[str, str] | None = None,
     use_litellm: bool = False,
     agentic_grading_parallel: int = 0,
+    parallel_control_file: str | None = None,
 ):
     """
     Perform inference on a list of questions. Output answers to answer_file.
@@ -318,11 +320,53 @@ def run_questions(
                     use_litellm=use_litellm,
                 )
         else:
-            with concurrent.futures.ThreadPoolExecutor(max_workers=parallel) as executor:
+            # Live-resizable concurrency (opt-in): with --parallel-control-file, the
+            # pool is sized to a ceiling and gated by a semaphore whose capacity a
+            # watcher thread re-reads from the file every 10s — `echo 60 > <file>`
+            # rescales a running eval without losing in-flight requests. Without the
+            # flag this is a plain fixed pool, exactly as before.
+            gate = None
+            watch_stop = None
+            pool_size = parallel
+            if parallel_control_file:
+                pool_size = max(parallel * 8, 256)
+                gate = threading.Semaphore(parallel)
+                watch_stop = threading.Event()
+
+                def _watch_parallel_override(cur=parallel):
+                    while not watch_stop.is_set():
+                        try:
+                            v = int(open(parallel_control_file).read().strip())
+                        except (OSError, ValueError):
+                            v = None
+                        if v and 0 < v != cur:
+                            v = min(v, pool_size)
+                            print(f"parallel override: {cur} -> {v} (from {parallel_control_file})")
+                            if v > cur:
+                                for _ in range(v - cur):
+                                    gate.release()
+                            else:
+                                for _ in range(cur - v):
+                                    gate.acquire()  # takes effect as workers finish
+                            cur = v
+                        watch_stop.wait(10)
+
+                threading.Thread(target=_watch_parallel_override, daemon=True).start()
+
+            def _gated_get_answer(**kw):
+                if gate is not None:
+                    gate.acquire()
+                try:
+                    return get_answer(**kw)
+                finally:
+                    if gate is not None:
+                        gate.release()
+
+            with concurrent.futures.ThreadPoolExecutor(max_workers=pool_size) as executor:
                 futures = []
                 for question in normal_questions:
                     future = executor.submit(
-                        get_answer,
+                        _gated_get_answer,
                         question=question,
                         model_api_name=model_api_name,
                         provider=provider,
@@ -343,6 +387,8 @@ def run_questions(
                     concurrent.futures.as_completed(futures), total=len(futures)
                 ):
                     future.result()
+            if watch_stop is not None:
+                watch_stop.set()
     
     # Reorganize all answer files
     if len(questions) > 0:
@@ -406,6 +452,13 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--parallel", type=int, default=1, help="The number of concurrent API calls."
+    )
+    parser.add_argument(
+        "--parallel-control-file", type=str, default=None,
+        help="Path to a file the runner polls every 10s for a new concurrency value; "
+             "`echo 60 > <file>` rescales a RUNNING eval's regular-question parallelism "
+             "without losing in-flight requests (ceiling = max(8x initial, 256); the "
+             "agentic path is unaffected). Absent file = keep current value."
     )
     parser.add_argument(
         "--agentic-grading-parallel", type=int, default=0,
@@ -556,7 +609,8 @@ if __name__ == "__main__":
                 force_temperature=args.force_temperature,
                 model_provider_override=args.model_provider_override,
                 model_display_name_override=model_display_name,
-                agentic_grading_parallel=args.agentic_grading_parallel
+                agentic_grading_parallel=args.agentic_grading_parallel,
+                parallel_control_file=args.parallel_control_file
             )
 
     elif args.question_source == "jsonl":
@@ -613,7 +667,8 @@ if __name__ == "__main__":
                 use_litellm=args.use_litellm,
                 force_temperature=args.force_temperature,
                 model_provider_override=args.model_provider_override,
-                agentic_grading_parallel=args.agentic_grading_parallel
+                agentic_grading_parallel=args.agentic_grading_parallel,
+                parallel_control_file=args.parallel_control_file
             )
 
     else:
