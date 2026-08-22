@@ -303,3 +303,45 @@ api_kwargs:
     max_output_tokens: 131072
     timeout: 3600
 preserve_reasoning: true
+---
+# DeepSeek V4 Flash Vision Exp — experimental vision-capable V4-Flash variant, released
+# 2026-08-21. First-party only (api-docs.deepseek.com lists model id
+# `deepseek-v4-flash-vision-exp`; OpenRouter merely forwards to DeepSeek). 1M context,
+# 384K max output, thinking default-ON. Run at MAX reasoning: the docs' effort scale is
+# low/high/max (default high), set via `reasoning.effort` on the Responses API.
+# Routed via DeepSeek's OWN Responses endpoint (same shape as the -0731-ds entry above):
+# preserves DeepSeek's reasoning fidelity, and the API rejects tool_choice='required' in
+# thinking mode, so the agentic path falls back to 'auto' (_native_tool_choice gates on
+# 'deepseek' in api_base). No streaming here — first-party allowed hour-long requests on
+# the -ds route (timeout 3600); if long regular answers die on a gateway timeout, that is
+# the failure mode streaming fixed on the Fireworks entry.
+# PRICING verified 2026-08-22 against api-docs.deepseek.com/quick_start/pricing: DeepSeek
+# moved to peak/off-peak billing on 2026-08-16 16:00 UTC (peak = 01:00–04:00 and
+# 06:00–10:00 UTC; the other 17h bill off-peak at HALF the peak rate). vision-exp bills
+# identically to deepseek-v4-flash: off-peak 0.22 / 0.007 cache-hit / 0.66 out; peak
+# 0.44 / 0.014 / 1.32. The rates below are the OFF-PEAK rates — launch runs using this
+# config inside the 10:00–01:00 UTC window; a run that straddles a peak window is
+# undercosted by up to 2x. Images are tokenized and billed as input tokens.
+display_name: deepseek-v4-flash-vision-exp
+cost_per_million:
+  input: 0.22
+  cached_input: 0.007
+  output: 0.66
+api_name:
+  openai_responses: deepseek-v4-flash-vision-exp
+default_provider: openai_responses
+api_base: https://api.deepseek.com/v1
+api_keys:
+  openai_responses: DEEPSEEK_API_KEY
+api_kwargs:
+  default:
+    temperature: null
+  openai_responses:
+    reasoning:
+      effort: max
+    # explicit cap, never unset (an unset cap inherits the serving provider's default —
+    # see the truncation note on the -fw entry). 384000 = the documented model maximum;
+    # max-effort thinking traces need the headroom.
+    max_output_tokens: 384000
+    timeout: 3600
+preserve_reasoning: true
