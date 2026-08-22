@@ -244,6 +244,7 @@ def run_questions(
     model_display_name_override: str | None = None,
     api_dict: dict[str, str] | None = None,
     use_litellm: bool = False,
+    agentic_grading_parallel: int = 0,
 ):
     """
     Perform inference on a list of questions. Output answers to answer_file.
@@ -292,7 +293,8 @@ def run_questions(
                 model_display_name_override=model_display_name_override,
                 answer_file=answer_file,
                 parallel=parallel,
-                preserve_reasoning=model_config.preserve_reasoning
+                preserve_reasoning=model_config.preserve_reasoning,
+                grading_parallel=agentic_grading_parallel
             )
     
     # Process normal questions if any
@@ -404,6 +406,13 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--parallel", type=int, default=1, help="The number of concurrent API calls."
+    )
+    parser.add_argument(
+        "--agentic-grading-parallel", type=int, default=0,
+        help="If > 0, grade agentic coding instances incrementally as they complete, "
+             "using a grader pool of this many workers running alongside the answer "
+             "phase. Scores land in the agentic eval cache, which the judgment pass "
+             "reuses instead of re-running the docker evals. 0 disables (grade at the end)."
     )
     parser.add_argument(
         "--question-source",
@@ -546,7 +555,8 @@ if __name__ == "__main__":
                 use_litellm=args.use_litellm,
                 force_temperature=args.force_temperature,
                 model_provider_override=args.model_provider_override,
-                model_display_name_override=model_display_name
+                model_display_name_override=model_display_name,
+                agentic_grading_parallel=args.agentic_grading_parallel
             )
 
     elif args.question_source == "jsonl":
@@ -602,7 +612,8 @@ if __name__ == "__main__":
                 stream=args.stream,
                 use_litellm=args.use_litellm,
                 force_temperature=args.force_temperature,
-                model_provider_override=args.model_provider_override
+                model_provider_override=args.model_provider_override,
+                agentic_grading_parallel=args.agentic_grading_parallel
             )
 
     else:

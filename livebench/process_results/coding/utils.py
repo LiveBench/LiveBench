@@ -1,4 +1,8 @@
+import fcntl
+import hashlib
 import json
+import os
+import time
 from pathlib import Path
 from dataclasses import dataclass
 import pickle
@@ -259,7 +263,9 @@ def _run_evaluation_subprocess(
     """
     eval_id = shortuuid.uuid()
 
-    config_path = Path(LIVE_BENCH_ROOT_PATH / 'agentic_code_runner/eval/config.json')
+    # eval_id-scoped so concurrent evaluations (incremental grading during the answer
+    # phase, or two models on one box) don't clobber each other's config mid-run
+    config_path = Path(LIVE_BENCH_ROOT_PATH / f'agentic_code_runner/eval/config_{eval_id}.json')
     config_path.parent.mkdir(parents=True, exist_ok=True)
     model_name = answers[0]['model_id']
     patch_path = Path(LIVE_BENCH_ROOT_PATH / f'agentic_code_runner/data/patches/{model_name}_{eval_id}_patch.jsonl')
@@ -457,11 +463,150 @@ def _run_evaluation_subprocess(
     return result, instance_map
 
 
+# ---------------------------------------------------------------------------
+# Agentic eval cache: lets grading run incrementally while the answer phase is
+# still in flight (see run_inference._incremental_grading_loop). Every graded
+# question is recorded as one jsonl row keyed on a hash of the exact patch that
+# was graded; the final judgment pass then reuses those scores instead of
+# re-running the docker evals at round end. A changed patch (rerun, retry)
+# hash-misses and is re-evaluated, so the cache can never serve a stale score.
+# Disable entirely with LIVEBENCH_AGENTIC_EVAL_CACHE=0.
+# ---------------------------------------------------------------------------
+
+def _agentic_eval_cache_enabled() -> bool:
+    return os.environ.get('LIVEBENCH_AGENTIC_EVAL_CACHE', '1') != '0'
+
+
+def _agentic_eval_cache_path(model_id: str) -> Path:
+    return Path(LIVE_BENCH_ROOT_PATH / f"agentic_code_runner/data/eval_cache/{model_id.replace('/', '_')}.jsonl")
+
+
+def _agentic_patch_hash(fix_patch: str) -> str:
+    return hashlib.sha256((fix_patch or '').encode('utf-8', errors='replace')).hexdigest()
+
+
+def _load_agentic_eval_cache(model_id: str) -> dict[str, dict]:
+    path = _agentic_eval_cache_path(model_id)
+    if not path.exists():
+        return {}
+    rows: dict[str, dict] = {}
+    with open(path) as f:
+        fcntl.flock(f, fcntl.LOCK_SH)
+        try:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    row = json.loads(line)
+                except json.JSONDecodeError:
+                    continue  # torn write; the question just re-evaluates
+                rows[row['question_id']] = row  # append-only file: last write wins
+        finally:
+            fcntl.flock(f, fcntl.LOCK_UN)
+    return rows
+
+
+def _append_agentic_eval_cache(model_id: str, rows: list[dict]) -> None:
+    if not rows:
+        return
+    path = _agentic_eval_cache_path(model_id)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, 'a') as f:
+        fcntl.flock(f, fcntl.LOCK_EX)
+        try:
+            for row in rows:
+                f.write(json.dumps(row) + '\n')
+            f.flush()
+        finally:
+            fcntl.flock(f, fcntl.LOCK_UN)
+
+
 def agentic_coding_process_results(questions: list[dict], answers: list[dict], debug=False, max_workers=1, only_build_image=False) -> tuple[dict[str, int], dict[str, dict]]:
 
     if len(answers) == 0:
         return dict(), dict()
-    
+
+    model_id = answers[0]['model_id']
+    answers_by_qid = {a['question_id']: a for a in answers}
+    use_cache = _agentic_eval_cache_enabled() and not only_build_image
+
+    # Serve previously graded questions from the cache (hash of the graded patch
+    # must match the patch we're being asked to grade now).
+    cached: dict[str, dict] = {}
+    if use_cache:
+        cache = _load_agentic_eval_cache(model_id)
+        for question in questions:
+            qid = question['question_id']
+            answer = answers_by_qid.get(qid)
+            row = cache.get(qid)
+            if answer and row and row.get('patch_hash') == _agentic_patch_hash(answer['choices'][0]['turns'][0]):
+                cached[qid] = row
+        if cached:
+            print(f"agentic eval cache: reusing {len(cached)}/{len(questions)} graded questions for {model_id}")
+
+    todo_questions = [q for q in questions if q['question_id'] not in cached]
+    todo_answers = [a for a in answers if a['question_id'] not in cached]
+
+    result: dict[str, int] = {}
+    eval_metadata: dict[str, dict] = {}
+    if todo_questions:
+        result, instance_map = _evaluate_with_retries(todo_questions, todo_answers, debug, max_workers, only_build_image)
+
+        new_cache_rows = []
+        for q in todo_questions:
+            qid = q['question_id']
+            info = instance_map.get(qid, {})
+            meta = {
+                "eval_status": info.get("eval_status", "unknown"),
+                "eval_id": info.get("eval_id", ""),
+                "instance_id": info.get("instance_id", ""),
+            }
+            if info.get("error_msg"):
+                meta["error_msg"] = info["error_msg"]
+            if qid in answers_by_qid and "run_id" in answers_by_qid[qid]:
+                meta["run_id"] = answers_by_qid[qid]["run_id"]
+            eval_metadata[qid] = meta
+            # cache only questions that actually got a score; error/incomplete
+            # ones stay uncached so the next pass re-evaluates them
+            if use_cache and qid in result and qid in answers_by_qid:
+                row = {
+                    'question_id': qid,
+                    'model_id': model_id,
+                    'patch_hash': _agentic_patch_hash(answers_by_qid[qid]['choices'][0]['turns'][0]),
+                    'score': result[qid],
+                    'eval_status': meta['eval_status'],
+                    'eval_id': meta['eval_id'],
+                    'instance_id': meta['instance_id'],
+                    'tstamp': time.time(),
+                }
+                if 'error_msg' in meta:
+                    row['error_msg'] = meta['error_msg']
+                new_cache_rows.append(row)
+        if new_cache_rows:
+            _append_agentic_eval_cache(model_id, new_cache_rows)
+
+    # Merge cache hits back in (run_id comes from the CURRENT answer, not the cache)
+    for qid, row in cached.items():
+        result[qid] = row['score']
+        meta = {
+            "eval_status": row.get("eval_status", "unknown"),
+            "eval_id": row.get("eval_id", ""),
+            "instance_id": row.get("instance_id", ""),
+        }
+        if row.get("error_msg"):
+            meta["error_msg"] = row["error_msg"]
+        if qid in answers_by_qid and "run_id" in answers_by_qid[qid]:
+            meta["run_id"] = answers_by_qid[qid]["run_id"]
+        eval_metadata[qid] = meta
+
+    return result, eval_metadata
+
+
+def _evaluate_with_retries(questions: list[dict], answers: list[dict], debug=False, max_workers=1, only_build_image=False) -> tuple[dict[str, int], dict[str, dict]]:
+    """One full evaluation pass: initial run + the flaky-grading retry logic.
+    Returns (result: qid->score, instance_map: qid->eval metadata)."""
+
     # Initial evaluation
     result, instance_map = _run_evaluation_subprocess(questions, answers, debug, max_workers, only_build_image)
     
@@ -535,21 +680,5 @@ def agentic_coding_process_results(questions: list[dict], answers: list[dict], d
             
             # Update instance_map with new paths for next iteration
             instance_map.update(retry_instance_map)
-    
-    eval_metadata = {}
-    answers_by_qid = {a['question_id']: a for a in answers}
-    for q in questions:
-        qid = q['question_id']
-        info = instance_map.get(qid, {})
-        meta = {
-            "eval_status": info.get("eval_status", "unknown"),
-            "eval_id": info.get("eval_id", ""),
-            "instance_id": info.get("instance_id", ""),
-        }
-        if info.get("error_msg"):
-            meta["error_msg"] = info["error_msg"]
-        if qid in answers_by_qid and "run_id" in answers_by_qid[qid]:
-            meta["run_id"] = answers_by_qid[qid]["run_id"]
-        eval_metadata[qid] = meta
 
-    return result, eval_metadata
+    return result, instance_map
