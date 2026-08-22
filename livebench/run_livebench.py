@@ -273,6 +273,9 @@ def build_run_command(
         gen_api_cmd += f" --parallel {parallel_requests}"
     if parallel_grading:
         gen_judge_cmd += f" --parallel {parallel_grading}"
+        # grader pool: agentic instances are graded as they land during the answer
+        # phase (results cached; the judgment command above reuses them)
+        gen_api_cmd += f" --agentic-grading-parallel {parallel_grading}"
     # Handle resume flags
     if resume:
         gen_api_cmd += " --resume"

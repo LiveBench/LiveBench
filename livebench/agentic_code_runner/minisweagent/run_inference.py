@@ -1,5 +1,6 @@
 import json
 import os
+import threading
 import time
 import subprocess
 import shortuuid
@@ -35,6 +36,70 @@ def _eval_status_from_exit_status(exit_status):
         return "run_limits_exceeded"
     return "run_error"
 
+def _incremental_grading_loop(
+    questions: list[dict],
+    model_name: str,
+    all_traj_folder,
+    grading_parallel: int,
+    stop_event: threading.Event,
+    poll_seconds: int = 20,
+):
+    """Grader pool: grade agentic instances as they land instead of waiting for the
+    whole answer round. Polls the trajectory folder for newly written
+    <qid>.traj.json files and feeds each batch of completions through
+    agentic_coding_process_results, whose eval cache records the scores; the final
+    judgment pass then reuses them (hash-matched on the exact patch) instead of
+    re-running the docker evals. Failures here are safe: anything ungraded or
+    uncached is simply graded by the final pass as before.
+    """
+    questions_by_qid = {str(q['question_id']): q for q in questions}
+    handled: set[str] = set()
+    while True:
+        stopping = stop_event.is_set()
+        ready_questions, ready_answers = [], []
+        for qid, question in questions_by_qid.items():
+            if qid in handled:
+                continue
+            traj_file = all_traj_folder / qid / f"{qid}.traj.json"
+            if not traj_file.exists():
+                continue
+            try:
+                with open(traj_file) as f:
+                    trajectory = json.load(f)
+            except (json.JSONDecodeError, OSError):
+                continue  # mid-write; the next poll picks it up
+            info = trajectory.get('info', {})
+            if _eval_status_from_exit_status(info.get('exit_status')) == 'run_error':
+                # infra failure — the collection pass writes $ERROR$ for it and
+                # --retry-failures re-runs it; nothing gradable here
+                handled.add(qid)
+                continue
+            # Same string the collection pass will put in choices[0].turns[0],
+            # so the cache's patch hash matches at judgment time.
+            submission = info.get('submission')
+            if submission is None:
+                submission = ""
+            ready_questions.append(question)
+            ready_answers.append({
+                'question_id': question['question_id'],
+                'model_id': model_name,
+                'choices': [{'turns': [submission]}],
+            })
+        if ready_questions:
+            print(f"incremental grader: grading {len(ready_questions)} completed instances "
+                  f"({len(handled) + len(ready_questions)}/{len(questions_by_qid)} handled)")
+            try:
+                agentic_coding_process_results(
+                    ready_questions, ready_answers, debug=False, max_workers=grading_parallel)
+            except Exception as e:
+                print(f"incremental grader: batch failed ({e}); the final grading pass will cover it")
+            handled.update(str(q['question_id']) for q in ready_questions)
+        if stopping:
+            break
+        stop_event.wait(timeout=poll_seconds)
+    print(f"incremental grader: done ({len(handled)}/{len(questions_by_qid)} instances handled)")
+
+
 def run_agentic_coding_inference(
     questions: list[dict],
     model_api_name: str,
@@ -49,6 +114,7 @@ def run_agentic_coding_inference(
     replay_traj_dir: str | None = None,
     custom_run_id: str | None = None,
     preserve_reasoning: bool | None = None,
+    grading_parallel: int = 0,
 ):
 
     if len(questions) == 0:
@@ -215,6 +281,21 @@ def run_agentic_coding_inference(
 
     print('Running command: ', ' '.join([str(c) for c in cmd]))
 
+    # Grader pool: grade instances as their trajectories land instead of leaving
+    # all docker evals to the judgment phase. Replay runs are excluded (their
+    # trajectories pre-exist, so everything would grade before the replay ran).
+    grader_stop = None
+    grader_thread = None
+    if grading_parallel > 0 and replay_traj_dir is None:
+        print(f"Incremental grading ON: grader pool of {grading_parallel} alongside the answer phase")
+        grader_stop = threading.Event()
+        grader_thread = threading.Thread(
+            target=_incremental_grading_loop,
+            args=(questions, model_name, all_traj_folder, grading_parallel, grader_stop),
+            daemon=True,
+        )
+        grader_thread.start()
+
     try:
         subprocess.run(cmd, check=True)
     except KeyboardInterrupt:
@@ -223,6 +304,10 @@ def run_agentic_coding_inference(
     except subprocess.CalledProcessError as e:
         print(f"Subprocess error: {e}")
         pass
+    finally:
+        if grader_thread is not None:
+            grader_stop.set()
+            grader_thread.join()
 
     for question in questions:
 
