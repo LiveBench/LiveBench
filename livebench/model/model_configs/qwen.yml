@@ -414,3 +414,27 @@ api_kwargs:
     top_p: 0.95
     max_tokens: 65536
     stream: true
+
+
+---
+# Qwen3.8 Flash Next — 125B MoE (6B active), hybrid attention, 1M ctx, thinking default ON.
+# Published Alibaba / DashScope rates (verified 2026-08-26, https://qwencloud.com):
+# $0.16/1M input, $0.47/1M output, implicit cache $0.016/1M.
+# Thinking tokens bill as OUTPUT (same as qwen3.8-max).
+display_name: qwen3.8-flash-next
+cost_per_million:
+  input: 0.16
+  cached_input: 0.016
+  output: 0.47
+api_name:
+  https://dashscope-intl.aliyuncs.com/compatible-mode/v1: qwen3.8-flash
+api_keys:
+  https://dashscope-intl.aliyuncs.com/compatible-mode/v1: ALIBABA_API_KEY
+api_kwargs:
+  default:
+    temperature: 0.6
+    top_p: 0.95
+    max_tokens: 131072
+    stream: true
+    extra_body:
+      enable_thinking: true
