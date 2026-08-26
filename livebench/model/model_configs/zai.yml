@@ -193,3 +193,30 @@ api_kwargs:
       thinking:
         type: enabled
 preserve_reasoning: true
+---
+display_name: glm-5.3-flash
+# Published z.ai rates (docs.z.ai/guides/overview/pricing, verified 2026-08-26): $0.15 in /
+# $0.50 out, cached input $0.03/1M. GLM-5.3-Flash is the lightweight variant of GLM-5.3;
+# same architecture (1M context, 128K max output, mandatory thinking), much lower cost.
+# Reasoning: thinking always on (type: enabled), effort ladder low/high/max, default max.
+# Run at max effort per operator request.
+cost_per_million:
+  input: 0.15
+  cached_input: 0.03
+  output: 0.50
+api_name:
+  https://api.z.ai/api/paas/v4: glm-5.3-flash
+default_provider: https://api.z.ai/api/paas/v4
+api_keys:
+  https://api.z.ai/api/paas/v4: ZAI_API_KEY
+api_kwargs:
+  default:
+    temperature: 1.0
+    top_p: 0.95
+    max_tokens: 131072
+    stream: true
+    reasoning_effort: max
+    extra_body:
+      thinking:
+        type: enabled
+preserve_reasoning: true
