@@ -28,7 +28,7 @@ TIMEOUT = 1800
 # Models gated on 30-day retention (Fable/Mythos tier): the org-default
 # ANTHROPIC_API_KEY is ZDR and gets 400 model_not_available for them, so they
 # use the non-ZDR key instead. Substring-matched against the API model name.
-ANTHROPIC_SKIP_ZDR_MODELS = ('claude-fable-5',)
+ANTHROPIC_SKIP_ZDR_MODELS = ('claude-fable-5', 'claude-melon')
 
 
 def anthropic_api_key(model: str) -> str | None:
