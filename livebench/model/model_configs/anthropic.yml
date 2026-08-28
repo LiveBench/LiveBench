@@ -746,6 +746,10 @@ aliases:
 api_kwargs:
   default:
     temperature: 1
+    # litellm path defaults to a 600s stream timeout, which kills+retries every
+    # max-effort generation longer than 10 min (fable-5 avoided this only because
+    # its `fallbacks` key routes it to the native client's 1800s timeout).
+    timeout: 1800
     extra_body:
       output_config:
         effort: max
