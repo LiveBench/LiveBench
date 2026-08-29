@@ -736,13 +736,14 @@ cost_per_million:
 # per the eval request. The server-side-fallback beta + opus-4-8 fallback present in
 # the fable-5 configs are deliberately OMITTED: a silent server-side fallback would mix
 # another model's answers into a new-model eval.
-display_name: claude-fable-5-1-beta-max-effort
+display_name: claude-fable-5-1-max-effort
 api_name:
   anthropic: claude-melon-lp-eap
 aliases:
   - claude-melon-lp-eap
   - claude-melon-lp-eap-max
-  - claude-fable-5-1-beta-max
+  - claude-fable-5-1-max
+  - claude-fable-5-1-beta-max-effort
 api_kwargs:
   default:
     temperature: 1
