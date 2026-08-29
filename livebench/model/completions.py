@@ -783,6 +783,16 @@ def chat_completion_litellm(
     # Anthropic long-stream reliability: litellm's default aiohttp transport drops
     # multi-minute streams; force httpx (what the native SDK uses).
     litellm.disable_aiohttp_transport = True
+    # Streamed error paths leak httpx pool slots (a stream that errors or times
+    # out untended never returns its connection to the pool); at the default
+    # ceiling the shared module_level_client eventually wedges every worker in
+    # httpcore wait_for_connection with zero sockets open. A large ceiling keeps
+    # the shared pool leak-tolerant for the lifetime of a full run.
+    if not getattr(litellm.module_level_client, '_livebench_pool_bumped', False):
+        from litellm.llms.custom_httpx.http_handler import HTTPHandler
+        _big_pool_client = HTTPHandler(concurrent_limit=2000)
+        _big_pool_client._livebench_pool_bumped = True  # type: ignore[attr-defined]
+        litellm.module_level_client = _big_pool_client
 
     api_kwargs: API_Kwargs = {
         'temperature': temperature
