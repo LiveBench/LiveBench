@@ -889,23 +889,46 @@ def chat_completion_litellm(
     _MAX_ATTEMPTS = 3
 
     def _do_litellm_call(use_stream):
-        resp = litellm.completion(
-            model=litellm_model, messages=messages, stream=use_stream, timeout=timeout,
-            num_retries=3, **actual_api_kwargs
-        )
-        if use_stream:
-            # Consume the stream HERE so a mid-stream connection drop is caught and retryable.
-            chunks = list(resp)
-            last_usage = None
-            for chunk in reversed(chunks):
-                if hasattr(chunk, 'usage') and chunk.usage is not None:
-                    last_usage = chunk.usage
-                    break
-            resp = litellm.stream_chunk_builder(chunks, messages=messages)
-            if resp.usage is not None and last_usage is not None:
-                if not resp.usage.prompt_tokens and getattr(last_usage, 'prompt_tokens', None):
-                    resp.usage.prompt_tokens = last_usage.prompt_tokens
-        return resp
+        # Anthropic-routed calls get a PER-CALL httpx client: the shared sync pool
+        # deadlocks under concurrent stream closes — httpcore's PoolByteStream.close()
+        # takes the pool lock while litellm's "streaming-error-body-read" helper
+        # threads and connection-assignment events contend for it (observed as 99
+        # threads parked in connection_pool.handle_request + 22 in close during a
+        # 429 storm). A private client makes every close local to one call; the
+        # extra TLS handshake is noise next to minutes-long generations.
+        _call_client = None
+        _call_kwargs = actual_api_kwargs
+        if 'anthropic' in litellm_model and 'client' not in actual_api_kwargs:
+            from litellm.llms.custom_httpx.http_handler import HTTPHandler
+            _call_client = HTTPHandler(client=httpx.Client(
+                timeout=httpx.Timeout(timeout=TIMEOUT, connect=10.0),
+                follow_redirects=True,
+            ))
+            _call_kwargs = {**actual_api_kwargs, 'client': _call_client}
+        try:
+            resp = litellm.completion(
+                model=litellm_model, messages=messages, stream=use_stream, timeout=timeout,
+                num_retries=3, **_call_kwargs
+            )
+            if use_stream:
+                # Consume the stream HERE so a mid-stream connection drop is caught and retryable.
+                chunks = list(resp)
+                last_usage = None
+                for chunk in reversed(chunks):
+                    if hasattr(chunk, 'usage') and chunk.usage is not None:
+                        last_usage = chunk.usage
+                        break
+                resp = litellm.stream_chunk_builder(chunks, messages=messages)
+                if resp.usage is not None and last_usage is not None:
+                    if not resp.usage.prompt_tokens and getattr(last_usage, 'prompt_tokens', None):
+                        resp.usage.prompt_tokens = last_usage.prompt_tokens
+            return resp
+        finally:
+            if _call_client is not None:
+                try:
+                    _call_client.client.close()
+                except Exception:
+                    pass
 
     response = None
     for _attempt in range(1, _MAX_ATTEMPTS + 1):
