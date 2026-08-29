@@ -417,9 +417,11 @@ def gen_judgments(
                 answers = [m.answer for m in model_matches]
                 eval_result, eval_metadata = agentic_coding_process_results(model_questions, answers, debug=debug, max_workers=parallel)
                 
-                # Write final results
+                # Write final results (answers come from the matches, which are
+                # correctly paired even when question_ids collide across tasks)
+                answers_by_qid = {m.question['question_id']: m.answer for m in model_matches}
                 for question_id in sorted(eval_result.keys()):
-                    model_answer = model_answers[model_id][question_id]
+                    model_answer = answers_by_qid[question_id]
                     question = [q for q in model_questions if q['question_id'] == question_id][0]
                     meta = eval_metadata.get(question_id, {})
                     result = {
@@ -468,13 +470,19 @@ def gen_judgments(
         if_questions = list(set([m.question for m in old_instruction_following_matches]))
         task_name = if_questions[0]['task']
 
-        for m in model_answers:
-            for q in model_answers[m]:
-                if q in [ques['question_id'] for ques in if_questions]:
-                    model_answers[m][q]['choices'][0]['turns'][0] = re.sub(f"<think>.*?<\/think>", "", model_answers[m][q]['choices'][0]['turns'][0], flags=re.DOTALL).strip()
+        # Build a qid-keyed answer view from the matches themselves so colliding
+        # question_ids from other tasks can't leak in (model_answers may be keyed
+        # by (answer_dir, qid) in pooled multi-bench runs).
+        if_answers = {}
+        for match in old_instruction_following_matches:
+            if_answers.setdefault(match.model, {})[match.question['question_id']] = match.answer
+
+        for m in if_answers:
+            for q in if_answers[m]:
+                if_answers[m][q]['choices'][0]['turns'][0] = re.sub(f"<think>.*?<\/think>", "", if_answers[m][q]['choices'][0]['turns'][0], flags=re.DOTALL).strip()
 
         for model_id in models:
-            scores = instruction_following_process_results(if_questions, model_answers, task_name, model_id, debug)
+            scores = instruction_following_process_results(if_questions, if_answers, task_name, model_id, debug)
             for item in scores:
                 question_id = item["question_id"]
                 score = item["score"]
@@ -489,7 +497,7 @@ def gen_judgments(
                     "category": "instruction_following",
                 }
                 # Add answer_id if available
-                answer = model_answers.get(model_id, {}).get(question_id, {})
+                answer = if_answers.get(model_id, {}).get(question_id, {})
                 if answer and "answer_id" in answer:
                     result["answer_id"] = answer["answer_id"]
                     
@@ -731,6 +739,11 @@ if __name__ == "__main__":
         answer_dirs = set()
         for question in all_questions:
             answer_dirs.add(question['_answer_dir'])
+
+        # Namespace every question's answer lookup by its directory — pairs with the
+        # (answer_dir, qid)-keyed merge below and make_match_single's _answer_key use.
+        for question in all_questions:
+            question['_answer_key'] = (question['_answer_dir'], question['question_id'])
         
         # Load all model answers from all directories
         print(f"Loading model answers from {len(answer_dirs)} directories")
@@ -745,12 +758,17 @@ if __name__ == "__main__":
             models = [get_model_config(m).display_name for m in models]
             
             dir_answers = load_model_answers(answer_dir, models)
-            
-            # Merge answers - if a model appears in multiple directories, combine them
+
+            # Merge answers namespaced by their answer directory: question_ids are
+            # only unique within a task (consecutive_events and integrals_with_game
+            # share ids 1..47), so a flat qid-keyed merge silently pairs a question
+            # with another task's answer — observed as 47 consecutive_events answers
+            # graded against integrals output (uniform false zeros via eval_error).
             for model_name, answers in dir_answers.items():
                 if model_name not in all_model_answers:
                     all_model_answers[model_name] = {}
-                all_model_answers[model_name].update(answers)
+                for qid, ans in answers.items():
+                    all_model_answers[model_name][(answer_dir, qid)] = ans
         
         # Process all questions together
         gen_judgments(

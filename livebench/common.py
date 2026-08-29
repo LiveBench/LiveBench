@@ -369,7 +369,11 @@ def make_match_single(
         if multi_turn and len(q["turns"]) != 2:
             continue
         for i in range(len(models)):
-            q_id = q["question_id"]
+            # question_ids are only unique within a task's answer directory —
+            # e.g. data_analysis/consecutive_events and math/integrals_with_game
+            # share ids 1..47 — so a pooled multi-bench run stamps each question
+            # with a namespaced _answer_key to keep the lookup unambiguous.
+            q_id = q.get("_answer_key", q["question_id"])
             m = models[i]
             try:
                 a = model_answers[m][q_id]
@@ -438,7 +442,7 @@ def check_data(questions, model_answers, models):
         m_answer = model_answers[m]
         for q in questions:
             assert (
-                q["question_id"] in m_answer
+                q.get("_answer_key", q["question_id"]) in m_answer
             ), f"Missing model {m}'s answer to Question {q['question_id']}"
 
 
