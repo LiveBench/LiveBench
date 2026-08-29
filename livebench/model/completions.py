@@ -784,13 +784,19 @@ def chat_completion_litellm(
     # multi-minute streams; force httpx (what the native SDK uses).
     litellm.disable_aiohttp_transport = True
     # Streamed error paths leak httpx pool slots (a stream that errors or times
-    # out untended never returns its connection to the pool); at the default
-    # ceiling the shared module_level_client eventually wedges every worker in
-    # httpcore wait_for_connection with zero sockets open. A large ceiling keeps
-    # the shared pool leak-tolerant for the lifetime of a full run.
+    # out untended never returns its connection to the pool); at httpx's default
+    # ceiling (max_connections=100) the shared module_level_client eventually
+    # wedges every worker in httpcore wait_for_connection with zero sockets open.
+    # HTTPHandler's `concurrent_limit` kwarg is IGNORED by litellm ("kept for
+    # backward compatibility"), so the ceiling must be raised by handing it an
+    # httpx.Client with explicit limits.
     if not getattr(litellm.module_level_client, '_livebench_pool_bumped', False):
         from litellm.llms.custom_httpx.http_handler import HTTPHandler
-        _big_pool_client = HTTPHandler(concurrent_limit=2000)
+        _big_pool_client = HTTPHandler(client=httpx.Client(
+            limits=httpx.Limits(max_connections=4000, max_keepalive_connections=100),
+            timeout=httpx.Timeout(timeout=TIMEOUT, connect=10.0),
+            follow_redirects=True,
+        ))
         _big_pool_client._livebench_pool_bumped = True  # type: ignore[attr-defined]
         litellm.module_level_client = _big_pool_client
 
