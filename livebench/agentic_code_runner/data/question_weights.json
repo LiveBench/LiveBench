@@ -1,0 +1,434 @@
+{
+  "jsab-ajv-2190": {
+    "lang": "javascript",
+    "median_s": 410,
+    "n_obs": 37,
+    "p90_s": 1184
+  },
+  "jsab-ajv-2191": {
+    "lang": "javascript",
+    "median_s": 421,
+    "n_obs": 37,
+    "p90_s": 1056
+  },
+  "jsab-ajv-2192": {
+    "lang": "javascript",
+    "median_s": 374,
+    "n_obs": 37,
+    "p90_s": 1025
+  },
+  "jsab-ajv-2194": {
+    "lang": "javascript",
+    "median_s": 344,
+    "n_obs": 37,
+    "p90_s": 863
+  },
+  "jsab-ajv-2433": {
+    "lang": "javascript",
+    "median_s": 308,
+    "n_obs": 37,
+    "p90_s": 615
+  },
+  "jsab-dayjs-3016": {
+    "lang": "javascript",
+    "median_s": 305,
+    "n_obs": 37,
+    "p90_s": 646
+  },
+  "jsab-luxon-1685": {
+    "lang": "javascript",
+    "median_s": 302,
+    "n_obs": 37,
+    "p90_s": 893
+  },
+  "jsab-luxon-1720": {
+    "lang": "javascript",
+    "median_s": 864,
+    "n_obs": 37,
+    "p90_s": 2797
+  },
+  "jsab-mathjs-3369": {
+    "lang": "javascript",
+    "median_s": 1531,
+    "n_obs": 37,
+    "p90_s": 3021
+  },
+  "jsab-mathjs-3425": {
+    "lang": "javascript",
+    "median_s": 236,
+    "n_obs": 37,
+    "p90_s": 934
+  },
+  "jsab-mathjs-3461": {
+    "lang": "javascript",
+    "median_s": 403,
+    "n_obs": 37,
+    "p90_s": 876
+  },
+  "jsab-mathjs-3463": {
+    "lang": "javascript",
+    "median_s": 707,
+    "n_obs": 37,
+    "p90_s": 1620
+  },
+  "jsab-mathjs-3572": {
+    "lang": "javascript",
+    "median_s": 676,
+    "n_obs": 37,
+    "p90_s": 1232
+  },
+  "jsab-mathjs-3575": {
+    "lang": "javascript",
+    "median_s": 311,
+    "n_obs": 37,
+    "p90_s": 1215
+  },
+  "jsab-mathjs-3581": {
+    "lang": "javascript",
+    "median_s": 291,
+    "n_obs": 37,
+    "p90_s": 855
+  },
+  "jsab-mathjs-3584": {
+    "lang": "javascript",
+    "median_s": 292,
+    "n_obs": 37,
+    "p90_s": 598
+  },
+  "jsab-mathjs-3585": {
+    "lang": "javascript",
+    "median_s": 1066,
+    "n_obs": 37,
+    "p90_s": 2764
+  },
+  "jsab-validator.js-2514": {
+    "lang": "javascript",
+    "median_s": 209,
+    "n_obs": 37,
+    "p90_s": 592
+  },
+  "jsab-validator.js-2608": {
+    "lang": "javascript",
+    "median_s": 619,
+    "n_obs": 37,
+    "p90_s": 2160
+  },
+  "jsab-validator.js-2644": {
+    "lang": "javascript",
+    "median_s": 325,
+    "n_obs": 37,
+    "p90_s": 857
+  },
+  "jsab-validator.js-2690": {
+    "lang": "javascript",
+    "median_s": 93,
+    "n_obs": 37,
+    "p90_s": 234
+  },
+  "jsab-validator.js-2693": {
+    "lang": "javascript",
+    "median_s": 355,
+    "n_obs": 37,
+    "p90_s": 1029
+  },
+  "pyab-arrow-1222": {
+    "lang": "python",
+    "median_s": 192,
+    "n_obs": 37,
+    "p90_s": 493
+  },
+  "pyab-attrs-1428": {
+    "lang": "python",
+    "median_s": 191,
+    "n_obs": 37,
+    "p90_s": 535
+  },
+  "pyab-attrs-1448": {
+    "lang": "python",
+    "median_s": 328,
+    "n_obs": 37,
+    "p90_s": 872
+  },
+  "pyab-attrs-1529": {
+    "lang": "python",
+    "median_s": 322,
+    "n_obs": 37,
+    "p90_s": 842
+  },
+  "pyab-click-3328": {
+    "lang": "python",
+    "median_s": 238,
+    "n_obs": 37,
+    "p90_s": 804
+  },
+  "pyab-click-3363": {
+    "lang": "python",
+    "median_s": 950,
+    "n_obs": 37,
+    "p90_s": 1932
+  },
+  "pyab-click-3364": {
+    "lang": "python",
+    "median_s": 975,
+    "n_obs": 37,
+    "p90_s": 3666
+  },
+  "pyab-click-3404": {
+    "lang": "python",
+    "median_s": 1211,
+    "n_obs": 37,
+    "p90_s": 2880
+  },
+  "pyab-click-3434": {
+    "lang": "python",
+    "median_s": 214,
+    "n_obs": 37,
+    "p90_s": 465
+  },
+  "pyab-click-3473": {
+    "lang": "python",
+    "median_s": 664,
+    "n_obs": 37,
+    "p90_s": 1379
+  },
+  "pyab-click-3508": {
+    "lang": "python",
+    "median_s": 831,
+    "n_obs": 37,
+    "p90_s": 2141
+  },
+  "pyab-loguru-1441": {
+    "lang": "python",
+    "median_s": 411,
+    "n_obs": 37,
+    "p90_s": 1119
+  },
+  "pyab-loguru-1442": {
+    "lang": "python",
+    "median_s": 380,
+    "n_obs": 37,
+    "p90_s": 970
+  },
+  "pyab-loguru-1451": {
+    "lang": "python",
+    "median_s": 594,
+    "n_obs": 37,
+    "p90_s": 1431
+  },
+  "pyab-marshmallow-2715": {
+    "lang": "python",
+    "median_s": 352,
+    "n_obs": 37,
+    "p90_s": 738
+  },
+  "pyab-marshmallow-2730": {
+    "lang": "python",
+    "median_s": 867,
+    "n_obs": 37,
+    "p90_s": 1668
+  },
+  "pyab-marshmallow-2901": {
+    "lang": "python",
+    "median_s": 293,
+    "n_obs": 37,
+    "p90_s": 500
+  },
+  "pyab-marshmallow-2909": {
+    "lang": "python",
+    "median_s": 118,
+    "n_obs": 37,
+    "p90_s": 287
+  },
+  "pyab-rich-3718": {
+    "lang": "python",
+    "median_s": 221,
+    "n_obs": 37,
+    "p90_s": 579
+  },
+  "pyab-typer-1788": {
+    "lang": "python",
+    "median_s": 440,
+    "n_obs": 37,
+    "p90_s": 962
+  },
+  "tsab-astro-15208": {
+    "lang": "typescript",
+    "median_s": 665,
+    "n_obs": 37,
+    "p90_s": 1542
+  },
+  "tsab-astro-16703": {
+    "lang": "typescript",
+    "median_s": 1212,
+    "n_obs": 37,
+    "p90_s": 3500
+  },
+  "tsab-astro-16757": {
+    "lang": "typescript",
+    "median_s": 1858,
+    "n_obs": 37,
+    "p90_s": 3799
+  },
+  "tsab-astro-16811": {
+    "lang": "typescript",
+    "median_s": 973,
+    "n_obs": 37,
+    "p90_s": 3032
+  },
+  "tsab-astro-16831": {
+    "lang": "typescript",
+    "median_s": 958,
+    "n_obs": 37,
+    "p90_s": 2118
+  },
+  "tsab-astro-16926": {
+    "lang": "typescript",
+    "median_s": 491,
+    "n_obs": 37,
+    "p90_s": 1243
+  },
+  "tsab-astro-16967": {
+    "lang": "typescript",
+    "median_s": 1513,
+    "n_obs": 37,
+    "p90_s": 2431
+  },
+  "tsab-core-14562": {
+    "lang": "typescript",
+    "median_s": 866,
+    "n_obs": 37,
+    "p90_s": 3293
+  },
+  "tsab-core-14624": {
+    "lang": "typescript",
+    "median_s": 1250,
+    "n_obs": 37,
+    "p90_s": 2486
+  },
+  "tsab-core-14625": {
+    "lang": "typescript",
+    "median_s": 320,
+    "n_obs": 37,
+    "p90_s": 703
+  },
+  "tsab-core-14642": {
+    "lang": "typescript",
+    "median_s": 1396,
+    "n_obs": 37,
+    "p90_s": 3132
+  },
+  "tsab-core-14674": {
+    "lang": "typescript",
+    "median_s": 496,
+    "n_obs": 37,
+    "p90_s": 1617
+  },
+  "tsab-core-14725": {
+    "lang": "typescript",
+    "median_s": 603,
+    "n_obs": 37,
+    "p90_s": 2044
+  },
+  "tsab-core-14758": {
+    "lang": "typescript",
+    "median_s": 1197,
+    "n_obs": 37,
+    "p90_s": 2077
+  },
+  "tsab-core-14778": {
+    "lang": "typescript",
+    "median_s": 745,
+    "n_obs": 37,
+    "p90_s": 2222
+  },
+  "tsab-core-14861": {
+    "lang": "typescript",
+    "median_s": 279,
+    "n_obs": 37,
+    "p90_s": 623
+  },
+  "tsab-core-14865": {
+    "lang": "typescript",
+    "median_s": 1488,
+    "n_obs": 37,
+    "p90_s": 3331
+  },
+  "tsab-core-14897": {
+    "lang": "typescript",
+    "median_s": 1020,
+    "n_obs": 37,
+    "p90_s": 3325
+  },
+  "tsab-core-14933": {
+    "lang": "typescript",
+    "median_s": 487,
+    "n_obs": 36,
+    "p90_s": 1424
+  },
+  "tsab-core-14950": {
+    "lang": "typescript",
+    "median_s": 524,
+    "n_obs": 37,
+    "p90_s": 1283
+  },
+  "tsab-marked-3731": {
+    "lang": "typescript",
+    "median_s": 767,
+    "n_obs": 37,
+    "p90_s": 1945
+  },
+  "tsab-marked-3749": {
+    "lang": "typescript",
+    "median_s": 657,
+    "n_obs": 37,
+    "p90_s": 2040
+  },
+  "tsab-marked-3752": {
+    "lang": "typescript",
+    "median_s": 428,
+    "n_obs": 37,
+    "p90_s": 1514
+  },
+  "tsab-marked-3785": {
+    "lang": "typescript",
+    "median_s": 633,
+    "n_obs": 37,
+    "p90_s": 1494
+  },
+  "tsab-marked-3786": {
+    "lang": "typescript",
+    "median_s": 1646,
+    "n_obs": 37,
+    "p90_s": 3514
+  },
+  "tsab-marked-3926": {
+    "lang": "typescript",
+    "median_s": 347,
+    "n_obs": 37,
+    "p90_s": 1510
+  },
+  "tsab-nuxt-34262": {
+    "lang": "typescript",
+    "median_s": 1295,
+    "n_obs": 37,
+    "p90_s": 3079
+  },
+  "tsab-nuxt-34265": {
+    "lang": "typescript",
+    "median_s": 1617,
+    "n_obs": 37,
+    "p90_s": 3202
+  },
+  "tsab-nuxt-34320": {
+    "lang": "typescript",
+    "median_s": 1631,
+    "n_obs": 37,
+    "p90_s": 3378
+  },
+  "tsab-nuxt-34844": {
+    "lang": "typescript",
+    "median_s": 1036,
+    "n_obs": 37,
+    "p90_s": 2208
+  }
+}
