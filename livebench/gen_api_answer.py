@@ -245,8 +245,10 @@ def run_questions(
     model_display_name_override: str | None = None,
     api_dict: dict[str, str] | None = None,
     use_litellm: bool = False,
-    agentic_grading_parallel: int = 0,
+    agentic_grading_parallel: int = -1,
     parallel_control_file: str | None = None,
+    agentic_parallel: int | None = None,
+    resume: bool = False,
 ):
     """
     Perform inference on a list of questions. Output answers to answer_file.
@@ -284,6 +286,13 @@ def run_questions(
             agentic_api_kwargs = api_kwargs
             if model_config.api_kwargs and model_config.api_kwargs.get('agentic'):
                 agentic_api_kwargs = {**(api_kwargs or {}), **model_config.api_kwargs['agentic']}
+            # Container concurrency is a separate budget from API concurrency: a
+            # dedicated agentic run keeps the full --parallel (current behavior),
+            # but a combined agentic+regular run caps containers at 15 unless
+            # --agentic-parallel says otherwise.
+            effective_agentic_parallel = agentic_parallel
+            if effective_agentic_parallel is None:
+                effective_agentic_parallel = parallel if not normal_questions else min(parallel, 15)
             run_agentic_coding_inference(
                 questions=agentic_coding_questions,
                 model_api_name=model_api_name,
@@ -294,9 +303,10 @@ def run_questions(
                 api_dict=api_dict,
                 model_display_name_override=model_display_name_override,
                 answer_file=answer_file,
-                parallel=parallel,
+                parallel=effective_agentic_parallel,
                 preserve_reasoning=model_config.preserve_reasoning,
-                grading_parallel=agentic_grading_parallel
+                grading_parallel=agentic_grading_parallel,
+                resume=resume,
             )
     
     # Process normal questions if any
@@ -461,11 +471,28 @@ if __name__ == "__main__":
              "agentic path is unaffected). Absent file = keep current value."
     )
     parser.add_argument(
-        "--agentic-grading-parallel", type=int, default=0,
-        help="If > 0, grade agentic coding instances incrementally as they complete, "
-             "using a grader pool of this many workers running alongside the answer "
-             "phase. Scores land in the agentic eval cache, which the judgment pass "
-             "reuses instead of re-running the docker evals. 0 disables (grade at the end)."
+        "--agentic-grading-parallel", type=int, default=-1,
+        help="Grade agentic coding instances incrementally as they complete, using a "
+             "grader pool of this many workers running alongside the answer phase. "
+             "Scores land in the agentic eval cache, which the judgment pass reuses "
+             "instead of re-running the docker evals. Default -1 = auto "
+             "(min(8, cpu_count)); 0 disables (grade everything at the end)."
+    )
+    parser.add_argument(
+        "--no-traj-harvest",
+        action="store_true",
+        default=False,
+        help="With --resume, do NOT synthesize agentic answer rows from trajectories a "
+             "previous run left behind. Use when re-running questions whose answer rows "
+             "were deliberately deleted (e.g. targeted reruns), where harvesting would "
+             "resurrect the old answer instead of re-running."
+    )
+    parser.add_argument(
+        "--agentic-parallel", type=int, default=None,
+        help="Concurrent docker containers for agentic coding questions, as a budget "
+             "separate from --parallel (which governs API request concurrency). "
+             "Default: --parallel for a dedicated agentic run, min(--parallel, 15) "
+             "when agentic and regular questions run in one invocation."
     )
     parser.add_argument(
         "--question-source",
@@ -610,7 +637,9 @@ if __name__ == "__main__":
                 model_provider_override=args.model_provider_override,
                 model_display_name_override=model_display_name,
                 agentic_grading_parallel=args.agentic_grading_parallel,
-                parallel_control_file=args.parallel_control_file
+                parallel_control_file=args.parallel_control_file,
+                agentic_parallel=args.agentic_parallel,
+                resume=args.resume and not args.no_traj_harvest
             )
 
     elif args.question_source == "jsonl":
@@ -668,7 +697,9 @@ if __name__ == "__main__":
                 force_temperature=args.force_temperature,
                 model_provider_override=args.model_provider_override,
                 agentic_grading_parallel=args.agentic_grading_parallel,
-                parallel_control_file=args.parallel_control_file
+                parallel_control_file=args.parallel_control_file,
+                agentic_parallel=args.agentic_parallel,
+                resume=args.resume and not args.no_traj_harvest
             )
 
     else:

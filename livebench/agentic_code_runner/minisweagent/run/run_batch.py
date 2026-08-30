@@ -132,9 +132,15 @@ def process_instance(
     agent = None
     extra_info = None
 
+    # Per-instance override of the agent wall-clock cap (the config value is the
+    # default/ceiling; run_inference writes a per-question limit into each instance).
+    agent_config = dict(config.get("agent", {}))
+    if instance.get("time_limit"):
+        agent_config["time_limit"] = instance["time_limit"]
+
     try:
         env = get_sb_environment(config, instance)
-        
+
         # Check if we're in replay mode
         if replay_traj_dir is not None:
             trajectory_path = replay_traj_dir / f"{instance_id}.traj.json"
@@ -143,7 +149,7 @@ def process_instance(
                 model,
                 env,
                 trajectory_path=trajectory_path,
-                **config.get("agent", {}),
+                **agent_config,
             )
         else:
             agent = ProgressTrackingAgent(
@@ -151,7 +157,7 @@ def process_instance(
                 env,
                 progress_manager=progress_manager,
                 instance_id=instance_id,
-                **config.get("agent", {}),
+                **agent_config,
             )
         exit_status, result = agent.run(task)
     except Exception as e:
