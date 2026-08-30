@@ -398,6 +398,11 @@ def build_run_command_from_params(params: LiveBenchParams, bench_name: str | lis
 def run_model(params: LiveBenchParams) -> None:
     """Run livebench for a single model"""
     if params.mode == "parallel":
+        print("WARNING: --mode parallel (one tmux pane per category) is deprecated. "
+              "The shared-pool single/sequential modes supersede it: one process, one "
+              "true concurrency cap, grade-as-you-go, and no idle tail when short "
+              "categories drain. Per-pane processes also each pay the model/config "
+              "setup and disable cross-category scheduling.")
         run_parallel(params)
     elif params.mode == "sequential":
         run_sequential(params)
