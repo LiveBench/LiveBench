@@ -25,6 +25,7 @@ class ModelConfig:
     preserve_reasoning: bool | None = None # whether to preserve reasoning in multi-turn tasks
     cost_per_million: dict[str, float] | None = None # USD per 1M tokens; keys: input, cached_input, output
     api_base: str | None = None # explicit base URL for the provider (e.g. non-OpenAI Responses API endpoints like Meta)
+    agentic_native_tools: bool | None = None # agentic runs: force native tool-calling on/off; None = infer from model name (the inference substring-matches family tokens and silently splits paired legs when a served alias lacks one)
 
 @cache
 def load_model_configs(file_path: str) -> dict[str, ModelConfig]:

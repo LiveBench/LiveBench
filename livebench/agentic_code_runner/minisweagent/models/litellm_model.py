@@ -222,6 +222,12 @@ class LitellmModelConfig:
     model_kwargs: dict[str, Any] = field(default_factory=dict)
     litellm_model_registry: Path | str | None = os.getenv("LITELLM_MODEL_REGISTRY_PATH")
     preserve_reasoning: bool | None = None
+    # Explicit native-tools override for this run. None = infer from the model name
+    # (see _native_tools_enabled). Set from the LiveBench model config's
+    # agentic_native_tools key — name inference silently splits paired legs when a
+    # served alias lacks the family token (e.g. "r2e_step3" vs "qwen38-27b-base",
+    # 2026-08-30), so an eval that needs channel parity should set this explicitly.
+    native_tools: bool | None = None
     # gemini-3 uses the genai SDK by default; False routes it through litellm (the
     # replay keeps provider_specific_fields nested so thought signatures survive)
     native_gemini: bool = True
@@ -881,6 +887,9 @@ class LitellmModel:
         # graceful text-```bash fallback; native_tool_use_turns records actual adherence.
         if os.getenv("MSWEA_NATIVE_TOOLS", "1") != "1":
             return False
+        if self.config.native_tools is not None:
+            # explicit per-run setting wins over name inference (see config comment)
+            return self.config.native_tools
         mn = self.config.model_name
         if 'anthropic' in mn:                                                   # Anthropic direct SDK (tool_use)
             return True
@@ -942,6 +951,28 @@ class LitellmModel:
         if 'anthropic' not in self.config.model_name:
             for message in messages:
                 message.pop('provider_specific_fields', None)
+        # Replay net: a stored assistant turn can carry a tool_call whose arguments do
+        # not parse (length-truncated JSON from an older run or a path the append-time
+        # strip missed). Strict chat templates 400 on it forever. messages are fresh
+        # per-query dicts (see query()), so dropping in place is history-safe.
+        for message in messages:
+            _tcs = message.get('tool_calls')
+            if not _tcs:
+                continue
+            _good = []
+            for _tc in _tcs:
+                _fn = _tc.get('function') if isinstance(_tc, dict) else getattr(_tc, 'function', None)
+                _args = _fn.get('arguments') if isinstance(_fn, dict) else getattr(_fn, 'arguments', None)
+                try:
+                    json.loads(_args)
+                    _good.append(_tc)
+                except (json.JSONDecodeError, TypeError):
+                    continue
+            if len(_good) != len(_tcs):
+                if _good:
+                    message['tool_calls'] = _good
+                else:
+                    message.pop('tool_calls', None)
         if 'deepseek' in self.config.model_name:
             for message in messages:
                 if message['role'] == 'system':
@@ -1023,15 +1054,30 @@ class LitellmModel:
         # ```bash block the text agent loop expects, and carry the raw command
         # out-of-band (result['tool_command']) for verbatim execution.
         tool_calls = getattr(res['choices'][0]['message'], 'tool_calls', None) or []
+        parseable_calls = []
         for tc in tool_calls:
             fn = getattr(tc, 'function', None)
-            if fn is not None and getattr(fn, 'name', '') == 'bash':
-                try:
-                    tool_command = json.loads(fn.arguments).get('command')
-                except (json.JSONDecodeError, TypeError, AttributeError):
-                    tool_command = None
-                if tool_command:
-                    break
+            try:
+                args = json.loads(fn.arguments) if fn is not None else None
+            except (json.JSONDecodeError, TypeError, AttributeError):
+                # Truncated emission (finish_reason=length mid-JSON). If this call is
+                # stored and replayed, strict chat templates reject every subsequent
+                # request ("Unterminated string ..."), killing the episode. Drop it.
+                continue
+            parseable_calls.append(tc)
+            if fn is not None and getattr(fn, 'name', '') == 'bash' and not tool_command:
+                tool_command = args.get('command') if isinstance(args, dict) else None
+        if len(parseable_calls) != len(tool_calls):
+            # keep only replay-safe calls on the stored message; None if nothing survives
+            try:
+                res['choices'][0]['message'].tool_calls = parseable_calls or None
+            except Exception:
+                logger.warning("could not strip malformed tool_calls from stored message")
+            if not tool_command:
+                content = (content or "") + (
+                    "\n\n[Your tool call was cut off by the output-token limit and has been"
+                    " discarded. Re-issue the command more concisely in your next turn.]"
+                )
         if tool_command and tool_command.strip():
             self.native_tool_use_turns += 1
             action_block = f"```bash\n{tool_command}\n```"
