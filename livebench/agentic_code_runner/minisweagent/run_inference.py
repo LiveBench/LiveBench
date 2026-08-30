@@ -208,6 +208,16 @@ def run_agentic_coding_inference(
     if preserve_reasoning:
         config['model']['preserve_reasoning'] = True
 
+    # Explicit native-tools override from the model config (agentic_native_tools key).
+    # Without it the channel is inferred from name substrings, which silently splits
+    # paired legs when a served alias lacks the family token (2026-08-30).
+    try:
+        _nt = getattr(get_model_config(model_name), 'agentic_native_tools', None)
+    except Exception:
+        _nt = None
+    if _nt is not None:
+        config['model']['native_tools'] = _nt
+
     config_path = all_traj_folder / 'config.yaml'
     with open(config_path, 'w') as f:
         yaml.dump(config, f)
