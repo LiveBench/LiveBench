@@ -30,6 +30,10 @@ import shortuuid
 # Number of times to retry failing agentic coding questions
 AGENTIC_CODING_RETRIES = 2
 
+# Per-instance timeout (seconds) for the grading containers; override with
+# LIVEBENCH_AGENTIC_EVAL_TIMEOUT for unusually slow graders.
+AGENTIC_CODING_EVAL_TIMEOUT = int(os.environ.get("LIVEBENCH_AGENTIC_EVAL_TIMEOUT", "900"))
+
 # Maximum parallelism to use when retrying agentic coding questions
 AGENTIC_CODING_RETRY_MAX_PARALLELISM = 3
 
@@ -328,7 +332,7 @@ def _run_evaluation_subprocess(
         "max_workers_run_instance": max_workers,
         "log_dir": f"{log_path.as_posix()}",
         "log_level": "DEBUG" if debug else "INFO",
-        "instance_timeout": 900
+        "instance_timeout": AGENTIC_CODING_EVAL_TIMEOUT
     }
     with open(config_path, 'w') as f:
         json.dump(config, f)

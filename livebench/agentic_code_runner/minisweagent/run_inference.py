@@ -1,3 +1,4 @@
+import fcntl
 import json
 import os
 import threading
@@ -11,6 +12,7 @@ from livebench.common import LIVE_BENCH_ROOT_PATH
 from livebench.process_results.coding.utils import agentic_coding_process_results
 from livebench.model.completions import API_ERROR_OUTPUT
 from livebench.model.api_model_config import get_model_config, RESPONSES_API_PROVIDERS
+from livebench.question_weights import agentic_sort_key, agentic_time_limit
 
 
 def update_dict_recursively(d1, d2):
@@ -36,21 +38,132 @@ def _eval_status_from_exit_status(exit_status):
         return "run_limits_exceeded"
     return "run_error"
 
-def _incremental_grading_loop(
+def _build_answer_row(
+    question: dict,
+    traj_folder,
+    run_id: str,
+    model_name: str,
+    model_api_name: str,
+    provider: str,
+    api_dict: dict | None,
+    orig_api_kwargs: dict,
+) -> dict:
+    """Build the model_answer row for one question from its trajectory folder,
+    covering all three outcomes: missing trajectory, infra error, normal run."""
+    ans = {
+        'question_id': question['question_id'],
+        'answer_id': shortuuid.uuid(),
+        'run_id': run_id,
+        'model_id': model_name,
+        'tstamp': time.time(),
+        'api_info': {
+            'provider': api_dict['api_base'] if api_dict and 'api_base' in api_dict else provider,
+            'api_name': model_api_name,
+            'api_kwargs': orig_api_kwargs
+        }
+    }
+
+    traj_file = traj_folder / f"{question['question_id']}.traj.json"
+
+    if not traj_file.exists():
+        print(f"Trajectory file {traj_file} does not exist")
+        ans['choices'] = [{'turns': [API_ERROR_OUTPUT]}]
+        ans['eval_status'] = "run_no_trajectory"
+        return ans
+
+    trajectory = json.load(open(traj_file))
+
+    exit_status = trajectory['info'].get('exit_status')
+    eval_status = _eval_status_from_exit_status(exit_status)
+    if eval_status is not None:
+        ans['eval_status'] = eval_status
+        print(f"Run for question {question['question_id']} ended with exit_status={exit_status} -> eval_status={eval_status}")
+
+    final_answer = trajectory['info']['submission']
+    if final_answer is None:
+        final_answer = ""
+
+    if eval_status == 'run_error':
+        # Infra failure (e.g. docker exec timeout) — the submission holds the
+        # error text, not a patch. Write $ERROR$ so --retry-failures re-runs it.
+        ans['error'] = exit_status
+        ans['error_msg'] = final_answer
+        final_answer = API_ERROR_OUTPUT
+
+    del trajectory['info']['submission']
+
+    stats = trajectory['info'].get('model_stats', {}) or {}
+    in_tok = stats.get('total_input_tokens') or 0
+    out_tok = stats.get('total_output_tokens') or 0
+    cached_tok = stats.get('total_cached_tokens') or 0
+    cache_creation_tok = stats.get('total_cache_creation_tokens') or 0
+    cost_usd = stats.get('instance_cost')
+    try:
+        cpm = get_model_config(model_name).cost_per_million
+    except Exception:
+        cpm = None
+    if cpm:
+        cached = cached_tok if 'cached_input' in cpm else 0
+        uncached = max(in_tok - cached, 0)
+        cost_usd = round(
+            (uncached / 1_000_000) * cpm.get('input', 0)
+            + (cached / 1_000_000) * cpm.get('cached_input', cpm.get('input', 0))
+            + (out_tok / 1_000_000) * cpm.get('output', 0),
+            6,
+        )
+
+    ans.update({
+        'trajectory': json.dumps(trajectory, indent=4),
+        'choices': [{'turns': [final_answer]}],
+        'total_output_tokens': out_tok,
+        'total_input_tokens': in_tok,
+        'total_cached_tokens': cached_tok,
+        'total_cache_creation_tokens': cache_creation_tok,
+        'n_model_calls': stats.get('api_calls'),
+        # surfaced top-level so consumers (finalize.sh's native_tools_effective,
+        # health scans) don't have to parse the embedded trajectory JSON
+        'native_tool_use_turns': stats.get('native_tool_use_turns'),
+        'total_time_s': stats.get('run_time_s'),
+        'model_cost': stats.get('instance_cost'),
+        'cost_usd': cost_usd,
+    })
+    return ans
+
+
+def _write_answer_row(ans: dict, answer_file: str) -> None:
+    os.makedirs(os.path.dirname(answer_file), exist_ok=True)
+    with open(answer_file, "a") as fout:
+        fcntl.flock(fout, fcntl.LOCK_EX)
+        try:
+            fout.write(json.dumps(ans) + "\n")
+            fout.flush()
+        finally:
+            fcntl.flock(fout, fcntl.LOCK_UN)
+
+
+def _incremental_collection_loop(
     questions: list[dict],
     model_name: str,
     all_traj_folder,
+    run_id: str,
+    model_api_name: str,
+    provider: str,
+    api_dict: dict | None,
+    orig_api_kwargs: dict,
+    answer_file: str | None,
     grading_parallel: int,
     stop_event: threading.Event,
+    written: set[str],
     poll_seconds: int = 20,
 ):
-    """Grader pool: grade agentic instances as they land instead of waiting for the
-    whole answer round. Polls the trajectory folder for newly written
-    <qid>.traj.json files and feeds each batch of completions through
-    agentic_coding_process_results, whose eval cache records the scores; the final
-    judgment pass then reuses them (hash-matched on the exact patch) instead of
-    re-running the docker evals. Failures here are safe: anything ungraded or
-    uncached is simply graded by the final pass as before.
+    """Collector + grader pool: as each instance's trajectory lands, write its
+    model_answer row immediately — so a killed or preempted run keeps every
+    finished question and --resume skips it — then feed gradable completions
+    through agentic_coding_process_results, whose eval cache records the scores;
+    the final judgment pass reuses them (hash-matched on the exact patch) instead
+    of re-running the docker evals. Failures here are safe: anything unwritten is
+    written by the post-run fallback loop, anything ungraded is graded by the
+    final pass as before.
     """
     questions_by_qid = {str(q['question_id']): q for q in questions}
     handled: set[str] = set()
@@ -68,36 +181,48 @@ def _incremental_grading_loop(
                     trajectory = json.load(f)
             except (json.JSONDecodeError, OSError):
                 continue  # mid-write; the next poll picks it up
+            try:
+                ans = _build_answer_row(
+                    question, all_traj_folder / qid, run_id, model_name,
+                    model_api_name, provider, api_dict, orig_api_kwargs)
+                out_file = answer_file if answer_file is not None else question.get('answer_file')
+                if out_file is not None:
+                    _write_answer_row(ans, out_file)
+                    written.add(qid)
+            except Exception as e:
+                print(f"incremental collector: failed to write row for {qid} ({e}); "
+                      "the post-run pass will cover it")
+            handled.add(qid)
             info = trajectory.get('info', {})
             if _eval_status_from_exit_status(info.get('exit_status')) == 'run_error':
-                # infra failure — the collection pass writes $ERROR$ for it and
-                # --retry-failures re-runs it; nothing gradable here
-                handled.add(qid)
+                # infra failure — $ERROR$ row written above; --retry-failures
+                # re-runs it; nothing gradable here
                 continue
-            # Same string the collection pass will put in choices[0].turns[0],
-            # so the cache's patch hash matches at judgment time.
-            submission = info.get('submission')
-            if submission is None:
-                submission = ""
-            ready_questions.append(question)
-            ready_answers.append({
-                'question_id': question['question_id'],
-                'model_id': model_name,
-                'choices': [{'turns': [submission]}],
-            })
+            if grading_parallel > 0:
+                # Same string as choices[0].turns[0] in the answer row, so the
+                # cache's patch hash matches at judgment time.
+                submission = info.get('submission')
+                if submission is None:
+                    submission = ""
+                ready_questions.append(question)
+                ready_answers.append({
+                    'question_id': question['question_id'],
+                    'model_id': model_name,
+                    'choices': [{'turns': [submission]}],
+                })
         if ready_questions:
             print(f"incremental grader: grading {len(ready_questions)} completed instances "
-                  f"({len(handled) + len(ready_questions)}/{len(questions_by_qid)} handled)")
+                  f"({len(handled)}/{len(questions_by_qid)} handled)")
             try:
                 agentic_coding_process_results(
                     ready_questions, ready_answers, debug=False, max_workers=grading_parallel)
             except Exception as e:
                 print(f"incremental grader: batch failed ({e}); the final grading pass will cover it")
-            handled.update(str(q['question_id']) for q in ready_questions)
         if stopping:
             break
         stop_event.wait(timeout=poll_seconds)
-    print(f"incremental grader: done ({len(handled)}/{len(questions_by_qid)} instances handled)")
+    print(f"incremental collector: done ({len(handled)}/{len(questions_by_qid)} instances handled, "
+          f"{len(written)} answer rows written incrementally)")
 
 
 def run_agentic_coding_inference(
@@ -115,10 +240,15 @@ def run_agentic_coding_inference(
     custom_run_id: str | None = None,
     preserve_reasoning: bool | None = None,
     grading_parallel: int = 0,
+    resume: bool = False,
 ):
 
     if len(questions) == 0:
         return
+
+    if grading_parallel < 0:
+        # auto: incremental grading on by default, sized to the box
+        grading_parallel = min(8, os.cpu_count() or 8)
 
     import litellm
     from livebench.agentic_code_runner.eval.utils import docker_util
@@ -230,6 +360,49 @@ def run_agentic_coding_inference(
         if 'answer_file' in question and answer_file is None:
             os.makedirs(os.path.dirname(question['answer_file']), exist_ok=True)
 
+    # Resume: harvest answer rows from trajectories a previous (killed, preempted,
+    # or timed-out) run left behind instead of re-running those questions. Gated
+    # on --resume so a fresh run never silently reuses stale trajectories.
+    if resume and replay_traj_dir is None:
+        traj_root = LIVE_BENCH_ROOT_PATH / 'agentic_code_runner/data/trajectories'
+        remaining = []
+        harvested = 0
+        for question in questions:
+            qid = str(question['question_id'])
+            candidates = sorted(
+                traj_root.glob(f'*/{qid}/{qid}.traj.json'),
+                key=lambda p: p.stat().st_mtime, reverse=True)
+            row = None
+            for traj_file in candidates:
+                try:
+                    with open(traj_file) as f:
+                        info = json.load(f).get('info', {})
+                except (json.JSONDecodeError, OSError):
+                    continue
+                if info.get('exit_status') in (RUN_SUCCESS_EXIT_STATUS, 'LimitsExceeded'):
+                    row = _build_answer_row(
+                        question, traj_file.parent, traj_file.parent.parent.name,
+                        model_name, model_api_name, provider, api_dict, orig_api_kwargs)
+                    break
+            out_file = answer_file if answer_file is not None else question.get('answer_file')
+            if row is not None and out_file is not None:
+                _write_answer_row(row, out_file)
+                harvested += 1
+            else:
+                remaining.append(question)
+        if harvested:
+            print(f"Resume: harvested {harvested} answer rows from surviving trajectories; "
+                  f"{len(remaining)} questions left to run")
+        questions = remaining
+        if len(questions) == 0:
+            return
+
+    # Longest-first scheduling: the top-20 slowest questions hold ~53% of total
+    # question-time, and starting them first saves ~19-26% of makespan at
+    # parallelism 15-20 (see question_weights.py). run_batch submits in
+    # instances-file order, so sorting here is sufficient.
+    questions = sorted(questions, key=agentic_sort_key, reverse=True)
+
     for question in questions:
         instance_image_id = f"mswebench/{question['org']}_m_{question['repo']}:pr-{question['number']}"
         if not docker_util.exists(instance_image_id):
@@ -264,6 +437,9 @@ def run_agentic_coding_inference(
                 'image_name': instance_image_id,
                 'problem_statement': question['turns'][0],
                 'environment_class': 'docker',
+                # per-question agent wall-clock cap (config time_limit is the
+                # ceiling; run_batch overlays this per instance)
+                'time_limit': agentic_time_limit(question),
             }
             if question['task'] != 'python':
                 instance_obj['cwd'] = '/home/' + question['repo']
@@ -291,20 +467,25 @@ def run_agentic_coding_inference(
 
     print('Running command: ', ' '.join([str(c) for c in cmd]))
 
-    # Grader pool: grade instances as their trajectories land instead of leaving
-    # all docker evals to the judgment phase. Replay runs are excluded (their
-    # trajectories pre-exist, so everything would grade before the replay ran).
-    grader_stop = None
-    grader_thread = None
-    if grading_parallel > 0 and replay_traj_dir is None:
-        print(f"Incremental grading ON: grader pool of {grading_parallel} alongside the answer phase")
-        grader_stop = threading.Event()
-        grader_thread = threading.Thread(
-            target=_incremental_grading_loop,
-            args=(questions, model_name, all_traj_folder, grading_parallel, grader_stop),
+    # Collector (+ grader pool): write each instance's answer row as its
+    # trajectory lands, and grade alongside when grading_parallel > 0. Replay
+    # runs are excluded (their trajectories pre-exist, so everything would
+    # collect before the replay ran).
+    collector_stop = None
+    collector_thread = None
+    written: set[str] = set()
+    if replay_traj_dir is None:
+        if grading_parallel > 0:
+            print(f"Incremental grading ON: grader pool of {grading_parallel} alongside the answer phase")
+        collector_stop = threading.Event()
+        collector_thread = threading.Thread(
+            target=_incremental_collection_loop,
+            args=(questions, model_name, all_traj_folder, run_id, model_api_name,
+                  provider, api_dict, orig_api_kwargs, answer_file,
+                  grading_parallel, collector_stop, written),
             daemon=True,
         )
-        grader_thread.start()
+        collector_thread.start()
 
     try:
         subprocess.run(cmd, check=True)
@@ -315,93 +496,23 @@ def run_agentic_coding_inference(
         print(f"Subprocess error: {e}")
         pass
     finally:
-        if grader_thread is not None:
-            grader_stop.set()
-            grader_thread.join()
+        if collector_thread is not None:
+            collector_stop.set()
+            collector_thread.join()
 
+    # Fallback pass for anything the collector didn't write: questions with no
+    # trajectory at all (run_no_trajectory $ERROR$ rows) and any final-poll race.
     for question in questions:
+        qid = str(question['question_id'])
+        if qid in written:
+            continue
 
-        ans = {
-            'question_id': question['question_id'],
-            'answer_id': shortuuid.uuid(),
-            'run_id': run_id,
-            'model_id': model_name,
-            'tstamp': time.time(),
-            'api_info': {
-                'provider': api_dict['api_base'] if api_dict and 'api_base' in api_dict else provider,
-                'api_name': model_api_name,
-                'api_kwargs': orig_api_kwargs
-            }
-        }
-
-        traj_folder = all_traj_folder / str(question['question_id'])
-        traj_file = traj_folder / f"{question['question_id']}.traj.json"
-
-        if not traj_file.exists():
-            print(f"Trajectory file {traj_file} does not exist")
-            ans['choices'] = [{'turns': [API_ERROR_OUTPUT]}]
-            ans['eval_status'] = "run_no_trajectory"
-        else:
-            trajectory = json.load(open(traj_file))
-
-            exit_status = trajectory['info'].get('exit_status')
-            eval_status = _eval_status_from_exit_status(exit_status)
-            if eval_status is not None:
-                ans['eval_status'] = eval_status
-                print(f"Run for question {question['question_id']} ended with exit_status={exit_status} -> eval_status={eval_status}")
-
-            final_answer = trajectory['info']['submission']
-            if final_answer is None:
-                final_answer = ""
-
-            if eval_status == 'run_error':
-                # Infra failure (e.g. docker exec timeout) — the submission holds the
-                # error text, not a patch. Write $ERROR$ so --retry-failures re-runs it.
-                ans['error'] = exit_status
-                ans['error_msg'] = final_answer
-                final_answer = API_ERROR_OUTPUT
-
-            del trajectory['info']['submission']
-
-            stats = trajectory['info'].get('model_stats', {}) or {}
-            in_tok = stats.get('total_input_tokens') or 0
-            out_tok = stats.get('total_output_tokens') or 0
-            cached_tok = stats.get('total_cached_tokens') or 0
-            cache_creation_tok = stats.get('total_cache_creation_tokens') or 0
-            cost_usd = stats.get('instance_cost')
-            try:
-                cpm = get_model_config(model_name).cost_per_million
-            except Exception:
-                cpm = None
-            if cpm:
-                cached = cached_tok if 'cached_input' in cpm else 0
-                uncached = max(in_tok - cached, 0)
-                cost_usd = round(
-                    (uncached / 1_000_000) * cpm.get('input', 0)
-                    + (cached / 1_000_000) * cpm.get('cached_input', cpm.get('input', 0))
-                    + (out_tok / 1_000_000) * cpm.get('output', 0),
-                    6,
-                )
-
-            ans.update({
-                'trajectory': json.dumps(trajectory, indent=4),
-                'choices': [{'turns': [final_answer]}],
-                'total_output_tokens': out_tok,
-                'total_input_tokens': in_tok,
-                'total_cached_tokens': cached_tok,
-                'total_cache_creation_tokens': cache_creation_tok,
-                'n_model_calls': stats.get('api_calls'),
-                # surfaced top-level so consumers (finalize.sh's native_tools_effective,
-                # health scans) don't have to parse the embedded trajectory JSON
-                'native_tool_use_turns': stats.get('native_tool_use_turns'),
-                'total_time_s': stats.get('run_time_s'),
-                'model_cost': stats.get('instance_cost'),
-                'cost_usd': cost_usd,
-            })
+        ans = _build_answer_row(
+            question, all_traj_folder / qid, run_id, model_name,
+            model_api_name, provider, api_dict, orig_api_kwargs)
 
         # Use answer_file parameter if provided (as override), otherwise use question's answer_file
         current_answer_file = answer_file if answer_file is not None else question.get('answer_file')
-        
+
         if current_answer_file is not None:
-            with open(current_answer_file, "a") as fout:
-                fout.write(json.dumps(ans) + "\n")
+            _write_answer_row(ans, current_answer_file)

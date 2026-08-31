@@ -48,6 +48,8 @@ class LiveBenchParams:
     max_tokens: int | None = None
     parallel_requests: int | None = None
     parallel_grading: int | None = None
+    agentic_parallel_requests: int | None = None
+    agentic_grading_parallel: int | None = None
     resume: bool = False
     resume_inference: bool = False
     resume_grading: bool = False
@@ -63,6 +65,7 @@ class LiveBenchParams:
     stream: bool = False
     use_litellm: bool = False
     remove_existing_judgment_file: bool = False
+    no_incremental_grading: bool = False
     ignore_missing_answers: bool = False
     debug: bool = False
     model_provider_override: str | None = None
@@ -91,6 +94,8 @@ class LiveBenchParams:
             max_tokens=args.max_tokens,
             parallel_requests=args.parallel_requests,
             parallel_grading=args.parallel_grading,
+            agentic_parallel_requests=args.agentic_parallel_requests,
+            agentic_grading_parallel=args.agentic_grading_parallel,
             resume=args.resume,
             resume_inference=args.resume_inference,
             resume_grading=args.resume_grading,
@@ -106,6 +111,7 @@ class LiveBenchParams:
             stream=args.stream,
             use_litellm=args.use_litellm,
             remove_existing_judgment_file=args.remove_existing_judgment_file,
+            no_incremental_grading=args.no_incremental_grading,
             ignore_missing_answers=args.ignore_missing_answers,
             debug=args.debug,
             model_provider_override=args.model_provider_override,
@@ -220,6 +226,8 @@ def build_run_command(
     max_tokens: int | None = None,
     parallel_requests: int | None = None,
     parallel_grading: int | None = None,
+    agentic_parallel_requests: int | None = None,
+    agentic_grading_parallel: int | None = None,
     resume: bool = False,
     resume_inference: bool = False,
     resume_grading: bool = False,
@@ -235,6 +243,7 @@ def build_run_command(
     stream: bool = False,
     use_litellm: bool = False,
     remove_existing_judgment_file: bool = False,
+    no_incremental_grading: bool = False,
     ignore_missing_answers: bool = False,
     debug: bool = False,
     model_provider_override: str | None = None,
@@ -274,11 +283,20 @@ def build_run_command(
         gen_api_cmd += f" --max-tokens {max_tokens}"
     if parallel_requests:
         gen_api_cmd += f" --parallel {parallel_requests}"
+    if agentic_parallel_requests:
+        gen_api_cmd += f" --agentic-parallel {agentic_parallel_requests}"
+    if agentic_grading_parallel is not None:
+        # explicit agentic grading-container budget, decoupled from the (CPU-bound)
+        # regular grading parallelism — essential for combined regular+agentic runs
+        # where parallel_grading can be 10x what docker grading should run at
+        gen_api_cmd += f" --agentic-grading-parallel {agentic_grading_parallel}"
     if parallel_grading:
         gen_judge_cmd += f" --parallel {parallel_grading}"
         # grader pool: agentic instances are graded as they land during the answer
-        # phase (results cached; the judgment command above reuses them)
-        gen_api_cmd += f" --agentic-grading-parallel {parallel_grading}"
+        # phase (results cached; the judgment command above reuses them). Without
+        # --parallel-grading, gen_api_answer's own auto default still enables it.
+        if agentic_grading_parallel is None:
+            gen_api_cmd += f" --agentic-grading-parallel {parallel_grading}"
     if parallel_control_file:
         gen_api_cmd += f" --parallel-control-file {parallel_control_file}"
     # Handle resume flags
@@ -317,6 +335,16 @@ def build_run_command(
         gen_api_cmd += " --use-litellm"
     if remove_existing_judgment_file:
         gen_judge_cmd += " --remove-existing-file"
+    if no_incremental_grading:
+        gen_api_cmd += " --no-incremental-grading"
+    elif parallel_grading:
+        # grade-as-you-go workers for the regular categories (gen_api_answer caps
+        # the value at cpu_count itself)
+        gen_api_cmd += f" --grading-parallel {parallel_grading}"
+    if not no_incremental_grading and not remove_existing_judgment_file and not resume and not resume_grading:
+        # inline grading already wrote most judgments; make the trailing judgment
+        # pass a resume sweep over whatever it missed instead of a full re-grade
+        gen_judge_cmd += " --resume"
     if ignore_missing_answers:
         gen_judge_cmd += " --ignore-missing-answers"
     if model_provider_override:
@@ -352,6 +380,8 @@ def build_run_command_from_params(params: LiveBenchParams, bench_name: str | lis
         max_tokens=params.max_tokens,
         parallel_requests=params.parallel_requests,
         parallel_grading=params.parallel_grading,
+        agentic_parallel_requests=params.agentic_parallel_requests,
+        agentic_grading_parallel=params.agentic_grading_parallel,
         resume=params.resume,
         resume_inference=params.resume_inference,
         resume_grading=params.resume_grading,
@@ -367,6 +397,7 @@ def build_run_command_from_params(params: LiveBenchParams, bench_name: str | lis
         stream=params.stream,
         use_litellm=params.use_litellm,
         remove_existing_judgment_file=params.remove_existing_judgment_file,
+        no_incremental_grading=params.no_incremental_grading,
         only_incorrect=params.only_incorrect,
         parallel_control_file=params.parallel_control_file,
         ignore_missing_answers=params.ignore_missing_answers,
@@ -377,6 +408,11 @@ def build_run_command_from_params(params: LiveBenchParams, bench_name: str | lis
 def run_model(params: LiveBenchParams) -> None:
     """Run livebench for a single model"""
     if params.mode == "parallel":
+        print("WARNING: --mode parallel (one tmux pane per category) is deprecated. "
+              "The shared-pool single/sequential modes supersede it: one process, one "
+              "true concurrency cap, grade-as-you-go, and no idle tail when short "
+              "categories drain. Per-pane processes also each pay the model/config "
+              "setup and disable cross-category scheduling.")
         run_parallel(params)
     elif params.mode == "sequential":
         run_sequential(params)
@@ -498,6 +534,19 @@ def main():
     parser.add_argument("--max-tokens", type=int, help="Maximum tokens for model responses")
     parser.add_argument("--parallel-requests", type=int, help="Number of parallel requests for API calls")
     parser.add_argument("--parallel-grading", type=int, help="Number of parallel grading threads")
+    parser.add_argument("--agentic-grading-parallel", type=int, default=None,
+                        help="Grading-container budget for incremental agentic grading, decoupled "
+                             "from --parallel-grading (which is CPU-bound regular grading). "
+                             "Default: follows --parallel-grading, else gen_api_answer's auto.")
+    parser.add_argument("--no-incremental-grading", action="store_true", default=False,
+                        help="Disable grade-as-you-go for the regular categories; all grading "
+                             "happens in the trailing gen_ground_truth_judgment pass.")
+    parser.add_argument("--agentic-parallel-requests", type=int, default=None,
+                        help="Concurrent docker containers for agentic coding questions, as a "
+                             "budget separate from --parallel-requests (API concurrency). "
+                             "Default: --parallel-requests for a dedicated agentic run, "
+                             "min(--parallel-requests, 15) when agentic and regular questions "
+                             "run in one invocation.")
     parser.add_argument("--resume", action="store_true", help="Resume from previous run (applies to both inference and grading)")
     parser.add_argument("--resume-inference", action="store_true", help="Resume only for inference (gen_api_answer.py)")
     parser.add_argument("--resume-grading", action="store_true", help="Resume only for grading (gen_ground_truth_judgment.py)")
