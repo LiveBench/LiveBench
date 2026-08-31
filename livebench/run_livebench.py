@@ -64,6 +64,7 @@ class LiveBenchParams:
     stream: bool = False
     use_litellm: bool = False
     remove_existing_judgment_file: bool = False
+    no_incremental_grading: bool = False
     ignore_missing_answers: bool = False
     debug: bool = False
     model_provider_override: str | None = None
@@ -108,6 +109,7 @@ class LiveBenchParams:
             stream=args.stream,
             use_litellm=args.use_litellm,
             remove_existing_judgment_file=args.remove_existing_judgment_file,
+            no_incremental_grading=args.no_incremental_grading,
             ignore_missing_answers=args.ignore_missing_answers,
             debug=args.debug,
             model_provider_override=args.model_provider_override,
@@ -238,6 +240,7 @@ def build_run_command(
     stream: bool = False,
     use_litellm: bool = False,
     remove_existing_judgment_file: bool = False,
+    no_incremental_grading: bool = False,
     ignore_missing_answers: bool = False,
     debug: bool = False,
     model_provider_override: str | None = None,
@@ -323,6 +326,16 @@ def build_run_command(
         gen_api_cmd += " --use-litellm"
     if remove_existing_judgment_file:
         gen_judge_cmd += " --remove-existing-file"
+    if no_incremental_grading:
+        gen_api_cmd += " --no-incremental-grading"
+    elif parallel_grading:
+        # grade-as-you-go workers for the regular categories (gen_api_answer caps
+        # the value at cpu_count itself)
+        gen_api_cmd += f" --grading-parallel {parallel_grading}"
+    if not no_incremental_grading and not remove_existing_judgment_file and not resume and not resume_grading:
+        # inline grading already wrote most judgments; make the trailing judgment
+        # pass a resume sweep over whatever it missed instead of a full re-grade
+        gen_judge_cmd += " --resume"
     if ignore_missing_answers:
         gen_judge_cmd += " --ignore-missing-answers"
     if model_provider_override:
@@ -374,6 +387,7 @@ def build_run_command_from_params(params: LiveBenchParams, bench_name: str | lis
         stream=params.stream,
         use_litellm=params.use_litellm,
         remove_existing_judgment_file=params.remove_existing_judgment_file,
+        no_incremental_grading=params.no_incremental_grading,
         only_incorrect=params.only_incorrect,
         parallel_control_file=params.parallel_control_file,
         ignore_missing_answers=params.ignore_missing_answers,
@@ -505,6 +519,9 @@ def main():
     parser.add_argument("--max-tokens", type=int, help="Maximum tokens for model responses")
     parser.add_argument("--parallel-requests", type=int, help="Number of parallel requests for API calls")
     parser.add_argument("--parallel-grading", type=int, help="Number of parallel grading threads")
+    parser.add_argument("--no-incremental-grading", action="store_true", default=False,
+                        help="Disable grade-as-you-go for the regular categories; all grading "
+                             "happens in the trailing gen_ground_truth_judgment pass.")
     parser.add_argument("--agentic-parallel-requests", type=int, default=None,
                         help="Concurrent docker containers for agentic coding questions, as a "
                              "budget separate from --parallel-requests (API concurrency). "

@@ -24,6 +24,7 @@ from livebench.common import (
     get_categories_tasks,
     load_questions,
     load_questions_jsonl,
+    load_test_cases_jsonl,
     LIVE_BENCH_DATA_SUPER_PATH,
     filter_questions,
     check_agentic_coding_requirements,
@@ -31,6 +32,8 @@ from livebench.common import (
 )
 
 from livebench.model import ModelConfig, get_model_config, get_api_function
+from livebench.incremental_judge import GradingPool, resolve_grading_workers
+from livebench.question_weights import regular_task_weight
 
 
 def get_answer(
@@ -179,6 +182,8 @@ def get_answer(
         with open(output_file, "a") as fout:
             fout.write(json.dumps(ans) + "\n")
 
+    return ans
+
 
 def setup_model(model_config: ModelConfig, api_dict: dict[str, str] | None = None, model_provider_override: str | None = None) -> tuple[str, APIKwargs | None, str, dict[str, str] | None]:
     
@@ -249,6 +254,8 @@ def run_questions(
     parallel_control_file: str | None = None,
     agentic_parallel: int | None = None,
     resume: bool = False,
+    grading_parallel: int = -1,
+    incremental_grading: bool = True,
 ):
     """
     Perform inference on a list of questions. Output answers to answer_file.
@@ -312,9 +319,26 @@ def run_questions(
     # Process normal questions if any
     if normal_questions:
         print(f'Processing {len(normal_questions)} standard questions')
+
+        # Longest-tasks-first: makespan is decided by when the slow tasks start,
+        # not by how fast the cheap ones finish (see question_weights.py).
+        normal_questions = sorted(normal_questions, key=regular_task_weight, reverse=True)
+
+        # Grade-as-you-go: each completed answer goes straight to a grading pool
+        # (CPU-capped; generation threads are network-bound so the budgets don't
+        # compete). The batch judgment pass remains the idempotent backstop.
+        grading_pool = None
+        grading_workers = resolve_grading_workers(grading_parallel)
+        if incremental_grading and grading_workers > 0:
+            judge_model_id = (model_display_name_override if model_display_name_override
+                              else model_config.display_name).lower()
+            grading_pool = GradingPool(judge_model_id, grading_workers)
+            print(f"Incremental grading ON: pool of {grading_workers} grading workers "
+                  "alongside answer generation")
+
         if parallel == 1:
             for question in tqdm.tqdm(normal_questions):
-                get_answer(
+                ans = get_answer(
                     question=question,
                     model_api_name=model_api_name,
                     provider=provider,
@@ -329,6 +353,8 @@ def run_questions(
                     model_config=model_config,
                     use_litellm=use_litellm,
                 )
+                if grading_pool is not None:
+                    grading_pool.submit(question, ans)
         else:
             # Live-resizable concurrency (opt-in): with --parallel-control-file, the
             # pool is sized to a ceiling and gated by a semaphore whose capacity a
@@ -367,10 +393,13 @@ def run_questions(
                 if gate is not None:
                     gate.acquire()
                 try:
-                    return get_answer(**kw)
+                    ans = get_answer(**kw)
                 finally:
                     if gate is not None:
                         gate.release()
+                if grading_pool is not None:
+                    grading_pool.submit(kw['question'], ans)
+                return ans
 
             with concurrent.futures.ThreadPoolExecutor(max_workers=pool_size) as executor:
                 futures = []
@@ -399,7 +428,10 @@ def run_questions(
                     future.result()
             if watch_stop is not None:
                 watch_stop.set()
-    
+
+        if grading_pool is not None:
+            grading_pool.drain_and_close()
+
     # Reorganize all answer files
     if len(questions) > 0:
         # Collect unique answer files from questions
@@ -477,6 +509,19 @@ if __name__ == "__main__":
              "Scores land in the agentic eval cache, which the judgment pass reuses "
              "instead of re-running the docker evals. Default -1 = auto "
              "(min(8, cpu_count)); 0 disables (grade everything at the end)."
+    )
+    parser.add_argument(
+        "--grading-parallel", type=int, default=-1,
+        help="Workers for grading regular-category answers as they are generated "
+             "(grade-as-you-go). Grading is CPU-bound, so the value is capped at "
+             "cpu_count. Default -1 = auto (min(cpu_count, 16)); 0 disables."
+    )
+    parser.add_argument(
+        "--no-incremental-grading",
+        action="store_true",
+        default=False,
+        help="Do not grade regular-category answers as they are generated; leave all "
+             "grading to the gen_ground_truth_judgment pass."
     )
     parser.add_argument(
         "--no-traj-harvest",
@@ -612,13 +657,18 @@ if __name__ == "__main__":
                     )
 
                     questions = filter_questions(questions, answer_file, args.resume, args.retry_failures)
-                    
+
                     # Attach answer_file to each question and task info for agentic_coding
                     for question in questions:
                         question['answer_file'] = answer_file
-                    
+                        # destination for grade-as-you-go judgments (same per-task
+                        # path the judgment pass writes to)
+                        question['_judgment_file'] = (
+                            f"data/{task_full_name}/model_judgment/ground_truth_judgment.jsonl"
+                        )
+
                     all_questions.extend(questions)
-                    
+
                     print(f"Questions from {task_full_name}")
         
         if all_questions:
@@ -639,7 +689,9 @@ if __name__ == "__main__":
                 agentic_grading_parallel=args.agentic_grading_parallel,
                 parallel_control_file=args.parallel_control_file,
                 agentic_parallel=args.agentic_parallel,
-                resume=args.resume and not args.no_traj_harvest
+                resume=args.resume and not args.no_traj_harvest,
+                grading_parallel=args.grading_parallel,
+                incremental_grading=not args.no_incremental_grading
             )
 
     elif args.question_source == "jsonl":
@@ -664,17 +716,23 @@ if __name__ == "__main__":
                 questions = load_questions_jsonl(
                     question_file, release_set, args.livebench_release_option, args.question_id
                 )
-                
+                # inline LCB/coding grading needs the test cases attached (the
+                # judgment pass loads them the same way)
+                questions = load_test_cases_jsonl(question_file, questions)
+
                 questions = questions[args.question_begin:args.question_end]
 
                 bench_name_for_file = os.path.dirname(question_file).replace("data/", "")
                 answer_file = f"data/{bench_name_for_file}/model_answer/{model_display_name.lower()}.jsonl"
 
                 questions = filter_questions(questions, answer_file, args.resume, args.retry_failures)
-                
+
                 # Attach answer_file to each question and task info for agentic_coding
                 for question in questions:
                     question['answer_file'] = answer_file
+                    question['_judgment_file'] = (
+                        f"data/{bench_name_for_file}/model_judgment/ground_truth_judgment.jsonl"
+                    )
                 
                 all_questions.extend(questions)
                         
@@ -699,7 +757,9 @@ if __name__ == "__main__":
                 agentic_grading_parallel=args.agentic_grading_parallel,
                 parallel_control_file=args.parallel_control_file,
                 agentic_parallel=args.agentic_parallel,
-                resume=args.resume and not args.no_traj_harvest
+                resume=args.resume and not args.no_traj_harvest,
+                grading_parallel=args.grading_parallel,
+                incremental_grading=not args.no_incremental_grading
             )
 
     else:
