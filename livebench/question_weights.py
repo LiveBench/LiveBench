@@ -21,11 +21,13 @@ _WEIGHTS_PATH = Path(__file__).parent / "agentic_code_runner/data/question_weigh
 _LANG_DEFAULT_MEDIAN_S = {"typescript": 930, "javascript": 350, "python": 360}
 _LANG_BY_PREFIX = {"tsab": "typescript", "jsab": "javascript", "pyab": "python"}
 
-# Per-language agent time_limit (seconds). TypeScript keeps the historical 5400
-# ceiling (worst p90 ~3600s); js/py p90 maxima are ~2800/2450s, so 4200 still
-# leaves >=1.5x headroom while bounding stragglers. Per-question overrides can be
-# added to the JSON as "time_limit_s".
-_LANG_TIME_LIMIT_S = {"typescript": 5400, "javascript": 4200, "python": 4200}
+# Per-language agent time_limit (seconds). All languages keep the historical
+# 5400 ceiling: the tighter js/py 4200 (chosen from healthy-serving p90s of
+# ~2800/2450s) clipped a throttled-provider run into 31 empty-patch DNFs on
+# 2026-08-31 — wall-clock caps are inference-compute budgets, and headroom
+# computed on healthy serving does not survive rate-limit weather. Per-question
+# overrides can still be added to the JSON as "time_limit_s".
+_LANG_TIME_LIMIT_S = {"typescript": 5400, "javascript": 5400, "python": 5400}
 _DEFAULT_TIME_LIMIT_S = 5400
 
 # Regular categories: relative per-task weights (roughly median wall-clock
