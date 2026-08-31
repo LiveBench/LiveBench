@@ -49,6 +49,7 @@ class LiveBenchParams:
     parallel_requests: int | None = None
     parallel_grading: int | None = None
     agentic_parallel_requests: int | None = None
+    agentic_grading_parallel: int | None = None
     resume: bool = False
     resume_inference: bool = False
     resume_grading: bool = False
@@ -94,6 +95,7 @@ class LiveBenchParams:
             parallel_requests=args.parallel_requests,
             parallel_grading=args.parallel_grading,
             agentic_parallel_requests=args.agentic_parallel_requests,
+            agentic_grading_parallel=args.agentic_grading_parallel,
             resume=args.resume,
             resume_inference=args.resume_inference,
             resume_grading=args.resume_grading,
@@ -225,6 +227,7 @@ def build_run_command(
     parallel_requests: int | None = None,
     parallel_grading: int | None = None,
     agentic_parallel_requests: int | None = None,
+    agentic_grading_parallel: int | None = None,
     resume: bool = False,
     resume_inference: bool = False,
     resume_grading: bool = False,
@@ -282,12 +285,18 @@ def build_run_command(
         gen_api_cmd += f" --parallel {parallel_requests}"
     if agentic_parallel_requests:
         gen_api_cmd += f" --agentic-parallel {agentic_parallel_requests}"
+    if agentic_grading_parallel is not None:
+        # explicit agentic grading-container budget, decoupled from the (CPU-bound)
+        # regular grading parallelism — essential for combined regular+agentic runs
+        # where parallel_grading can be 10x what docker grading should run at
+        gen_api_cmd += f" --agentic-grading-parallel {agentic_grading_parallel}"
     if parallel_grading:
         gen_judge_cmd += f" --parallel {parallel_grading}"
         # grader pool: agentic instances are graded as they land during the answer
         # phase (results cached; the judgment command above reuses them). Without
         # --parallel-grading, gen_api_answer's own auto default still enables it.
-        gen_api_cmd += f" --agentic-grading-parallel {parallel_grading}"
+        if agentic_grading_parallel is None:
+            gen_api_cmd += f" --agentic-grading-parallel {parallel_grading}"
     if parallel_control_file:
         gen_api_cmd += f" --parallel-control-file {parallel_control_file}"
     # Handle resume flags
@@ -372,6 +381,7 @@ def build_run_command_from_params(params: LiveBenchParams, bench_name: str | lis
         parallel_requests=params.parallel_requests,
         parallel_grading=params.parallel_grading,
         agentic_parallel_requests=params.agentic_parallel_requests,
+        agentic_grading_parallel=params.agentic_grading_parallel,
         resume=params.resume,
         resume_inference=params.resume_inference,
         resume_grading=params.resume_grading,
@@ -398,6 +408,11 @@ def build_run_command_from_params(params: LiveBenchParams, bench_name: str | lis
 def run_model(params: LiveBenchParams) -> None:
     """Run livebench for a single model"""
     if params.mode == "parallel":
+        print("WARNING: --mode parallel (one tmux pane per category) is deprecated. "
+              "The shared-pool single/sequential modes supersede it: one process, one "
+              "true concurrency cap, grade-as-you-go, and no idle tail when short "
+              "categories drain. Per-pane processes also each pay the model/config "
+              "setup and disable cross-category scheduling.")
         run_parallel(params)
     elif params.mode == "sequential":
         run_sequential(params)
@@ -519,6 +534,10 @@ def main():
     parser.add_argument("--max-tokens", type=int, help="Maximum tokens for model responses")
     parser.add_argument("--parallel-requests", type=int, help="Number of parallel requests for API calls")
     parser.add_argument("--parallel-grading", type=int, help="Number of parallel grading threads")
+    parser.add_argument("--agentic-grading-parallel", type=int, default=None,
+                        help="Grading-container budget for incremental agentic grading, decoupled "
+                             "from --parallel-grading (which is CPU-bound regular grading). "
+                             "Default: follows --parallel-grading, else gen_api_answer's auto.")
     parser.add_argument("--no-incremental-grading", action="store_true", default=False,
                         help="Disable grade-as-you-go for the regular categories; all grading "
                              "happens in the trailing gen_ground_truth_judgment pass.")

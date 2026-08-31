@@ -281,7 +281,12 @@ def run_questions(
     agentic_coding_questions = [q for q in questions if q.get('category') in AGENTIC_CODING_CATEGORIES]
     normal_questions = [q for q in questions if q.get('category') not in AGENTIC_CODING_CATEGORIES]
     
-    # Process agentic coding questions if any
+    # Process agentic coding questions if any. When regular questions are also
+    # present, the agentic run happens on a side thread so both lanes proceed
+    # concurrently (containers vs API requests are separate budgets) — one
+    # process replaces the old two-tmux-session workaround.
+    agentic_thread = None
+    agentic_error: list[BaseException] = []
     if agentic_coding_questions:
         if not check_agentic_coding_requirements():
             print("Warning: litellm or docker missing, skipping agentic coding evaluation")
@@ -300,22 +305,36 @@ def run_questions(
             effective_agentic_parallel = agentic_parallel
             if effective_agentic_parallel is None:
                 effective_agentic_parallel = parallel if not normal_questions else min(parallel, 15)
-            run_agentic_coding_inference(
-                questions=agentic_coding_questions,
-                model_api_name=model_api_name,
-                provider=provider,
-                force_temperature=force_temperature,
-                num_choices=num_choices,
-                model_api_kwargs=agentic_api_kwargs,
-                api_dict=api_dict,
-                model_display_name_override=model_display_name_override,
-                answer_file=answer_file,
-                parallel=effective_agentic_parallel,
-                preserve_reasoning=model_config.preserve_reasoning,
-                grading_parallel=agentic_grading_parallel,
-                resume=resume,
-            )
-    
+
+            def _run_agentic():
+                try:
+                    run_agentic_coding_inference(
+                        questions=agentic_coding_questions,
+                        model_api_name=model_api_name,
+                        provider=provider,
+                        force_temperature=force_temperature,
+                        num_choices=num_choices,
+                        model_api_kwargs=agentic_api_kwargs,
+                        api_dict=api_dict,
+                        model_display_name_override=model_display_name_override,
+                        answer_file=answer_file,
+                        parallel=effective_agentic_parallel,
+                        preserve_reasoning=model_config.preserve_reasoning,
+                        grading_parallel=agentic_grading_parallel,
+                        resume=resume,
+                    )
+                except BaseException as e:
+                    agentic_error.append(e)
+                    print(f"agentic lane failed: {type(e).__name__}: {e}")
+
+            if normal_questions:
+                agentic_thread = threading.Thread(target=_run_agentic, name="agentic-lane")
+                agentic_thread.start()
+            else:
+                _run_agentic()
+                if agentic_error:
+                    raise agentic_error[0]
+
     # Process normal questions if any
     if normal_questions:
         print(f'Processing {len(normal_questions)} standard questions')
@@ -432,6 +451,12 @@ def run_questions(
         if grading_pool is not None:
             grading_pool.drain_and_close()
 
+    # Wait for the agentic lane before tidying files
+    if agentic_thread is not None:
+        if agentic_thread.is_alive():
+            print("Regular questions done; waiting for the agentic lane to finish")
+        agentic_thread.join()
+
     # Reorganize all answer files
     if len(questions) > 0:
         # Collect unique answer files from questions
@@ -449,6 +474,9 @@ def run_questions(
         # Reorganize each unique answer file
         for file in answer_files_to_reorg:
             reorg_answer_file(file)
+
+    if agentic_error:
+        raise agentic_error[0]
 
 
 if __name__ == "__main__":
