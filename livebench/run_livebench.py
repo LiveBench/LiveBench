@@ -66,6 +66,7 @@ class LiveBenchParams:
     use_litellm: bool = False
     remove_existing_judgment_file: bool = False
     no_incremental_grading: bool = False
+    no_traj_harvest: bool = False
     ignore_missing_answers: bool = False
     debug: bool = False
     model_provider_override: str | None = None
@@ -112,6 +113,7 @@ class LiveBenchParams:
             use_litellm=args.use_litellm,
             remove_existing_judgment_file=args.remove_existing_judgment_file,
             no_incremental_grading=args.no_incremental_grading,
+            no_traj_harvest=args.no_traj_harvest,
             ignore_missing_answers=args.ignore_missing_answers,
             debug=args.debug,
             model_provider_override=args.model_provider_override,
@@ -244,6 +246,7 @@ def build_run_command(
     use_litellm: bool = False,
     remove_existing_judgment_file: bool = False,
     no_incremental_grading: bool = False,
+    no_traj_harvest: bool = False,
     ignore_missing_answers: bool = False,
     debug: bool = False,
     model_provider_override: str | None = None,
@@ -337,6 +340,10 @@ def build_run_command(
         gen_judge_cmd += " --remove-existing-file"
     if no_incremental_grading:
         gen_api_cmd += " --no-incremental-grading"
+    if no_traj_harvest:
+        # targeted reruns: deliberately cleared rows must RE-RUN, not be
+        # harvested back from surviving trajectories
+        gen_api_cmd += " --no-traj-harvest"
     elif parallel_grading:
         # grade-as-you-go workers for the regular categories (gen_api_answer caps
         # the value at cpu_count itself)
@@ -398,6 +405,7 @@ def build_run_command_from_params(params: LiveBenchParams, bench_name: str | lis
         use_litellm=params.use_litellm,
         remove_existing_judgment_file=params.remove_existing_judgment_file,
         no_incremental_grading=params.no_incremental_grading,
+        no_traj_harvest=params.no_traj_harvest,
         only_incorrect=params.only_incorrect,
         parallel_control_file=params.parallel_control_file,
         ignore_missing_answers=params.ignore_missing_answers,
@@ -538,6 +546,10 @@ def main():
                         help="Grading-container budget for incremental agentic grading, decoupled "
                              "from --parallel-grading (which is CPU-bound regular grading). "
                              "Default: follows --parallel-grading, else gen_api_answer's auto.")
+    parser.add_argument("--no-traj-harvest", action="store_true", default=False,
+                        help="With --resume, do not synthesize agentic answer rows from surviving "
+                             "trajectories of previous runs (targeted-rerun safety; forwarded to "
+                             "gen_api_answer).")
     parser.add_argument("--no-incremental-grading", action="store_true", default=False,
                         help="Disable grade-as-you-go for the regular categories; all grading "
                              "happens in the trailing gen_ground_truth_judgment pass.")
