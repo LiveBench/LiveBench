@@ -338,14 +338,27 @@ def load_model_answers(answer_dir: str, models: list[str] | None = None):
 
 
 def reorg_answer_file(answer_file):
-    """Sort the entires in the file answer_file by question id and de-duplicate"""
+    """Sort the entires in the file answer_file by question id and de-duplicate.
+
+    Tolerates torn lines (partial JSON / NUL bytes): a run killed mid-append —
+    spot preemption, OOM, kill -9 — leaves an undecodable tail line, and the
+    resume path must recover, not crash. Bad lines are dropped by the rewrite,
+    so the affected question simply re-runs on resume."""
     answers = {}
     if not os.path.exists(answer_file):
         return
-    with open(answer_file, "r") as fin:
+    dropped = 0
+    with open(answer_file, "r", errors="replace") as fin:
         for l in fin:
-            qid = json.loads(l)["question_id"]
+            try:
+                qid = json.loads(l)["question_id"]
+            except (json.JSONDecodeError, KeyError, TypeError):
+                dropped += 1
+                continue
             answers[qid] = l
+    if dropped:
+        print(f"reorg_answer_file: dropped {dropped} undecodable line(s) from {answer_file} "
+              "(torn write from an interrupted run); the question(s) will re-run on resume")
 
     qids = sorted(list(answers.keys()))
     with open(answer_file, "w") as fout:

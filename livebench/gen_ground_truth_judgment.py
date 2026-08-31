@@ -58,17 +58,27 @@ FAILURE_EVAL_STATUSES = {"api_error", "token_exhaustion"}
 
 
 def reorg_output_file(output_file):
-    """De-duplicate and sort by question id and model"""
+    """De-duplicate and sort by question id and model.
+
+    Tolerates torn lines (see reorg_answer_file): an interrupted run's partial
+    append must not crash the resume; the affected judgment re-grades."""
     if not os.path.exists(output_file):
         return
-    
+
     judgments = {}
-    with open(output_file, "r") as fin:
+    dropped = 0
+    with open(output_file, "r", errors="replace") as fin:
         for l in fin:
-            qid = json.loads(l)["question_id"]
-            model = json.loads(l)["model"]
-            key = (qid, model)
+            try:
+                d = json.loads(l)
+                key = (d["question_id"], d["model"])
+            except (json.JSONDecodeError, KeyError, TypeError):
+                dropped += 1
+                continue
             judgments[key] = l
+    if dropped:
+        print(f"reorg_output_file: dropped {dropped} undecodable line(s) from {output_file} "
+              "(torn write from an interrupted run)")
 
     keys = sorted(list(judgments.keys()))
     with open(output_file, "w") as fout:
