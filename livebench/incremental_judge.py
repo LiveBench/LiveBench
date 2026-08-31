@@ -27,8 +27,14 @@ import os
 import threading
 from concurrent.futures import ThreadPoolExecutor
 
-# Tasks whose grading forks test-runner subprocesses; kept serial (see module doc).
-SERIAL_GRADING_TASKS = {"coding_completion", "LCB_generation"}
+# Tasks whose grading forks test-runner subprocesses with wall-clock test
+# timeouts; kept serial (see module doc). This must cover EVERY codegen_metrics
+# task: code_generation/code_completion ran in the parallel lane on the first
+# production run and 113/117 answers false-zeroed — 16 concurrent forked test
+# runners on a fully loaded box starve the 6s per-test timeout (confirmed by
+# replaying the zeros on an idle box: they score 1).
+SERIAL_GRADING_TASKS = {"coding_completion", "LCB_generation",
+                        "code_generation", "code_completion"}
 
 # Mirrors play_a_match_gt's coding_test_case_tasks: these carry test cases
 # instead of a ground_truth field.
