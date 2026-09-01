@@ -351,6 +351,13 @@ def run_agentic_coding_inference(
     config_path = all_traj_folder / 'config.yaml'
     with open(config_path, 'w') as f:
         yaml.dump(config, f)
+    # Identity marker for the resume-harvest below: records WHICH answer row
+    # (display name) this run's trajectories belong to. Without it, harvest
+    # matched on question_id alone and silently attributed another model's
+    # trajectories to the current one (2026-09-01: three "base" rolls were
+    # byte-clones of a checkpoint's run).
+    with open(all_traj_folder / 'display_name.txt', 'w') as f:
+        f.write(model_name)
 
     if answer_file is not None:
         os.makedirs(os.path.dirname(answer_file), exist_ok=True)
@@ -374,6 +381,16 @@ def run_agentic_coding_inference(
                 key=lambda p: p.stat().st_mtime, reverse=True)
             row = None
             for traj_file in candidates:
+                # Only harvest trajectories that provably belong to THIS answer row
+                # (display-name marker written at run start). Unmarked runs (pre-fix)
+                # are never harvested — cross-model/cross-roll attribution is worse
+                # than re-running the question.
+                marker = traj_file.parent.parent / 'display_name.txt'
+                try:
+                    if not marker.is_file() or marker.read_text().strip() != model_name:
+                        continue
+                except OSError:
+                    continue
                 try:
                     with open(traj_file) as f:
                         info = json.load(f).get('info', {})
