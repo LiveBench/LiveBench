@@ -727,23 +727,19 @@ cost_per_million:
   cache_creation: 12.5
   output: 50.0
 ---
-# claude-melon-lp-eap = Claude Fable 5.1 beta (Anthropic early-access API; no public
-# docs page yet — pricing per the Anthropic EAP arrangement relayed by the requesting
-# team, verified 2026-08-28): same rates as claude-fable-5 ($10 in / $12.50 cache write /
-# $50 out) except cache READS are 75% lower ($0.25/M vs $1.00/M). Re-verify against
-# https://docs.anthropic.com pricing when the model is published.
-# Effort ladder assumed identical to claude-fable-5 (same family); run at max effort
-# per the eval request. The server-side-fallback beta + opus-4-8 fallback present in
-# the fable-5 configs are deliberately OMITTED: a silent server-side fallback would mix
-# another model's answers into a new-model eval.
+# Claude Fable 5.1 (max effort). Pricing: same rates as claude-fable-5 ($10 in /
+# $12.50 cache write / $50 out) except cache READS are 75% lower ($0.25/M vs
+# $1.00/M) — verified 2026-08-28 pre-release; re-verify against
+# https://docs.anthropic.com pricing at/after launch.
+# Effort ladder identical to claude-fable-5 (same family); evaluated at max effort.
+# The server-side-fallback beta + opus-4-8 fallback present in the fable-5 configs
+# are deliberately OMITTED: a silent server-side fallback would mix another
+# model's answers into a new-model eval.
 display_name: claude-fable-5-1-max-effort
 api_name:
-  anthropic: claude-melon-lp-eap
+  anthropic: claude-fable-5-1
 aliases:
-  - claude-melon-lp-eap
-  - claude-melon-lp-eap-max
   - claude-fable-5-1-max
-  - claude-fable-5-1-beta-max-effort
 api_kwargs:
   default:
     temperature: 1
