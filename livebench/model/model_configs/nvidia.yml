@@ -13,22 +13,42 @@ api_kwargs:
         enabled: true
 ---
 display_name: nemotron-3-ultra-550b-a55b
+# Published run 2026-08-31 (registry nemotron-3-ultra-550b-a55b-or-20260831-0645-15448,
+# renamed to the canonical name at publish): OpenRouter pinned to BaseTen —
+# 182k output cap (DeepInfra's 16384 cap truncates thinking mid-answer),
+# tool_choice=required for the native agentic path, fp4-NVFP4 checkpoint.
+# Sampling per NVIDIA reproducibility doc (temp 1.0, top_p 0.95, thinking on).
+# Pricing = BaseTen via OpenRouter, verified 2026-08-31 from
+# openrouter.ai/api/v1/models/nvidia/nemotron-3-ultra-550b-a55b/endpoints:
+#   prompt $0.60/M, completion $2.40/M, cache read $0.12/M.
+# agentic max_tokens 49152: BaseTen ctx is 202800 and the output reservation
+# counts against it (131072 + long agent transcripts 400'd).
+aliases:
+  - nemotron-3-ultra-550b-a55b-or
 api_name:
   https://openrouter.ai/api/v1: nvidia/nemotron-3-ultra-550b-a55b
   https://api.deepinfra.com/v1/openai: nvidia/NVIDIA-Nemotron-3-Ultra-550B-A55B
-default_provider: https://api.deepinfra.com/v1/openai
+default_provider: https://openrouter.ai/api/v1
 api_keys:
   https://openrouter.ai/api/v1: OPENROUTER_API_KEY
   https://api.deepinfra.com/v1/openai: DEEPINFRA_API_KEY
+agentic_native_tools: true
 api_kwargs:
   default:
     temperature: 1.0
     top_p: 0.95
-    max_tokens: 16384
+    max_tokens: 131072
+    timeout: 3600
     extra_body:
       reasoning:
         enabled: true
+      provider:
+        order:
+        - baseten
+        allow_fallbacks: false
+  agentic:
+    max_tokens: 49152
 cost_per_million:
-  input: 0.50
-  cached_input: 0.15
-  output: 2.50
+  input: 0.60
+  cached_input: 0.12
+  output: 2.40
