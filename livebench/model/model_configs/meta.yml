@@ -75,3 +75,33 @@ api_kwargs:
       effort: xhigh
       summary: auto
 preserve_reasoning: true
+---
+# Published Meta Model API rates (https://dev.meta.ai/docs/pricing-rate-limits, verified 2026-09-02):
+#   Standard tier muse-spark-1.3: $1.25 in / $0.15 cached / $4.25 out = 0.12x cached
+#   (same rate card as 1.1/1.2; no long-context premium, no intro-pricing expiry).
+#   NOT the -contributor tier ($0.10/$0.002/$0.20), which grants Meta training rights.
+#   Standard tier limits: 3,000 RPM / 4,000,000 TPM. Context 1,048,576.
+#   Effort ladder (https://dev.meta.ai/docs/reasoning): minimal/low/medium/high/xhigh.
+#   Released 2026-09-02 (https://dev.meta.ai/docs/models: "latest version, tuned for
+#   agentic workflows ... improved coding over 1.2").
+display_name: muse-spark-1.3-xhigh
+cost_per_million:
+  input: 1.25
+  cached_input: 0.15
+  output: 4.25
+api_name:
+  openai_responses: muse-spark-1.3
+default_provider: openai_responses
+api_base: https://api.meta.ai/v1
+api_keys:
+  openai_responses: META_API_KEY
+api_kwargs:
+  default:
+    temperature: null
+  openai_responses:
+    max_output_tokens: 262144
+    timeout: 1800
+    reasoning:
+      effort: xhigh
+      summary: auto
+preserve_reasoning: true
