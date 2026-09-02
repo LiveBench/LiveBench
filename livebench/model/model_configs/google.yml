@@ -417,6 +417,28 @@ api_kwargs:
     temperature: 1
     top_p: 0.95
 ---
+# Published Google rates (https://ai.google.dev/gemini-api/docs/pricing, verified 2026-09-02):
+#   $0.75 in / $0.075 cached / $3.75 out (output incl. thinking tokens) = 0.1x cached
+#   INTRO PRICING through 2026-12-31; doubles 2027-01-01 to $1.50 / $0.15 / $7.50 — re-price then.
+#   No long-context tier. thinking_level ladder: low/medium/high (default medium; minimal
+#   rejected for 3.8 Flash — https://ai.google.dev/gemini-api/docs/thinking). Released 2026-09-02.
+display_name: gemini-3.8-flash-high
+cost_per_million:
+  input: 0.75
+  cached_input: 0.075
+  output: 3.75
+api_name:
+  google: gemini-3.8-flash
+aliases:
+  - gemini-3.8-flash-high
+api_kwargs:
+  default:
+    thinking_config:
+      thinking_level: high
+    max_output_tokens: 65536
+    temperature: 1
+    top_p: 0.95
+---
 display_name: gemini-3-flash-preview-minimal
 api_name:
   google: gemini-3-flash-preview
