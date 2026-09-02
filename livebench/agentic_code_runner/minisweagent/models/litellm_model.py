@@ -12,6 +12,7 @@ from tenacity import (
     before_sleep_log,
     retry,
     retry_if_not_exception_type,
+    retry_if_exception_type,
     stop_after_attempt,
     wait_exponential,
 )
@@ -49,6 +50,20 @@ _TIMEOUT_EXC = tuple(c for c in (
     getattr(litellm.exceptions, "Timeout", None),
     getattr(litellm.exceptions, "APITimeoutError", None),
     getattr(litellm.exceptions, "APIConnectionError", None),
+) if isinstance(c, type))
+
+
+# Transient failures the Responses path retries. Unlike _query_completion (which
+# retries everything except a terminal allow-list), _query_responses had NO retry at
+# all: litellm.responses() raised straight into the agent loop, which terminates the
+# question. One 429 at launch therefore killed every agentic question with 0 API calls
+# (muse-spark-1.3, 2026-09-02: 72/72 RateLimitError in the first minute). Positive
+# list on purpose — the chaining fallback inside the function already handles
+# BadRequest/NotFound, and a retried BadRequest would just burn 15 backoffs.
+_RESPONSES_RETRY_EXC = tuple(c for c in (
+    getattr(litellm.exceptions, n, None) for n in (
+        "RateLimitError", "InternalServerError", "ServiceUnavailableError",
+        "APIConnectionError", "Timeout", "APITimeoutError")
 ) if isinstance(c, type))
 
 
@@ -1225,6 +1240,13 @@ class LitellmModel:
                                   'content': [{'type': 'output_text', 'text': text}]})
         return items
 
+    @retry(
+        stop=_length_aware_stop,
+        wait=wait_exponential(multiplier=2, min=4, max=120),
+        before_sleep=before_sleep_log(logger, logging.WARNING),
+        retry=retry_if_exception_type(_RESPONSES_RETRY_EXC),
+        reraise=True,
+    )
     def _query_responses(self, messages: list[dict[str, str]], replay_messages: list[dict[str, str]] | None = None, **kwargs):
         system_messages: list[str] = []
         for message in messages:
