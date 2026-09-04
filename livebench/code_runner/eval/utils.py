@@ -274,6 +274,19 @@ class redirect_stdin(contextlib._RedirectStream):  # type: ignore
     _stream = "stdin"
 
 
+def _current_vm_kb(field: str) -> int:
+    """Current value of a /proc/self/status memory field (VmSize / VmData) in kB;
+    0 where /proc is unavailable (macOS), which leaves the limits unchanged."""
+    try:
+        with open("/proc/self/status") as f:
+            for line in f:
+                if line.startswith(field + ":"):
+                    return int(line.split()[1])
+    except (OSError, ValueError, IndexError):
+        pass
+    return 0
+
+
 def reliability_guard(max_as_limit, max_data_limit, max_stack_limit):
     """
     This disables various destructive functions and prevents the generated code
@@ -304,6 +317,22 @@ def reliability_guard(max_as_limit, max_data_limit, max_stack_limit):
         max_as_limit = max_as_limit * 1024 * 1024
         max_data_limit = max_data_limit * 1024 * 1024
         max_stack_limit = max_stack_limit * 1024 * 1024
+
+        # The limits are a budget for the GRADED code, so they must sit on top of
+        # whatever address space this process already inherited. unsafe_execute
+        # runs in a fork of the caller; when the caller is the eval process
+        # (incremental grading during answer generation: hundreds of pool threads
+        # and their glibc arenas), the child starts out above 30 GB of virtual
+        # memory. A limit BELOW current usage makes every later mmap fail with
+        # ENOMEM — the very next line, `import matplotlib`, dies with "failed to
+        # map segment from shared object" — and every execution-graded coding
+        # answer scores 0 while all other signals look clean (118/118 false
+        # zeros on 2026-09-02, 117/117 on 2026-09-04; a standalone judgment
+        # process, forked from a small parent, graded the same answers
+        # correctly). RLIMIT_DATA counts private anonymous mappings too since
+        # Linux 4.7, so it gets the same treatment.
+        max_as_limit += _current_vm_kb("VmSize") * 1024
+        max_data_limit += _current_vm_kb("VmData") * 1024
 
         if platform.uname().system != "Darwin":
             resource.setrlimit(
