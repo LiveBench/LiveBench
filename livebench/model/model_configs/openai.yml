@@ -1620,3 +1620,26 @@ api_kwargs:
     reasoning:
       effort: max
       summary: auto
+---
+# Published OpenAI rates (https://developers.openai.com/api/docs/pricing, verified 2026-09-04):
+#   gpt-6-astra standard: $10 in / $1 cached / $12.50 cache write / $50 out = 0.1x cached
+#   Long-context tier (>272K input tokens): $20 / $2 / $25 / $75 — NOT modelled here.
+#   Batch/Flex 0.5x, Fast mode 2x (not used). No intro-pricing expiry noted.
+#   Model card (https://developers.openai.com/api/docs/models/gpt-6-astra): context 1,050,000,
+#   max input 922,000, max output 128,000; reasoning effort low/medium/high/xhigh/max;
+#   knowledge cutoff 2026-04-30; rolling out first to Trusted Access Program orgs.
+display_name: gpt-6-astra-max
+cost_per_million:
+  input: 10
+  cached_input: 1
+  output: 50
+api_name:
+  openai_responses: gpt-6-astra
+api_kwargs:
+  default:
+    temperature: null
+    max_completion_tokens: 128000
+    timeout: 1800
+    reasoning:
+      effort: max
+      summary: auto
