@@ -1,0 +1,18 @@
+# Stealth (anonymous) Models — served via OpenRouter
+# Pricing: https://openrouter.ai/stealth/union-alpha (verified 2026-09-16)
+---
+display_name: union-alpha
+api_name:
+  https://openrouter.ai/api/v1: stealth/union-alpha
+default_provider: https://openrouter.ai/api/v1
+api_keys:
+  https://openrouter.ai/api/v1: OPENROUTER_API_KEY
+aliases:
+  - stealth-union-alpha
+cost_per_million:
+  input: 0.0
+  cached_input: 0.0
+  output: 0.0
+api_kwargs:
+  default:
+    max_tokens: 131072
