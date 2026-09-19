@@ -943,6 +943,16 @@ def chat_completion_litellm(
                 stream = False
                 actual_api_kwargs.pop('stream_options', None)
                 continue
+            # Upstream rate limit (e.g. OpenRouter "temporarily rate-limited upstream",
+            # limit_source=upstream_provider_shared_pool) -> back off and retry. litellm's own
+            # num_retries fires within seconds, which is useless against a shared pool that
+            # needs tens of seconds to drain; without this, a 429 burst turned 25 in-flight
+            # union-alpha questions into $ERROR$ rows at once (2026-09-16).
+            if _attempt < _MAX_ATTEMPTS and ('429' in err or 'rate limit' in err or 'rate-limit' in err or 'ratelimit' in err):
+                _wait = 30 * _attempt
+                logger.warning(f"{litellm_model} rate limited (attempt {_attempt}/{_MAX_ATTEMPTS}), sleeping {_wait}s: {e}")
+                time.sleep(_wait)
+                continue
             # Transient network / mid-stream drop -> retry the whole call.
             if _attempt < _MAX_ATTEMPTS and any(s in err for s in _TRANSIENT_STREAM_ERRS):
                 logger.warning(f"{litellm_model} transient stream error (attempt {_attempt}/{_MAX_ATTEMPTS}), retrying: {e}")
