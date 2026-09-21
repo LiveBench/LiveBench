@@ -214,6 +214,37 @@ api_kwargs:
   default:
     reasoning_effort: xhigh
 ---
+display_name: grok-4.7-high
+api_name:
+  https://api.x.ai/v1: grok-4.7
+api_keys:
+  https://api.x.ai/v1: XAI_API_KEY
+# Published xAI rates (docs.x.ai/docs/models, verified 2026-09-21): $2.00 in / $0.50 cached /
+# $6.00 out under 200k prompt tokens. Same rate structure as grok-4.6.
+# Not modelled: prompts >= 200k tokens bill at 2x every rate.
+cost_per_million:
+  input: 2.00
+  cached_input: 0.50
+  output: 6.00
+api_kwargs:
+  default:
+    reasoning_effort: high
+---
+display_name: grok-4.7-xhigh
+api_name:
+  https://api.x.ai/v1: grok-4.7
+api_keys:
+  https://api.x.ai/v1: XAI_API_KEY
+# Same published rates as grok-4.7-high above (verified 2026-09-21).
+# This is the max-effort config for the LiveBench leaderboard row.
+cost_per_million:
+  input: 2.00
+  cached_input: 0.50
+  output: 6.00
+api_kwargs:
+  default:
+    reasoning_effort: xhigh
+---
 display_name: grok-4-fast-reasoning-responses
 api_name:
   xai_responses: grok-4-fast-reasoning
