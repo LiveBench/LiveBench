@@ -245,6 +245,41 @@ api_kwargs:
   default:
     reasoning_effort: xhigh
 ---
+# Grok 4.7 at xhigh effort routed through xAI's RESPONSES API (provider
+# `xai_responses`) instead of the OpenAI-compatible chat/completions endpoint the
+# entry above uses. Same model, same effort, same rates — the endpoint is the only
+# difference, so this row is directly comparable to grok-4.7-xhigh.
+# Verified 2026-09-21 against GET https://api.x.ai/v1/language-models:
+#   prompt_text_token_price 20000 / cached 5000 / completion 60000 (= $2.00/$0.50/$6.00
+#   per 1M), capabilities.reasoning_effort = [low, medium, high, xhigh],
+#   default_reasoning_effort = high — so xhigh MUST be declared or the run silently
+#   lands on `high`.
+# NB: xAI doubles rates above long_context_threshold = 200000 tokens
+#   ($4.00 / $1.00 / $12.00 per 1M); LiveBench prompts sit far below that.
+display_name: grok-4.7-xhigh-responses
+api_name:
+  xai_responses: grok-4.7
+default_provider: xai_responses
+api_keys:
+  xai_responses: XAI_API_KEY
+cost_per_million:
+  input: 2.00
+  cached_input: 0.50
+  output: 6.00
+api_kwargs:
+  xai_responses:
+    # Responses-API spelling is reasoning.effort; `reasoning_effort` is the
+    # chat/completions form and is NOT forwarded on this path.
+    reasoning:
+      effort: xhigh
+    # Explicit cap, never unset: an unset cap inherits whatever default the serving
+    # provider applies. The chat/completions grok-4.7-xhigh run on 2026-09-21 produced
+    # a 165,745-token answer (p99 104,455), so 131072 would truncate the top ~1%.
+    # 262144 verified accepted by POST /v1/responses on 2026-09-21.
+    max_output_tokens: 262144
+    # xhigh traces run long; don't let the client give up before the model finishes.
+    timeout: 3600
+---
 display_name: grok-4-fast-reasoning-responses
 api_name:
   xai_responses: grok-4-fast-reasoning
