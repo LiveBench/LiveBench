@@ -1644,6 +1644,10 @@ api_kwargs:
       effort: max
       summary: auto
 ---
+# GPT-6 Sol. Published OpenAI rates
+# (https://developers.openai.com/api/docs/pricing, verified 2026-09-22):
+#   $2.00 in / $0.20 cached / $10.00 out = 0.10x cached ratio
+# Standard processing tier. Not promotional — no expiry published.
 display_name: gpt-6-sol-max
 cost_per_million:
   input: 2
@@ -1660,6 +1664,10 @@ api_kwargs:
       effort: max
       summary: auto
 ---
+# GPT-6 Luna. Published OpenAI rates
+# (https://developers.openai.com/api/docs/pricing, verified 2026-09-22):
+#   $0.10 in / $0.01 cached / $0.50 out = 0.10x cached ratio
+# Standard processing tier. Not promotional — no expiry published.
 display_name: gpt-6-luna-max
 cost_per_million:
   input: 0.1
