@@ -1643,3 +1643,35 @@ api_kwargs:
     reasoning:
       effort: max
       summary: auto
+---
+display_name: gpt-6-sol-max
+cost_per_million:
+  input: 2
+  cached_input: 0.2
+  output: 10
+api_name:
+  openai_responses: gpt-6-sol
+api_kwargs:
+  default:
+    temperature: null
+    max_completion_tokens: 128000
+    timeout: 1800
+    reasoning:
+      effort: max
+      summary: auto
+---
+display_name: gpt-6-luna-max
+cost_per_million:
+  input: 0.1
+  cached_input: 0.01
+  output: 0.5
+api_name:
+  openai_responses: gpt-6-luna
+api_kwargs:
+  default:
+    temperature: null
+    max_completion_tokens: 128000
+    timeout: 1800
+    reasoning:
+      effort: max
+      summary: auto
