@@ -89,8 +89,10 @@ def connections_process_results(ground_truth: str, llm_answer: str, debug=False)
     ground_truth_groups = group_words(ground_truth_words)
 
     correct_groups = 0
+    unmatched_ground_truth_groups = list(ground_truth_groups)
     for llm_group in llm_groups:
-        if llm_group in ground_truth_groups:
+        if llm_group in unmatched_ground_truth_groups:
+            unmatched_ground_truth_groups.remove(llm_group)
             correct_groups += 1
 
     if debug and correct_groups / len(ground_truth_groups) < 1:
