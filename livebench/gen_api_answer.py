@@ -387,6 +387,13 @@ def run_questions(
                 pool_size = max(parallel * 8, 256)
                 gate = threading.Semaphore(parallel)
                 watch_stop = threading.Event()
+                # Shrink is enforced by a target/in-flight counter rather than by the
+                # watcher acquiring permits: Semaphore hands permits out FIFO, so a
+                # watcher queued behind hundreds of waiting workers would only get
+                # its permits after they all started (shrink never took effect).
+                target = [parallel]
+                inflight = [0]
+                inflight_lock = threading.Lock()
 
                 def _watch_parallel_override(cur=parallel):
                     while not watch_stop.is_set():
@@ -400,9 +407,7 @@ def run_questions(
                             if v > cur:
                                 for _ in range(v - cur):
                                     gate.release()
-                            else:
-                                for _ in range(cur - v):
-                                    gate.acquire()  # takes effect as workers finish
+                            target[0] = v  # shrink takes effect as workers finish
                             cur = v
                         watch_stop.wait(10)
 
@@ -411,10 +416,18 @@ def run_questions(
             def _gated_get_answer(**kw):
                 if gate is not None:
                     gate.acquire()
+                    while True:
+                        with inflight_lock:
+                            if inflight[0] < target[0]:
+                                inflight[0] += 1
+                                break
+                        time.sleep(1)
                 try:
                     ans = get_answer(**kw)
                 finally:
                     if gate is not None:
+                        with inflight_lock:
+                            inflight[0] -= 1
                         gate.release()
                 if grading_pool is not None:
                     grading_pool.submit(kw['question'], ans)
