@@ -1683,3 +1683,48 @@ api_kwargs:
     reasoning:
       effort: max
       summary: auto
+---
+# GPT-6.1 Sol. Published OpenAI rates
+# (https://developers.openai.com/api/docs/pricing and
+#  https://developers.openai.com/api/docs/models/gpt-6.1-sol, verified 2026-09-29):
+#   $2.00 in / $0.10 cached / $2.50 cache write / $10.00 out = 0.05x cached ratio
+#   (NOT gpt-6-sol's 0.10x — the model card states cached = 5% of input).
+# Standard processing tier, short context (<=272K input). Long context (>272K) is
+# 2x input/cache — NOT modelled here. Not promotional — no expiry published.
+# Model card: context 1,050,000, max output 128,000; effort low..xhigh/max.
+display_name: gpt-6.1-sol-xhigh
+cost_per_million:
+  input: 2
+  cached_input: 0.1
+  output: 10
+api_name:
+  openai_responses: gpt-6.1-sol
+api_kwargs:
+  default:
+    temperature: null
+    max_completion_tokens: 128000
+    timeout: 1800
+    reasoning:
+      effort: xhigh
+      summary: auto
+---
+# GPT-6.1 Sol. Published OpenAI rates
+# (https://developers.openai.com/api/docs/pricing and
+#  https://developers.openai.com/api/docs/models/gpt-6.1-sol, verified 2026-09-29):
+#   $2.00 in / $0.10 cached / $2.50 cache write / $10.00 out = 0.05x cached ratio
+# Standard processing tier, short context (<=272K input). Not promotional.
+display_name: gpt-6.1-sol-max
+cost_per_million:
+  input: 2
+  cached_input: 0.1
+  output: 10
+api_name:
+  openai_responses: gpt-6.1-sol
+api_kwargs:
+  default:
+    temperature: null
+    max_completion_tokens: 128000
+    timeout: 1800
+    reasoning:
+      effort: max
+      summary: auto
