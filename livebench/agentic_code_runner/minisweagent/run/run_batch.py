@@ -5,6 +5,8 @@
 
 import concurrent.futures
 import json
+import os
+import subprocess
 import threading
 import time
 import traceback
@@ -32,6 +34,14 @@ app = typer.Typer(rich_markup_mode="rich", add_completion=False)
 
 
 _OUTPUT_FILE_LOCK = threading.Lock()
+
+# Container startup (docker run + setup execs) is bounded separately from the
+# agent phase. On a snapshot-restored docker disk that hydrates lazily, 50
+# simultaneous starts drove load past 1000 and every setup exec hit its timeout
+# (gpt-6.1-sol-xhigh, 2026-09-29: 50/72 run_error before any model call). Only
+# startup is serialised; agents still run --workers wide.
+_STARTUP_SLOTS = threading.BoundedSemaphore(int(os.getenv("MSWEA_STARTUP_CONCURRENCY", "8")))
+_STARTUP_ATTEMPTS = 2
 
 
 class ProgressTrackingAgent(DefaultAgent):
@@ -85,6 +95,21 @@ def get_sb_environment(config: dict, instance: dict) -> Environment:
     return env
 
 
+def start_sb_environment(config: dict, instance: dict, progress_manager: RunBatchProgressManager) -> Environment:
+    """get_sb_environment under a startup slot, retrying a startup timeout (no model call has happened yet)."""
+    instance_id = instance["instance_id"]
+    progress_manager.update_instance_status(instance_id, "Waiting for startup slot")
+    with _STARTUP_SLOTS:
+        for attempt in range(1, _STARTUP_ATTEMPTS + 1):
+            progress_manager.update_instance_status(instance_id, "Pulling/starting docker")
+            try:
+                return get_sb_environment(config, instance)
+            except subprocess.TimeoutExpired as e:
+                if attempt == _STARTUP_ATTEMPTS:
+                    raise
+                logger.warning(f"Startup timed out for {instance_id} (attempt {attempt}/{_STARTUP_ATTEMPTS}), retrying: {e}")
+
+
 def update_preds_file(output_path: Path, instance_id: str, model_name: str, result: str):
     """Update the output JSON file with results from a single instance."""
     with _OUTPUT_FILE_LOCK:
@@ -127,7 +152,6 @@ def process_instance(
     task = instance["problem_statement"]
 
     progress_manager.on_instance_start(instance_id)
-    progress_manager.update_instance_status(instance_id, "Pulling/starting docker")
 
     agent = None
     extra_info = None
@@ -139,7 +163,7 @@ def process_instance(
         agent_config["time_limit"] = instance["time_limit"]
 
     try:
-        env = get_sb_environment(config, instance)
+        env = start_sb_environment(config, instance, progress_manager)
 
         # Check if we're in replay mode
         if replay_traj_dir is not None:
