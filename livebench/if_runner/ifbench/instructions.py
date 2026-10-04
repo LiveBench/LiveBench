@@ -1276,13 +1276,19 @@ class NoConsecutiveFirstLetterChecker(Instruction):
 		return []
 
 	def check_following(self, value):
-		"""Checks if no two consecutive words in the response share the same first letter."""
-		words = value.lower().translate(str.maketrans('', '', string.punctuation)).split()
-		while '' in words:
-			words.remove('')
-		for i in range(len(words) - 1):
-			if words[i][0] == words[i + 1][0]:
-				return False
+		"""Checks if no two consecutive words in the response share the same first letter.
+
+		Words are compared per line: the last word of a heading/line and the
+		first word of the next line are not consecutive in any reading order,
+		so a newline resets the comparison.
+		"""
+		for line in value.split('\n'):
+			words = line.lower().translate(str.maketrans('', '', string.punctuation)).split()
+			while '' in words:
+				words.remove('')
+			for i in range(len(words) - 1):
+				if words[i][0] == words[i + 1][0]:
+					return False
 		return True
 
 
@@ -1429,11 +1435,21 @@ class SubBulletPointsChecker(Instruction):
 		return []
 
 	def check_following(self, value):
-		"""Checks that there is at least one * that starts a line and each * that starts a line
-		is followed by at least one line starting with -."""
-		bullets = value.split('*')
-		for bullet in bullets[1:]:
-			if "-" not in bullet:
+		"""Checks that there is at least one * bullet line and that each * bullet
+		line is followed by at least one - sub-bullet line before the next bullet.
+
+		Parses lines rather than splitting on '*', which broke on markdown bold
+		(**text** produced an empty fragment that could never contain '-') and
+		accepted any stray hyphen (e.g. 'early-morning') as a sub-bullet.
+		"""
+		lines = value.split('\n')
+		bullet_idx = [i for i, line in enumerate(lines)
+		              if line.lstrip().startswith('* ') or line.strip() == '*']
+		if not bullet_idx:
+			return False
+		for pos, i in enumerate(bullet_idx):
+			nxt = bullet_idx[pos + 1] if pos + 1 < len(bullet_idx) else len(lines)
+			if not any(l.lstrip().startswith('- ') for l in lines[i + 1:nxt]):
 				return False
 		return True
 
