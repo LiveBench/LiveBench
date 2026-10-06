@@ -80,9 +80,11 @@ api_kwargs:
 # rates $1.36 / $0.14 / $4.18 (shown struck through); no end date is published. When the
 # discount ends, re-price this block to the list rates. Thinking tokens bill as output.
 # reasoning_effort defaults OFF on this model; "high" is the maximum setting (high|none).
-# max_tokens 131072: at 65536 the model exhausted its budget on 30 integrals_with_game
-# questions (finish_reason=length, blank answer). The API accepts up to at least 262144
-# (verified 2026-10-06); the model card publishes no output cap (context 524288).
+# max_tokens 262144: at 65536 the model exhausted its budget on 161 regular questions
+# (finish_reason=length, blank answer); at 131072, 68 of those retries still exhausted
+# (connections_3, consecutive_events, integrals_with_game, coding). 262144 is the largest
+# value the API was verified to accept (2026-10-06); the model card publishes no output
+# cap (context 524288).
 display_name: mistral-large-4-high
 cost_per_million:
   input: 0.68
@@ -96,6 +98,6 @@ agentic_native_tools: true
 api_kwargs:
   default:
     temperature: 0.7
-    max_tokens: 131072
+    max_tokens: 262144
     reasoning_effort: high
     stream: true
