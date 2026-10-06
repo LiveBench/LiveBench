@@ -60,6 +60,30 @@ def retry_log(retry_state):
     logger.warning("Exception stack trace:", exc_info=exception)
 
 
+def _split_content_chunks(content) -> tuple[str, str]:
+    """(text, reasoning) from a message/delta content that may be a chunk list.
+
+    Mistral reasoning models (reasoning_effort set) return content as a list:
+    [{type:'thinking', thinking:[{type:'text', text:...}]}, {type:'text', text:...}],
+    and stream deltas mix plain strings with such lists. Plain strings pass through.
+    """
+    if content is None:
+        return '', ''
+    if isinstance(content, str):
+        return content, ''
+    text, reasoning = [], []
+    for chunk in content:
+        chunk = chunk if isinstance(chunk, dict) else chunk.model_dump()
+        if chunk.get('type') == 'text':
+            text.append(chunk.get('text') or '')
+        elif chunk.get('type') == 'thinking':
+            for inner in chunk.get('thinking') or []:
+                inner = inner if isinstance(inner, dict) else inner.model_dump()
+                if inner.get('type') == 'text':
+                    reasoning.append(inner.get('text') or '')
+    return ''.join(text), ''.join(reasoning)
+
+
 @retry(
     stop=stop_after_attempt(API_MAX_RETRY),
     wait=wait_fixed(API_RETRY_SLEEP_MIN),
@@ -121,7 +145,9 @@ def chat_completion_openai(
             try:
                 for chunk in stream:
                     if chunk.choices and len(chunk.choices) > 0 and chunk.choices[0].delta.content is not None:
-                        message += chunk.choices[0].delta.content
+                        _text, _thinking = _split_content_chunks(chunk.choices[0].delta.content)
+                        message += _text
+                        reasoning_text += _thinking
                     if chunk.choices and len(chunk.choices) > 0:
                         _r = getattr(chunk.choices[0].delta, 'reasoning_content', None)
                         if _r:
@@ -152,8 +178,8 @@ def chat_completion_openai(
             if isinstance(response.choices[0], str):
                 message = response.choices[0]
             else:
-                message = response.choices[0].message.content
-                reasoning_text = getattr(response.choices[0].message, 'reasoning_content', None) or ''
+                message, reasoning_text = _split_content_chunks(response.choices[0].message.content)
+                reasoning_text = getattr(response.choices[0].message, 'reasoning_content', None) or reasoning_text
             input_tokens = None
             cached_tokens = None
             if response.usage is not None:
@@ -646,51 +672,17 @@ def chat_completion_anthropic(model: str, messages: Conversation, temperature: f
     return message_text, tokens, {'fallback_model': fallback_model} if fallback_model else None
 
 
-@retry(
-    stop=stop_after_attempt(API_MAX_RETRY),
-    wait=wait_fixed(API_RETRY_SLEEP_MIN),
-    retry=retry_if_exception_type(Exception),
-    after=retry_log,
-    retry_error_callback=retry_fail
-)
-def chat_completion_mistral(model: str, messages: Conversation, temperature: float, max_tokens: int, model_api_kwargs: API_Kwargs | None = None, api_dict: dict[str, str] | None = None, stream: bool = False) -> tuple[str, int]:
-    if api_dict is not None and "api_key" in api_dict:
-        api_key = api_dict["api_key"]
-    else:
-        api_key = os.environ["MISTRAL_API_KEY"]
-
-    from mistralai import UNSET, Mistral
-    client = Mistral(api_key=api_key)
-
-    # Set up API kwargs
-    api_kwargs: API_Kwargs = {
-        'max_tokens': max_tokens,
-        'temperature': temperature
+def chat_completion_mistral(model: str, messages: Conversation, temperature: float, max_tokens: int, model_api_kwargs: API_Kwargs | None = None, api_dict: dict[str, str] | None = None, stream: bool = False) -> tuple[str, int, dict[str, Any] | None]:
+    # Mistral's chat API is OpenAI-compatible, so it shares chat_completion_openai (usage,
+    # cached tokens, reasoning capture) instead of the mistralai SDK, which the eval venv
+    # does not ship (retries come from chat_completion_openai). Reasoning (reasoning_effort in api_kwargs) comes back as content
+    # chunk lists; _split_content_chunks routes the thinking to metadata['reasoning_content'].
+    api_dict = {
+        'api_key': (api_dict or {}).get('api_key') or os.environ['MISTRAL_API_KEY'],
+        'api_base': (api_dict or {}).get('api_base') or 'https://api.mistral.ai/v1',
     }
-    if model_api_kwargs is not None:
-        model_api_kwargs = {key: value for key, value in model_api_kwargs.items()}
-        api_kwargs.update(model_api_kwargs)
+    return chat_completion_openai(model, messages, temperature, max_tokens, model_api_kwargs, api_dict, stream)
 
-    actual_api_kwargs = {key: (value if value is not None else UNSET) for key, value in api_kwargs.items()}
-
-    chat_response = client.chat.complete(
-        model=model,
-        messages=messages,
-        **actual_api_kwargs
-    )
-
-    if chat_response is None:
-        raise Exception("No response returned from Mistral")
-    elif not hasattr(chat_response, 'choices') or not chat_response.choices:
-        raise Exception("No choices returned from Mistral")
-
-    message = chat_response.choices[0].message.content
-    if message is None:
-        raise Exception("No message returned from Mistral")
-
-    num_tokens = chat_response.usage.completion_tokens if hasattr(chat_response, 'usage') and hasattr(chat_response.usage, 'completion_tokens') else None
-
-    return message.strip(), num_tokens
 
 @retry(
     stop=stop_after_attempt(API_MAX_RETRY),
