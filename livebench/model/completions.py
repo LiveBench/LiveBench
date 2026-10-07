@@ -36,6 +36,44 @@ def anthropic_api_key(model: str) -> str | None:
         return os.environ['ANTHROPIC_SKIP_ZDR_API_KEY']
     return os.environ.get('ANTHROPIC_API_KEY')
 
+
+def litellm_output_tokens(usage: Any, provider_total_tokens: int | None = None) -> int | None:
+    """Billed output tokens from a litellm Usage: completion_tokens, plus reasoning_tokens only when
+    the provider accounts reasoning OUTSIDE completion_tokens.
+
+    completion_tokens_details.reasoning_tokens is a breakdown, not an addend, for most providers:
+    OpenAI, Anthropic and Mistral include thinking in completion_tokens, and when the provider
+    reports no reasoning count litellm fills one in from its own token_counter over the reasoning
+    text. Adding it unconditionally double-counted thinking (Mistral Large 4: recorded output was
+    ~2x; every exhausted answer corrected to exactly max_tokens once litellm's estimate was taken
+    back out). xAI is the exception: it bills reasoning outside completion_tokens and says so in
+    total_tokens (= prompt + completion + reasoning). That invariant is the only signal used here --
+    it is the same test litellm's own xAI transform applies before folding, so it also stays right
+    on litellm versions that already fold xAI reasoning in (total then equals prompt + completion).
+
+    provider_total_tokens: the provider's own total for streamed responses, whose usage is rebuilt
+    by stream_chunk_builder with total recomputed as prompt + completion.
+    """
+    completion = getattr(usage, 'completion_tokens', None)
+    if completion is None:
+        return None
+    _ctd = getattr(usage, 'completion_tokens_details', None)
+    reasoning = (getattr(_ctd, 'reasoning_tokens', None) if _ctd is not None else None) or 0
+    prompt = getattr(usage, 'prompt_tokens', None) or 0
+    total = provider_total_tokens if provider_total_tokens is not None else getattr(usage, 'total_tokens', None)
+    if reasoning and total == prompt + completion + reasoning:
+        return completion + reasoning
+    return completion
+
+
+def litellm_stream_provider_total(chunks: list) -> int | None:
+    """total_tokens from the last streamed chunk that carries usage (the provider's own figure)."""
+    for chunk in reversed(chunks):
+        usage = getattr(chunk, 'usage', None)
+        if usage is not None:
+            return getattr(usage, 'total_tokens', None)
+    return None
+
 # model api function takes in Model, list of messages, temperature, max tokens, api kwargs, and an api dict
 # returns tuple of (output, num tokens)
 Conversation = list[dict[str, str]]
@@ -914,6 +952,7 @@ def chat_completion_litellm(
                 if resp.usage is not None and last_usage is not None:
                     if not resp.usage.prompt_tokens and getattr(last_usage, 'prompt_tokens', None):
                         resp.usage.prompt_tokens = last_usage.prompt_tokens
+                resp._livebench_provider_total_tokens = litellm_stream_provider_total(chunks)
             return resp
         finally:
             if _call_client is not None:
@@ -960,19 +999,10 @@ def chat_completion_litellm(
     cached_tokens = None
     token_exhaustion = False
     if response.usage is not None:
-        num_tokens = response.usage.completion_tokens
-        # Thinking models bill reasoning as OUTPUT but report it OUTSIDE completion_tokens,
-        # under completion_tokens_details.reasoning_tokens. chat_completion_openai already
-        # folds it in (see the non-litellm path); this path did not, so every run made with
-        # --use-litellm under-counted output tokens -- and therefore cost -- by the whole
-        # reasoning trace. Measured on xAI: grok-4.5 completion=1015 + reasoning=1935,
-        # grok-4.6 completion=237 + reasoning=1901, i.e. a ~2-9x undercount depending on how
-        # verbose the visible answer is. Note usage.reasoning_tokens (top-level) is None for
-        # these providers, so only the details object is authoritative.
-        _ctd = getattr(response.usage, 'completion_tokens_details', None)
-        _reasoning = getattr(_ctd, 'reasoning_tokens', None) if _ctd is not None else None
-        if num_tokens is not None and _reasoning:
-            num_tokens += _reasoning
+        # Reasoning is added only where the provider bills it outside completion_tokens (xAI:
+        # grok-4.5 completion=1015 + reasoning=1935); elsewhere it is already included and
+        # adding it double-counts. See litellm_output_tokens.
+        num_tokens = litellm_output_tokens(response.usage, getattr(response, '_livebench_provider_total_tokens', None))
         input_tokens = response.usage.prompt_tokens
         cached_tokens = getattr(response.usage, 'cache_read_input_tokens', None) or 0
         if not cached_tokens and hasattr(response.usage, 'prompt_tokens_details') and response.usage.prompt_tokens_details is not None:
