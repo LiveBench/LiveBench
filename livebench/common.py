@@ -126,7 +126,13 @@ def get_categories_tasks(bench_name: str):
 
     else:
         # specify a category or task
-        category_name = split_bench_name[1].split('_')[0]
+        # The CLI bench-scope name IS the HF dataset name for the category
+        # (e.g. "data_analysis" -> livebench/data_analysis). Do NOT split on
+        # underscores: "data_analysis".split('_')[0] == "data" and
+        # "instruction_following".split('_')[0] == "instruction", both of which
+        # try to load nonexistent HF repos (DatasetNotFoundError, killed
+        # benchmark run #26 at data_analysis).
+        category_name = split_bench_name[1]
 
         categories = {category_name: get_hf_dataset(category_name)}
 
