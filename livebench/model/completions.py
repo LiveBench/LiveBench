@@ -37,9 +37,10 @@ def anthropic_api_key(model: str) -> str | None:
     return os.environ.get('ANTHROPIC_API_KEY')
 
 
-def litellm_output_tokens(usage: Any, provider_total_tokens: int | None = None) -> int | None:
-    """Billed output tokens from a litellm Usage: completion_tokens, plus reasoning_tokens only when
-    the provider accounts reasoning OUTSIDE completion_tokens.
+def billed_output_tokens(usage: Any, provider_total_tokens: int | None = None) -> int | None:
+    """Billed output tokens from an OpenAI-shaped usage (litellm Usage or openai SDK CompletionUsage):
+    completion_tokens, plus reasoning_tokens only when the provider accounts reasoning OUTSIDE
+    completion_tokens.
 
     completion_tokens_details.reasoning_tokens is a breakdown, not an addend, for most providers:
     OpenAI, Anthropic and Mistral include thinking in completion_tokens, and when the provider
@@ -58,7 +59,8 @@ def litellm_output_tokens(usage: Any, provider_total_tokens: int | None = None) 
     if completion is None:
         return None
     _ctd = getattr(usage, 'completion_tokens_details', None)
-    reasoning = (getattr(_ctd, 'reasoning_tokens', None) if _ctd is not None else None) or 0
+    # some OpenAI-compatible providers report it top-level instead of under completion_tokens_details
+    reasoning = (getattr(_ctd, 'reasoning_tokens', None) if _ctd is not None else None) or getattr(usage, 'reasoning_tokens', None) or 0
     prompt = getattr(usage, 'prompt_tokens', None) or 0
     total = provider_total_tokens if provider_total_tokens is not None else getattr(usage, 'total_tokens', None)
     if reasoning and total == prompt + completion + reasoning:
@@ -191,9 +193,8 @@ def chat_completion_openai(
                         if _r:
                             reasoning_text += _r
                     if chunk.usage is not None:
-                        num_tokens = chunk.usage.completion_tokens
-                        if hasattr(chunk.usage, 'reasoning_tokens'):
-                            num_tokens += chunk.usage.reasoning_tokens
+                        # raw provider usage (no litellm rewrite), so its own total_tokens is intact
+                        num_tokens = billed_output_tokens(chunk.usage)
                         input_tokens = chunk.usage.prompt_tokens
                         if hasattr(chunk.usage, 'prompt_tokens_details') and chunk.usage.prompt_tokens_details is not None:
                             cached_tokens = chunk.usage.prompt_tokens_details.cached_tokens
@@ -221,11 +222,7 @@ def chat_completion_openai(
             input_tokens = None
             cached_tokens = None
             if response.usage is not None:
-                num_tokens = response.usage.completion_tokens
-                if hasattr(response.usage, 'completion_tokens_details') and hasattr(response.usage.completion_tokens_details, 'reasoning_tokens'):
-                    reasoning_tokens = response.usage.completion_tokens_details.reasoning_tokens
-                    if num_tokens is not None and reasoning_tokens is not None:
-                        num_tokens += reasoning_tokens
+                num_tokens = billed_output_tokens(response.usage)
                 input_tokens = response.usage.prompt_tokens
                 if hasattr(response.usage, 'prompt_tokens_details') and response.usage.prompt_tokens_details is not None:
                     cached_tokens = response.usage.prompt_tokens_details.cached_tokens
@@ -1001,8 +998,8 @@ def chat_completion_litellm(
     if response.usage is not None:
         # Reasoning is added only where the provider bills it outside completion_tokens (xAI:
         # grok-4.5 completion=1015 + reasoning=1935); elsewhere it is already included and
-        # adding it double-counts. See litellm_output_tokens.
-        num_tokens = litellm_output_tokens(response.usage, getattr(response, '_livebench_provider_total_tokens', None))
+        # adding it double-counts. See billed_output_tokens.
+        num_tokens = billed_output_tokens(response.usage, getattr(response, '_livebench_provider_total_tokens', None))
         input_tokens = response.usage.prompt_tokens
         cached_tokens = getattr(response.usage, 'cache_read_input_tokens', None) or 0
         if not cached_tokens and hasattr(response.usage, 'prompt_tokens_details') and response.usage.prompt_tokens_details is not None:
