@@ -1173,9 +1173,9 @@ class LitellmModel:
             result['input_tokens'] = res.usage.prompt_tokens
             # Reasoning is added only where the provider bills it outside completion_tokens
             # (xAI grok-4.6: completion=237 vs reasoning=1901 on one call); elsewhere it is
-            # already included and adding it double-counts. See litellm_output_tokens.
-            from livebench.model.completions import litellm_output_tokens
-            result['output_tokens'] = litellm_output_tokens(
+            # already included and adding it double-counts. See billed_output_tokens.
+            from livebench.model.completions import billed_output_tokens
+            result['output_tokens'] = billed_output_tokens(
                 res.usage, getattr(res, '_livebench_provider_total_tokens', None)
             ) or 0
             # OpenAI/Anthropic report cache reads under prompt_tokens_details; Gemini-via-litellm
