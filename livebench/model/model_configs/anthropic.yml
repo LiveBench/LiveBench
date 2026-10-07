@@ -758,3 +758,59 @@ cost_per_million:
   cached_input: 0.25
   cache_creation: 12.5
   output: 50.0
+---
+# Claude Haiku 5.5 (max effort). Released 2026-10-07.
+# Published Anthropic rates (https://platform.claude.com/docs/en/about-claude/pricing, verified 2026-10-07):
+#   prompts <=100k tokens: $0.10 in / $0.01 cache read / $0.125 cache write (5m) / $0.50 out
+#   prompts  >100k tokens: $0.50 in / $0.05 cache read / $0.625 cache write (5m) / $2.50 out
+# cost_per_million holds the <=100k tier only (the config supports one rate), so any
+# call whose prompt exceeds 100k tokens (long agentic trajectories) is under-costed 5x.
+# Effort default is medium; max and xhigh are supported. Thinking cannot be disabled at
+# xhigh/max (400), so adaptive thinking is set explicitly. temperature 1 = API default
+# (non-default sampling params are rejected); set so the harness default is overridden.
+display_name: claude-haiku-5-5-max-effort
+api_name:
+  anthropic: claude-haiku-5-5
+aliases:
+  - claude-haiku-5-5-max
+api_kwargs:
+  default:
+    temperature: 1
+    # litellm path defaults to a 600s stream timeout; see claude-fable-5-1-max-effort.
+    timeout: 1800
+    extra_body:
+      output_config:
+        effort: max
+    thinking:
+      type: adaptive
+    max_tokens: 128000
+cost_per_million:
+  input: 0.10
+  cached_input: 0.01
+  cache_creation: 0.125
+  output: 0.50
+---
+# Claude Haiku 5.5 (xhigh effort). Same rates and caveats as claude-haiku-5-5-max-effort:
+# Published Anthropic rates (https://platform.claude.com/docs/en/about-claude/pricing, verified 2026-10-07):
+#   prompts <=100k tokens: $0.10 in / $0.01 cache read / $0.125 cache write (5m) / $0.50 out
+#   prompts  >100k tokens: 5x those rates; cost_per_million holds the <=100k tier only.
+display_name: claude-haiku-5-5-xhigh-effort
+api_name:
+  anthropic: claude-haiku-5-5
+aliases:
+  - claude-haiku-5-5-xhigh
+api_kwargs:
+  default:
+    temperature: 1
+    timeout: 1800
+    extra_body:
+      output_config:
+        effort: xhigh
+    thinking:
+      type: adaptive
+    max_tokens: 128000
+cost_per_million:
+  input: 0.10
+  cached_input: 0.01
+  cache_creation: 0.125
+  output: 0.50
