@@ -2,6 +2,7 @@ import copy
 import json
 import logging
 import os
+import re
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -41,6 +42,16 @@ LENGTH_FINISH_REASON_MAX_ATTEMPTS = 3
 # fail fast -> retry -> error out, so the rest of the run survives. 600s matches the
 # gemini genai path's http timeout; a real completion never legitimately needs longer.
 _REQUEST_TIMEOUT_S = 600
+
+
+def _is_genai_gemini(model_name: str) -> bool:
+    """Gemini 3 and every later generation take the genai SDK path (native function
+    calls + thought signatures); a bare 'gemini-3' substring check silently routed
+    newer generations through litellm instead."""
+    m = re.search(r'gemini-(\d+)', model_name)
+    return bool(m) and int(m.group(1)) >= 3
+
+
 # A provider that keeps timing out / refusing the connection will not recover on the
 # 15th try, and each timed-out attempt already burned up to _REQUEST_TIMEOUT_S; cap these
 # low so one bad endpoint can't spend _DEFAULT_MAX_ATTEMPTS x 600s (~2.5h) on a single
@@ -300,10 +311,10 @@ class LitellmModelConfig:
     # served alias lacks the family token (e.g. "r2e_step3" vs "qwen38-27b-base",
     # 2026-08-30), so an eval that needs channel parity should set this explicitly.
     native_tools: bool | None = None
-    # gemini-3 uses the genai SDK by default; False routes it through litellm (the
+    # Gemini 3+ uses the genai SDK by default; False routes it through litellm (the
     # replay keeps provider_specific_fields nested so thought signatures survive)
     native_gemini: bool = True
-    # gemini-3 via the Interactions API (explicit content_blocked / incomplete
+    # Gemini 3+ via the Interactions API (explicit content_blocked / incomplete
     # statuses instead of finish_reason guessing); False falls back to generateContent
     gemini_interactions: bool = True
 
@@ -977,7 +988,7 @@ class LitellmModel:
             return True
         if "inkling" in mn.lower() and self.config.api_type == "completion":     # Thinking Machines Inkling (Tinker OpenAI-compat chat, self-invoking tool_calls); same tool_calls path
             return True
-        if self.config.native_gemini and 'gemini-3' in mn:                      # Gemini genai generate_content (function_call parts)
+        if self.config.native_gemini and _is_genai_gemini(mn):                 # Gemini genai generate_content (function_call parts)
             return True
         return False
 
@@ -1516,7 +1527,7 @@ class LitellmModel:
             else:
                 actual_messages.append(message_copy)
 
-        if self.config.native_gemini and 'gemini-3' in self.config.model_name:
+        if self.config.native_gemini and _is_genai_gemini(self.config.model_name):
             # Native tools -> generate_content: it's the only Gemini path that can FORCE
             # tool use (tool_config mode=ANY); the Interactions API supports tools too and
             # has nicer status/signature handling, but rejects tool_config, so under the
