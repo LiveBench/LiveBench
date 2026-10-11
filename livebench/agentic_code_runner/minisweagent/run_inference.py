@@ -277,6 +277,7 @@ def run_agentic_coding_inference(
     if model_api_kwargs is not None:
         model_api_kwargs = {key: value for key, value in model_api_kwargs.items()}
         api_kwargs.update(model_api_kwargs)
+    api_kwargs.pop('gemini_continuation', None)  # regular-lane only (completions.py)
 
     all_traj_folder = LIVE_BENCH_ROOT_PATH / f"agentic_code_runner/data/trajectories" / run_id
     all_traj_folder.mkdir(parents=True, exist_ok=True)

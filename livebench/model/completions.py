@@ -413,6 +413,115 @@ def gemini_custom_wait(retry_state):
     # other errors might indicate rate limiting, wait for these
     return val
 
+GEMINI_REST_BASE = "https://generativelanguage.googleapis.com/v1beta"
+# Each chunk is capped server-side (32768 tokens non-streaming), so 40 chunks
+# covers a full 1M-token output window.
+GEMINI_MAX_CHUNKS = 40
+GEMINI_CHUNK_ATTEMPTS = 6
+
+
+def _gemini_camel(key: str) -> str:
+    head, *rest = key.split('_')
+    return head + ''.join(part.title() for part in rest)
+
+
+def _gemini_rest_post(url: str, api_key: str, body: dict) -> dict:
+    """POST one generateContent chunk, retrying rate limits / 5xx / dropped connections
+    per chunk so a transient error doesn't throw away the chunks already generated."""
+    for attempt in range(1, GEMINI_CHUNK_ATTEMPTS + 1):
+        try:
+            r = httpx.post(url, headers={'x-goog-api-key': api_key}, json=body,
+                           timeout=httpx.Timeout(timeout=900.0, connect=10.0))
+        except httpx.TransportError as e:
+            if attempt == GEMINI_CHUNK_ATTEMPTS:
+                raise
+            logger.warning(f"gemini chunk transport error (attempt {attempt}/{GEMINI_CHUNK_ATTEMPTS}): {e}")
+            time.sleep(15 * attempt)
+            continue
+        if r.status_code == 429 or r.status_code >= 500:
+            if attempt == GEMINI_CHUNK_ATTEMPTS:
+                raise Exception(f"Gemini HTTP {r.status_code}: {r.text[:500]}")
+            logger.warning(f"gemini chunk HTTP {r.status_code} (attempt {attempt}/{GEMINI_CHUNK_ATTEMPTS}), sleeping {30 * attempt}s")
+            time.sleep(30 * attempt)
+            continue
+        if r.status_code != 200:
+            raise Exception(f"Gemini HTTP {r.status_code}: {r.text[:500]}")
+        return r.json()
+    raise Exception("unreachable")
+
+
+def chat_completion_gemini_continuation(
+    model: str, messages: Conversation, temperature: float, max_tokens: int, model_api_kwargs: API_Kwargs | None = None, api_dict: dict[str, str] | None = None, stream: bool = False
+) -> tuple[str, int, dict[str, Any] | None]:
+    """Gemini REST generateContent that follows finishReason=CONTINUATION.
+
+    Long generations come back in capped chunks: the server ends a chunk with
+    finishReason CONTINUATION plus a continuationToken, and resending the same
+    request with that token resumes the same generation. litellm maps the unknown
+    finish reason to 'stop' and drops the token, so a cut mid-thinking surfaced as
+    'No message returned' and a cut mid-answer was scored as a complete answer.
+    Opt in per model with api_kwargs gemini_continuation: true."""
+    kwargs = dict(model_api_kwargs or {})
+    kwargs.pop('gemini_continuation', None)
+    api_key = (api_dict or {}).get('api_key') or os.environ["GEMINI_API_KEY"]
+
+    generation_config: dict[str, Any] = {
+        'temperature': temperature,
+        'maxOutputTokens': kwargs.pop('max_output_tokens', None) or kwargs.pop('max_tokens', None) or max_tokens,
+    }
+    thinking = kwargs.pop('thinking_config', None)
+    if thinking:
+        generation_config['thinkingConfig'] = {_gemini_camel(k): v for k, v in thinking.items()}
+    generation_config.update({_gemini_camel(k): v for k, v in kwargs.items() if v is not None})
+
+    body: dict[str, Any] = {
+        'contents': [{'role': 'model' if m['role'] == 'assistant' else 'user', 'parts': [{'text': m['content']}]}
+                     for m in messages if m['role'] != 'system'],
+        'generationConfig': generation_config,
+    }
+    system = [m['content'] for m in messages if m['role'] == 'system']
+    if system:
+        body['systemInstruction'] = {'parts': [{'text': system[0]}]}
+
+    url = f"{GEMINI_REST_BASE}/models/{model}:generateContent"
+    text_parts: list[str] = []
+    output_tokens = input_tokens = cached_tokens = 0
+    chunks = 0
+    finish_reason = None
+    while True:
+        response = _gemini_rest_post(url, api_key, body)
+        chunks += 1
+        usage = response.get('usageMetadata') or {}
+        # each continuation re-reads the prompt plus everything generated so far (mostly cached)
+        input_tokens += usage.get('promptTokenCount') or 0
+        cached_tokens += usage.get('cachedContentTokenCount') or 0
+        output_tokens += (usage.get('candidatesTokenCount') or 0) + (usage.get('thoughtsTokenCount') or 0)
+        candidates = response.get('candidates') or []
+        if not candidates:
+            block = (response.get('promptFeedback') or {}).get('blockReason')
+            raise Exception(f"No candidates returned from Gemini (blockReason={block})")
+        candidate = candidates[0]
+        finish_reason = candidate.get('finishReason')
+        text_parts += [p['text'] for p in (candidate.get('content') or {}).get('parts', [])
+                       if p.get('text') and not p.get('thought')]
+        if finish_reason != 'CONTINUATION':
+            break
+        if chunks >= GEMINI_MAX_CHUNKS:
+            raise Exception(f"Gemini still continuing after {chunks} chunks")
+        body['continuationToken'] = candidate['continuationToken']
+
+    message = ''.join(text_parts)
+    metadata: dict[str, Any] = {'input_tokens': input_tokens, 'cached_tokens': cached_tokens,
+                                'continuation_chunks': chunks}
+    if not message:
+        if finish_reason == 'MAX_TOKENS':
+            logger.warning(f"Token exhaustion: model used all tokens ({output_tokens}), no content produced")
+            metadata['eval_status'] = 'token_exhaustion'
+            return '', output_tokens, metadata
+        raise Exception(f"No message returned from Gemini (finishReason={finish_reason}, chunks={chunks})")
+    return message, output_tokens, metadata
+
+
 @retry(
     stop=stop_after_attempt(API_MAX_RETRY),
     wait=gemini_custom_wait,
@@ -423,6 +532,8 @@ def gemini_custom_wait(retry_state):
 def chat_completion_google_generativeai(
     model: str, messages: Conversation, temperature: float, max_tokens: int, model_api_kwargs: API_Kwargs | None = None, api_dict: dict[str, str] | None = None, stream: bool = False
 ) -> tuple[str, int, dict[str, Any] | None]:
+    if (model_api_kwargs or {}).get('gemini_continuation'):
+        return chat_completion_gemini_continuation(model, messages, temperature, max_tokens, model_api_kwargs, api_dict, stream)
     from google import genai
     from google.genai import types
 
@@ -807,6 +918,9 @@ def chat_completion_litellm(
     # native Anthropic path, which forwards `fallbacks` + betas to the request body intact.
     if provider == 'anthropic' and (model_api_kwargs or {}).get('extra_body', {}).get('fallbacks') is not None:
         return chat_completion_anthropic(model, messages, temperature, max_tokens, model_api_kwargs, api_dict, stream)
+    # litellm drops Gemini's continuationToken (see chat_completion_gemini_continuation)
+    if provider == 'google' and (model_api_kwargs or {}).get('gemini_continuation'):
+        return chat_completion_gemini_continuation(model, messages, temperature, max_tokens, model_api_kwargs, api_dict, stream)
     # Anthropic long-stream reliability: litellm's default aiohttp transport drops
     # multi-minute streams; force httpx (what the native SDK uses).
     litellm.disable_aiohttp_transport = True
