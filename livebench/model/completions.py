@@ -1016,6 +1016,12 @@ def chat_completion_litellm(
             passthrough('thinking_config')
         elif '/responses/' in litellm_model:
             passthrough('reasoning')
+            # litellm fakes streaming (one non-streaming request replayed as chunks) for any
+            # Responses-API model missing from its model map, i.e. every non-OpenAI endpoint
+            # bridged here. Long generations then hit the provider's non-streaming time limit
+            # (Meta: gateway_timeout), and `timeout` bounds the whole generation, not chunk gaps.
+            if stream:
+                litellm.register_model({model: {'litellm_provider': 'openai', 'supports_native_streaming': True}})
 
     if stream and 'stream_options' not in actual_api_kwargs:
         actual_api_kwargs['stream_options'] = {'include_usage': True}
