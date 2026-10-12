@@ -105,3 +105,31 @@ api_kwargs:
       effort: xhigh
       summary: auto
 preserve_reasoning: true
+---
+# Meta Muse Wonder (released 2026-10-12) via the OpenAI Responses API (api.meta.ai/v1).
+# Pricing verified 2026-10-12 (dev.meta.ai/docs/pricing-rate-limits): Standard mode only
+# (Wonder has no Contributor mode), no long-context premium. Muse Wonder Full is
+# Muse Code-only and not served on the API.
+# There is no separate output cap: prompt + max_output_tokens must fit 1,048,422 tokens
+# (probed 2026-10-12), so 262144 leaves ~786k for long agentic contexts.
+display_name: muse-wonder-max
+cost_per_million:
+  input: 4
+  cached_input: 0.2
+  output: 20
+api_name:
+  openai_responses: muse-wonder-1.0
+default_provider: openai_responses
+api_base: https://api.meta.ai/v1
+api_keys:
+  openai_responses: META_API_KEY
+api_kwargs:
+  default:
+    temperature: null
+  openai_responses:
+    max_output_tokens: 262144
+    timeout: 1800
+    reasoning:
+      effort: max
+      summary: auto
+preserve_reasoning: true
