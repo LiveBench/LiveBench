@@ -483,3 +483,22 @@ api_kwargs:
     extra_body:
       reasoning:
         enabled: true
+---
+display_name: gemma-4-31b-it-max
+# Novita, matching the v2 board's gemma431b-max column. reasoning_effort turns thinking on
+# (Novita returns no reasoning without it) and max is the top value it accepts.
+cost_per_million:
+  input: 0.14
+  output: 0.40
+api_name:
+  https://api.novita.ai/openai: google/gemma-4-31b-it
+default_provider: https://api.novita.ai/openai
+api_keys:
+  https://api.novita.ai/openai: NOVITA_API_KEY
+api_kwargs:
+  default:
+    temperature: 1.0
+    top_p: 0.95
+    max_tokens: 131072
+    stream: true
+    reasoning_effort: max
