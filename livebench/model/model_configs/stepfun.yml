@@ -6,4 +6,22 @@ api_name:
 api_keys:
   https://api.stepfun.com/v1: STEP_API_KEY
 aliases:
-  - step-2-16k
+  - step-2-16k---
+display_name: step-5-preview-max
+# StepFun first-party API (api.stepfun.ai; the .com host rejects these keys). Thinking is the model's
+# default: the API accepts any reasoning_effort value, including made-up ones, so it isn't sent.
+# Same model as the v2 board's step5-max (Novita), here with the first-party 131k output ceiling.
+# Pricing: Novita's rate for the same model (first-party preview pricing unpublished).
+cost_per_million:
+  input: 1.00
+  output: 2.70
+api_name:
+  https://api.stepfun.ai/v1: step-5-preview
+default_provider: https://api.stepfun.ai/v1
+api_keys:
+  https://api.stepfun.ai/v1: STEP_API_KEY
+api_kwargs:
+  default:
+    max_tokens: 131072
+    max_completion_tokens: null
+    stream: true
