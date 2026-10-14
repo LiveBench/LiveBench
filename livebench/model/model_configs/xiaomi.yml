@@ -26,3 +26,21 @@ api_kwargs:
         only:
           - xiaomi
         allow_fallbacks: false
+---
+display_name: mimo-v2.6-pro-max
+# Novita pricing (2026-10-14). Novita accepts reasoning_effort low/medium/high/max for this model
+# and rejects xhigh/minimal/unknown values with a 400, so max is the top setting.
+cost_per_million:
+  input: 0.435
+  output: 0.87
+api_name:
+  https://api.novita.ai/openai: xiaomimimo/mimo-v2.6-pro
+default_provider: https://api.novita.ai/openai
+api_keys:
+  https://api.novita.ai/openai: NOVITA_API_KEY
+api_kwargs:
+  default:
+    max_tokens: 131072
+    max_completion_tokens: null
+    stream: true
+    reasoning_effort: max
