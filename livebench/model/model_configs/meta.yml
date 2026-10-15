@@ -133,3 +133,30 @@ api_kwargs:
       effort: max
       summary: auto
 preserve_reasoning: true
+---
+# Muse Spark Open: Meta's open-weight Muse (816B total / 42B active MoE), served on Fireworks.
+# Fireworks serverless price (fireworks.ai/models/fireworks/muse-spark-open, 2026-10-15):
+# $1.25 / $0.15 cached / $4.25 per 1M tokens. Probed 2026-10-15: context 1048576, reasoning
+# effort accepts xhigh and max (none is rejected: reasoning model), max_output_tokens 262144
+# accepted. Cap at 131072, NOT null: an unset cap gets Fireworks' 32768 default.
+display_name: muse-spark-open-max
+cost_per_million:
+  input: 1.25
+  cached_input: 0.15
+  output: 4.25
+api_name:
+  openai_responses: accounts/fireworks/models/muse-spark-open
+default_provider: openai_responses
+api_base: https://api.fireworks.ai/inference/v1
+api_keys:
+  openai_responses: FIREWORKS_API_KEY
+api_kwargs:
+  default:
+    temperature: null
+  openai_responses:
+    max_output_tokens: 131072
+    timeout: 3600
+    reasoning:
+      effort: max
+      summary: auto
+preserve_reasoning: true
