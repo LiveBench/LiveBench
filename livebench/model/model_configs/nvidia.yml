@@ -52,3 +52,36 @@ cost_per_million:
   input: 0.60
   cached_input: 0.12
   output: 2.40
+---
+display_name: nemotron-3.5-super-vl-120b-a12b
+# Released 2026-10-15. At launch OpenRouter only serves the free Nvidia endpoint
+# (no paid listing; context 1M, max completion 131072), so cost is 0. Probed
+# 2026-10-15: thinking on by default (returned in `reasoning`), native tool
+# calls and image input work, 30 parallel calls ok. reasoning.effort had no
+# consistent effect on thinking length, so thinking is enabled at its default
+# budget. Sampling per NVIDIA's Nemotron guidance (temp 1.0, top_p 0.95).
+aliases:
+  - nemotron-3.5-super-vl
+  - nvidia/nemotron-3.5-super-vl
+api_name:
+  https://openrouter.ai/api/v1: nvidia/nemotron-3.5-super-vl:free
+  https://integrate.api.nvidia.com/v1: nvidia/nemotron-3.5-super-vl-120b-a12b
+default_provider: https://openrouter.ai/api/v1
+api_keys:
+  https://openrouter.ai/api/v1: OPENROUTER_API_KEY
+  https://integrate.api.nvidia.com/v1: NVIDIA_API_KEY
+agentic_native_tools: true
+api_kwargs:
+  default:
+    temperature: 1.0
+    top_p: 0.95
+    max_tokens: 131072
+    timeout: 3600
+  https://openrouter.ai/api/v1:
+    extra_body:
+      reasoning:
+        enabled: true
+cost_per_million:
+  input: 0.0
+  cached_input: 0.0
+  output: 0.0
