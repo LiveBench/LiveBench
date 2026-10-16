@@ -1,0 +1,33 @@
+# Reflection Models
+---
+display_name: beam-1.0-501b-a23b-max
+# Reflection's open-weight MoE reasoning model (501B total / 23B active), released 2026-10-15.
+# OpenRouter pinned to Nebius (fp8, 131,072 max output), the same endpoint and effort as the
+# v2 board's beam10-max. Probed 2026-10-16: reasoning_effort high/xhigh/max all accepted
+# (no 400), thinking returned in `reasoning`.
+# Published Nebius rates on OpenRouter (https://openrouter.ai/api/v1/models/reflection/beam-1.0-501b-a23b/endpoints, verified 2026-10-16):
+#   $0.25 in / $0.25 cached (no cached rate listed for Nebius) / $1.00 out = 4x
+cost_per_million:
+  input: 0.25
+  cached_input: 0.25
+  output: 1.00
+api_name:
+  https://openrouter.ai/api/v1: reflection/beam-1.0-501b-a23b
+default_provider: https://openrouter.ai/api/v1
+api_keys:
+  https://openrouter.ai/api/v1: OPENROUTER_API_KEY
+aliases:
+  - beam-1.0
+  - reflection/beam-1.0-501b-a23b
+api_kwargs:
+  default:
+    max_tokens: 131072
+    max_completion_tokens: null
+    stream: true
+    reasoning_effort: max
+  https://openrouter.ai/api/v1:
+    extra_body:
+      provider:
+        only:
+          - nebius
+        allow_fallbacks: false
