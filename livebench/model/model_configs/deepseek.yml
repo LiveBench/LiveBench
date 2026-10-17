@@ -385,3 +385,31 @@ api_kwargs:
     max_output_tokens: 384000
     timeout: 3600
 preserve_reasoning: true
+---
+# DeepSeek-V4.1-Flash-1017: served as `deepseek-flash` from 2026-10-17 (api-docs.deepseek.com/updates; the alias is
+# unpinned and no dated id exists). Same request as deepseek-v4.1-flash-max (the 0910 build), own display name so
+# its rows stay separate. Probed 2026-10-17: reasoning.effort max on the wire and echoed back.
+display_name: deepseek-v4.1-flash-1017-max
+# Peak-hour list price (api-docs.deepseek.com/quick_start/pricing, 2026-10-17; off-peak is half), per the decision to
+# report this model at peak.
+cost_per_million:
+  input: 0.3
+  cached_input: 0.006
+  output: 1.2
+api_name:
+  openai_responses: deepseek-flash
+default_provider: openai_responses
+api_base: https://api.deepseek.com/v1
+api_keys:
+  openai_responses: DEEPSEEK_API_KEY
+api_kwargs:
+  default:
+    temperature: null
+  openai_responses:
+    reasoning:
+      effort: max
+    # explicit cap, never unset (an unset cap inherits the serving provider's default — see
+    # the truncation note on the -fw entry). 384000 = the documented model maximum.
+    max_output_tokens: 384000
+    timeout: 3600
+preserve_reasoning: true
