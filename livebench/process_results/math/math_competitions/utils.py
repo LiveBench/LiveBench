@@ -15,8 +15,11 @@ def mathcontest_process_results(ground_truth: str, llm_answer: str, question_tex
         if len(set(solution_match)) == 1 and next(iter(set(solution_match))).lower() == ground_truth.lower():
             score = 1
 
-    # The LLM was prompted to repeat letter answer 5 times, to make it easy to pull out the answer        
-    if ground_truth * 4 in llm_answer:
+    # The LLM was prompted to repeat letter answer 5 times, to make it easy to pull out the answer.
+    # Accept the repeated form only if no other choice letter is repeated too, so that a hedged
+    # answer such as "AAAAA BBBBB CCCCC DDDDD EEEEE" does not score on every question.
+    repeated_letters = {letter for letter in 'ABCDE' if letter * 4 in llm_answer}
+    if repeated_letters == {ground_truth}:
         score = 1
 
     parsed_answer = None
