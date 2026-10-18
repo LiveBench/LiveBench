@@ -390,12 +390,14 @@ preserve_reasoning: true
 # unpinned and no dated id exists). Same request as deepseek-v4.1-flash-max (the 0910 build), own display name so
 # its rows stay separate. Probed 2026-10-17: reasoning.effort max on the wire and echoed back.
 display_name: deepseek-v4.1-flash-1017-max
-# Peak-hour list price (api-docs.deepseek.com/quick_start/pricing, 2026-10-17; off-peak is half), per the decision to
-# report this model at peak.
+# Off-peak list price (api-docs.deepseek.com/quick_start/pricing, 2026-10-17; peak is 2x: 0.30 / 0.006 / 1.20). User
+# decision 2026-10-18: DeepSeek rows are reported at DeepSeek's own off-peak rates. The answers of run
+# deepseek-v4_1-flash-1017-max-20261017-2255-27742 carry cost_usd at the earlier peak rates (total $9.87); off-peak
+# is exactly half ($4.93), which is what the board reports.
 cost_per_million:
-  input: 0.3
-  cached_input: 0.006
-  output: 1.2
+  input: 0.15
+  cached_input: 0.003
+  output: 0.6
 api_name:
   openai_responses: deepseek-flash
 default_provider: openai_responses
