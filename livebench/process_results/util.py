@@ -6,7 +6,7 @@ from typing import Optional
 def last_boxed_only_string(string: str) -> Optional[str]:
     idx = string.rfind("\\boxed")
 
-    if "\\boxed " in string:
+    if string.startswith("\\boxed ", idx):
         return "\\boxed " + string.split("\\boxed ")[-1].split("$")[0]
     if idx < 0:
         idx = string.rfind("\\fbox")
