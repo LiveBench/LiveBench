@@ -20,10 +20,10 @@ def extract_solution_from_tags(text: str) -> str:
     """
     # Look for <solution>...</solution> tags (case insensitive)
     pattern = r'<solution>\s*(.*?)\s*</solution>'
-    match = re.search(pattern, text, re.IGNORECASE | re.DOTALL)
+    matches = re.findall(pattern, text, re.IGNORECASE | re.DOTALL)
 
-    if match:
-        solution = match.group(1).strip()
+    if matches:
+        solution = matches[-1].strip()
         # Remove all whitespace (spaces, newlines, tabs) from the solution
         solution = re.sub(r'\s+', '', solution)
         return solution
