@@ -477,7 +477,10 @@ def gen_judgments(
         nltk.download('averaged_perceptron_tagger')
         
         # Get questions for this category
-        if_questions = list(set([m.question for m in old_instruction_following_matches]))
+        # Dedupe on question_id, not the question dict itself: m.question is a
+        # dict (unhashable) so list(set(...)) raises TypeError: unhashable type:
+        # 'dict' (killed the instruction_following judging during run #27).
+        if_questions = list({m.question["question_id"]: m.question for m in old_instruction_following_matches}.values())
         task_name = if_questions[0]['task']
 
         # Build a qid-keyed answer view from the matches themselves so colliding
