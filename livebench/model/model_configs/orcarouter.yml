@@ -1,0 +1,64 @@
+# OrcaRouter Models
+# OpenAI-compatible routing gateway (https://www.orcarouter.ai) exposing
+# namespaced model ids behind a single base URL and one API key. Cost figures
+# mirror LiveBench's first-party entries for the same upstream models.
+---
+display_name: orcarouter-gpt-5.5
+cost_per_million:
+  input: 5
+  cached_input: 0.5
+  output: 30
+api_name:
+  https://api.orcarouter.ai/v1: openai/gpt-5.5
+default_provider: https://api.orcarouter.ai/v1
+api_keys:
+  https://api.orcarouter.ai/v1: ORCAROUTER_API_KEY
+api_kwargs:
+  default:
+    temperature: null
+    max_completion_tokens: null
+---
+display_name: orcarouter-claude-sonnet-5
+cost_per_million:
+  input: 10.0
+  cached_input: 1.0
+  output: 50.0
+api_name:
+  https://api.orcarouter.ai/v1: anthropic/claude-sonnet-5
+default_provider: https://api.orcarouter.ai/v1
+api_keys:
+  https://api.orcarouter.ai/v1: ORCAROUTER_API_KEY
+api_kwargs:
+  default:
+    temperature: 1
+    max_tokens: 128000
+---
+display_name: orcarouter-deepseek-v4-flash
+cost_per_million:
+  input: 0.14
+  cached_input: 0.0028
+  output: 0.28
+api_name:
+  https://api.orcarouter.ai/v1: deepseek/deepseek-v4-flash
+default_provider: https://api.orcarouter.ai/v1
+api_keys:
+  https://api.orcarouter.ai/v1: ORCAROUTER_API_KEY
+api_kwargs:
+  default:
+    temperature: 1
+    max_tokens: 384000
+---
+display_name: orcarouter-gemini-3.6-flash
+cost_per_million:
+  input: 1.5
+  cached_input: 0.15
+  output: 7.5
+api_name:
+  https://api.orcarouter.ai/v1: google/gemini-3.6-flash
+default_provider: https://api.orcarouter.ai/v1
+api_keys:
+  https://api.orcarouter.ai/v1: ORCAROUTER_API_KEY
+api_kwargs:
+  default:
+    temperature: 1
+    max_tokens: 65536
