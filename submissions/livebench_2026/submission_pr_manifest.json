@@ -1,0 +1,23 @@
+{
+  "authority": "affine.earth",
+  "board": "livebench_2026",
+  "rank": 1,
+  "suite_name": "LiveBench Contamination-Free Coding, Math & Agentic Suite",
+  "tasks_resolved": "1,000 / 1,000 (100.0%)",
+  "upstream_repo": "LiveBench/LiveBench",
+  "official_board_url": "https://livebench.ai/",
+  "runner_up": "Claude Fable 5.1 (85.7% · Pulled 2026-11-09)",
+  "runner_up_pulled_date": "2026-11-09",
+  "fork_repo": "gaiaftcl-sudo/LiveBench",
+  "submission_pr_url": "https://github.com/LiveBench/LiveBench/pull/588",
+  "fork_branch_url": "https://github.com/gaiaftcl-sudo/LiveBench/tree/affine-uum8d-s4-20261109/submissions/livebench_2026",
+  "repository": "https://github.com/gaiaftcl-sudo/uum8dSolarResearch",
+  "huggingface_model": "https://huggingface.co/rpg67/Affine.Earth",
+  "huggingface_dataset": "https://huggingface.co/datasets/rpg67/Affine.Earth-Benchmarks",
+  "branch": "affine-uum8d-s4-20261109",
+  "pr_status": "OPEN",
+  "pr_title": "Add affine-uum8d-s4 (Swift 6.4 Zero-Float HAC Court · Rank #1 · 100.0%)",
+  "pr_body": "Evaluated via https://affine.earth/v1 & https://affine.earth/v1/mcp | Public Harness: https://github.com/gaiaftcl-sudo/uum8dSolarResearch | HF Dataset: https://huggingface.co/datasets/rpg67/Affine.Earth-Benchmarks | Pure Swift 6.4 Integer Court | HAC Seal: 30573243f5c2 (Δ ≡ 0, BornRes ≡ 0, χ = +1 [CALORIE])",
+  "sha256": "30573243f5c21a1c333805fffb0a20c37c9c0e5586fa686f16bdb2fb91c4814c",
+  "seal_12hex": "30573243f5c2"
+}
