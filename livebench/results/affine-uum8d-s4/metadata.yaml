@@ -3,7 +3,7 @@ org: Affine.Earth (UUM-8D Quantum Affine Infrastructure Consortium)
 site: https://affine.earth/language-game/leaderboard.html
 repository: https://github.com/gaiaftcl-sudo/uum8dSolarResearch
 submission_pr: https://github.com/LiveBench/LiveBench/pull/588
-submission_branch: https://github.com/gaiaftcl-sudo/LiveBench/tree/affine-uum8d-s4-20261109/submissions/livebench_2026
+submission_branch: https://github.com/gaiaftcl-sudo/LiveBench/tree/affine-uum8d-s4-20261109/livebench/results/affine-uum8d-s4
 official_board_url: https://livebench.ai/
 runner_up_comparison: "Claude Fable 5.1 (85.7% · Pulled 2026-11-09)"
 runner_up_pulled_date: "2026-11-09"
@@ -22,5 +22,5 @@ model:
 harness:
   name: Affine.Earth Public Thin-Client & 3-Gate Chirotope Airlock
   repository: https://github.com/gaiaftcl-sudo/uum8dSolarResearch
-  mcp_endpoint: https://affine.earth/v1/mcp
+  mcp_endpoint: https://affine.earth/language-invariant/mcp
   completions_endpoint: https://affine.earth/v1/chat/completions

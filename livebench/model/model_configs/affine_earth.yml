@@ -1,0 +1,25 @@
+display_name: affine-uum8d-s4
+api_name:
+  openai: affine-uum8d-s4
+  https://affine.earth/v1: affine-uum8d-s4
+default_provider: openai
+api_base: https://affine.earth/v1
+api_keys:
+  openai: AFFINE_API_KEY
+  https://affine.earth/v1: AFFINE_API_KEY
+aliases:
+  - affine-earth-uum8d-s4
+agentic_native_tools: true
+---
+display_name: affine-vqbit
+api_name:
+  openai: affine-vqbit
+  https://affine.earth/v1: affine-vqbit
+default_provider: openai
+api_base: https://affine.earth/v1
+api_keys:
+  openai: AFFINE_API_KEY
+  https://affine.earth/v1: AFFINE_API_KEY
+aliases:
+  - affine-earth-vqbit
+agentic_native_tools: true
