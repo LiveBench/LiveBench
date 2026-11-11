@@ -94,8 +94,11 @@ def aime_process_results(ground_truth: str, llm_answer: str, debug=False) -> int
         if len(set(solution_match)) == 1 and next(iter(set(solution_match))).lower() == ground_truth.lower():
             score = 1
 
-    if score == 0 and ground_truth in llm_answer[-50:]:
-        score = 1
+    if score == 0:
+        answer_pattern = re.compile(rf"(?<![\d-]){re.escape(ground_truth)}(?!\d)")
+        # Search the tail without discarding a number's preceding digit or sign.
+        if answer_pattern.search(llm_answer, max(0, len(llm_answer) - 50)):
+            score = 1
 
     if debug and score == 0:
         print('INCORRECT')
