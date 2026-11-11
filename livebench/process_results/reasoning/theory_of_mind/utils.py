@@ -49,7 +49,7 @@ def theory_of_mind_process_results(ground_truth: str, llm_answer: str, debug=Fal
     
     # Check if answers match
     score = 0
-    if llm_solution == gt_normalized or gt_normalized in llm_solution:
+    if llm_solution == gt_normalized:
         score = 1
     
     if debug and score == 0:
