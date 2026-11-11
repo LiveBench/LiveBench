@@ -12,7 +12,7 @@ import signal
 
 import numpy as np
 
-from io import StringIO
+from io import BytesIO, TextIOWrapper
 
 # used for testing the code that reads from input
 from unittest.mock import patch, mock_open
@@ -59,15 +59,21 @@ def timeout_handler(signum, frame):
 class Capturing(list):
     def __enter__(self):
         self._stdout = sys.stdout
-        sys.stdout = self._stringio = StringIO()
-        # Make closing the StringIO a no-op
-        self._stringio.close = lambda x: 1
+        self._stream = TextIOWrapper(
+            BytesIO(), encoding="utf-8", write_through=True
+        )
+        # Keep captured output readable if the solution closes stdout.
+        self._stream.close = lambda: None
+        sys.stdout = self._stream
         return self
 
     def __exit__(self, *args):
-        self.append(self._stringio.getvalue())
-        del self._stringio  # free up some memory
-        sys.stdout = self._stdout
+        try:
+            self._stream.flush()
+            self.append(self._stream.buffer.getvalue().decode("utf-8"))
+        finally:
+            sys.stdout = self._stdout
+            TextIOWrapper.close(self._stream)
 
 
 def clean_if_name(code: str) -> str:
@@ -123,26 +129,13 @@ def call_method(method, inputs):
     if isinstance(inputs, list):
         inputs = "\n".join(inputs)
 
-    inputs_line_iterator = iter(inputs.split("\n"))
-
-    # sys.setrecursionlimit(10000)
-
-    # @patch('builtins.input', side_effect=inputs.split("\n"))
-    @patch("builtins.open", mock_open(read_data=inputs))
-    @patch("sys.stdin", StringIO(inputs))
-    @patch("sys.stdin.readline", lambda *args: next(inputs_line_iterator))
-    @patch("sys.stdin.readlines", lambda *args: inputs.split("\n"))
-    @patch("sys.stdin.read", lambda *args: inputs)
-    # @patch('sys.stdout.write', print)
-    def _inner_call_method(_method):
-        try:
-            return _method()
-        except SystemExit as e:
-            pass
-        finally:
-            pass
-
-    return _inner_call_method(method)
+    # A shared byte buffer supports .buffer and normal text reads, including EOF.
+    with TextIOWrapper(BytesIO(inputs.encode("utf-8")), encoding="utf-8") as stdin:
+        with patch("builtins.open", mock_open(read_data=inputs)), patch("sys.stdin", stdin):
+            try:
+                return method()
+            except SystemExit:
+                pass
 
 
 def get_function(compiled_sol, fn_name: str):  # type: ignore
