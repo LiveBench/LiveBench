@@ -106,13 +106,13 @@ def zebra_puzzle_process_results(ground_truth: str, llm_answer: str, debug=False
         gt_word = ground_truth[i].strip().lower().replace('-', ' ')
         if i >= len(solution_text):
             continue
-        llm_word = solution_text[i].strip().lower().replace('-', ' ').replace('position', '')
+        llm_word = solution_text[i].strip().lower().replace('-', ' ').replace('position', '').strip()
         if llm_word in word_to_num:
             # llm_word = word_to_num[llm_word]
             if debug:
                 print('WARNING: LLM answer contains numbers in word form')
 
-        if i < len(solution_text) and (gt_word == llm_word or gt_word in llm_word):
+        if gt_word == llm_word:
             num_correct += 1
     if debug and num_correct < total:
         print('INCORRECT', num_correct / total)
